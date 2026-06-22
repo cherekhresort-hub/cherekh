@@ -1,4 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
+
+const serverClientOptions = {
+  auth: { persistSession: false, autoRefreshToken: false },
+  realtime: { transport: ws },
+}
 
 const json = (statusCode, body) => ({
   statusCode,
@@ -34,12 +40,8 @@ const requireAdmin = async (event) => {
     return { error: json(401, { error: 'Missing authorization token.' }) }
   }
 
-  const authClient = createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-  const adminClient = createClient(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+  const authClient = createClient(url, anonKey, serverClientOptions)
+  const adminClient = createClient(url, serviceKey, serverClientOptions)
 
   const { data: userData, error: userError } = await authClient.auth.getUser(token)
   if (userError || !userData.user?.email) {
@@ -95,14 +97,15 @@ const parseBody = (event) => {
 }
 
 export const handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') {
-    return json(204, {})
-  }
+  try {
+    if (event.httpMethod === 'OPTIONS') {
+      return { ...json(204, {}), body: '' }
+    }
 
-  const auth = await requireAdmin(event)
-  if (auth.error) return auth.error
+    const auth = await requireAdmin(event)
+    if (auth.error) return auth.error
 
-  const { adminClient, callerEmail } = auth
+    const { adminClient, callerEmail } = auth
 
   if (event.httpMethod === 'GET') {
     const { data, error } = await adminClient
@@ -281,5 +284,10 @@ export const handler = async (event) => {
     return json(200, { ok: true })
   }
 
-  return json(405, { error: 'Method not allowed.' })
+    return json(405, { error: 'Method not allowed.' })
+  } catch (err) {
+    console.error('[team-members]', err)
+    const message = err instanceof Error ? err.message : 'Team management request failed.'
+    return json(500, { error: message })
+  }
 }

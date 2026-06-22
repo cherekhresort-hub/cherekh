@@ -36,9 +36,14 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ['**/*.{js,css,html,ico,png,webp}'],
         globIgnores: ['**/cherekhImages/**', '**/CherekhLogoFinal.svg'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
-        // Don't serve the SPA shell for static crawler/LLM files
-        navigateFallbackDenylist: [/\.txt$/, /\.xml$/],
-        runtimeCaching: [],
+        // Don't serve the SPA shell for API routes or static crawler/LLM files
+        navigateFallbackDenylist: [/\.txt$/, /\.xml$/, /^\/api\//],
+        runtimeCaching: [
+          {
+            urlPattern: /^\/api\//,
+            handler: 'NetworkOnly',
+          },
+        ],
       },
     }),
   ],
