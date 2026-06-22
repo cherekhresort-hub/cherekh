@@ -91,7 +91,22 @@ async function optimizeFile(absPath) {
   return { rel, generated }
 }
 
+async function hasOptimizedAssets() {
+  try {
+    const entries = await fs.readdir(OUTPUT_ROOT, { withFileTypes: true })
+    return entries.length > 0
+  } catch {
+    return false
+  }
+}
+
 async function main() {
+  // Netlify builds already include committed WebP assets; skip sharp to save time/RAM.
+  if (process.env.NETLIFY === 'true' && (await hasOptimizedAssets())) {
+    console.log('[optimize:images] Skipping on Netlify — using committed public/cherekhImages/_optimized/')
+    return
+  }
+
   const files = await walk(PUBLIC_ROOT)
   if (files.length === 0) {
     console.log('No images found under public/cherekhImages')

@@ -55,11 +55,7 @@ const API_ALIASES: Record<string, string> = {
 export const netlifyFunctionsDevPlugin = (mode: string): Plugin => {
   let handler: NetlifyHandler | null = null
 
-  const invokeFunction = async (
-    req: IncomingMessage,
-    res: ServerResponse,
-    functionName: string
-  ) => {
+  const invokeFunction = async (req: IncomingMessage, res: ServerResponse) => {
     try {
       if (!handler) {
         const moduleUrl = pathToFileURL(
@@ -102,7 +98,7 @@ export const netlifyFunctionsDevPlugin = (mode: string): Plugin => {
 
         const apiFunction = API_ALIASES[pathname]
         if (apiFunction) {
-          await invokeFunction(req, res, apiFunction)
+          await invokeFunction(req, res)
           return
         }
 
@@ -116,7 +112,7 @@ export const netlifyFunctionsDevPlugin = (mode: string): Plugin => {
           return
         }
 
-        await invokeFunction(req, res, functionName)
+        await invokeFunction(req, res)
       })
     },
   }
