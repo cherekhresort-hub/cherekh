@@ -1,0 +1,3 @@
+# Replaced at build time by scripts/prerender-meta.mjs (dist/_redirects)
+# Local dev: Vite handles routing; production uses generated rules.
+/*    /index.html   200

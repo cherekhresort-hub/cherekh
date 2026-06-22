@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Private / transactional
+Disallow: /admin
+Disallow: /login
+Disallow: /thank-you
+Disallow: /contact/thank-you
+Disallow: /conference-thank-you
+Disallow: /conference-room/booking
+
+# Crawl hints
+Sitemap: https://cherekhcenter.com/sitemap.xml
+
+# LLM / AI crawler summary
+# https://cherekhcenter.com/llms.txt

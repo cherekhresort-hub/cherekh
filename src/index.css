@@ -1,0 +1,159 @@
+/* Self-hosted fonts — latin subset only (smaller bundle) */
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-600.css';
+@import '@fontsource/playfair-display/latin-400.css';
+@import '@fontsource/playfair-display/latin-600.css';
+@import '@fontsource/playfair-display/latin-700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Accessibility: Screen reader only class */
+@layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  .focus\:not-sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  .page-content-inset {
+    @apply pt-4 pb-12 sm:pt-5 sm:pb-16;
+  }
+
+  /* Warm beige surfaces — sections inherit page bg; cards sit slightly lighter */
+  .bg-section {
+    @apply bg-resort-bg;
+  }
+
+  .bg-surface {
+    @apply bg-cream;
+  }
+
+  .bg-surface-muted {
+    @apply bg-sand-100/60;
+  }
+}
+
+/* Focus visible styles for better keyboard navigation */
+@layer base {
+  *:focus-visible {
+    outline: 2px solid #1E4D2B;
+    outline-offset: 2px;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid #1E4D2B;
+    outline-offset: 2px;
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Desktop: scale rem-based typography and spacing down ~10% */
+  @media (min-width: 641px) {
+    html {
+      font-size: 85%;
+    }
+  }
+
+  @media (max-width: 640px) {
+    html {
+      font-size: 80%;
+    }
+  }
+  
+  body {
+    @apply bg-resort-bg text-gray-800 font-sans;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif text-resort-heading;
+  }
+}
+
+@layer utilities {
+  .fade-in {
+    animation: fadeIn 0.8s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .skeleton {
+    @apply bg-gray-200 animate-pulse rounded;
+  }
+}
+
+/* React Slick Carousel Custom Styles */
+.hero-dots {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex !important;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hero-dots li {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+}
+
+.hero-dots li button {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
+}
+
+.hero-dots li.slick-active button {
+  background: white;
+  border-color: white;
+  width: 32px;
+  border-radius: 6px;
+}
+
+.hero-dots li button:before {
+  display: none;
+}
+

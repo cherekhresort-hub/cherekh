@@ -1,0 +1,53 @@
+/* SweetAlert2 — compact admin delete dialogs (scoped via customClass) */
+.swal2-popup.cherekh-swal-popup {
+  width: 17.5rem;
+  max-width: calc(100vw - 2rem);
+  border-radius: 0.875rem;
+  padding: 0.875rem 0.875rem 0.625rem;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.swal2-popup.cherekh-swal-popup .swal2-icon.cherekh-swal-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: 0.25rem auto 0.5rem;
+  border-width: 2px;
+}
+
+.swal2-popup.cherekh-swal-popup .swal2-icon.cherekh-swal-icon .swal2-icon-content {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.swal2-popup.cherekh-swal-popup .swal2-title.cherekh-swal-title {
+  color: #1e4d2b;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0;
+  margin: 0 0 0.25rem;
+}
+
+.swal2-popup.cherekh-swal-popup .swal2-html-container.cherekh-swal-text,
+.swal2-popup.cherekh-swal-popup .swal2-html-container.cherekh-swal-text:empty {
+  color: #57534e;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  margin: 0.125rem 0 0;
+  padding: 0;
+}
+
+.swal2-popup.cherekh-swal-popup .swal2-actions.cherekh-swal-actions {
+  margin: 0.625rem 0 0;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.swal2-popup.cherekh-swal-popup .swal2-styled.cherekh-swal-confirm,
+.swal2-popup.cherekh-swal-popup .swal2-styled.cherekh-swal-cancel {
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.3125rem 0.75rem;
+  margin: 0;
+}

@@ -1,0 +1,83 @@
+/* FullCalendar polish to match the resort palette */
+.admin-calendar .fc {
+  --fc-border-color: #F1F1ED;
+  --fc-page-bg-color: transparent;
+  --fc-today-bg-color: #F1F6F2;
+  --fc-neutral-bg-color: #FBF8F1;
+  --fc-button-bg-color: #1E4D2B;
+  --fc-button-border-color: #1E4D2B;
+  --fc-button-hover-bg-color: #173B22;
+  --fc-button-hover-border-color: #173B22;
+  --fc-button-active-bg-color: #173B22;
+  --fc-button-active-border-color: #173B22;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #4F4A44;
+}
+
+.admin-calendar .fc .fc-toolbar.fc-header-toolbar {
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-calendar .fc .fc-toolbar-title {
+  font-family: 'Playfair Display', serif;
+  color: #1E4D2B;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.admin-calendar .fc .fc-button {
+  border-radius: 0.625rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  text-transform: none;
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.admin-calendar .fc .fc-button-primary:not(:disabled).fc-button-active,
+.admin-calendar .fc .fc-button-primary:not(:disabled):active {
+  background: #1E4D2B;
+  border-color: #1E4D2B;
+}
+
+.admin-calendar .fc .fc-daygrid-day-number,
+.admin-calendar .fc .fc-col-header-cell-cushion {
+  color: #4F4A44;
+  font-size: 0.75rem;
+  text-decoration: none;
+  padding: 0.4rem;
+}
+
+.admin-calendar .fc .fc-col-header-cell-cushion {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #857F70;
+}
+
+.admin-calendar .fc .fc-daygrid-event-harness {
+  margin: 1px 2px;
+}
+
+.admin-calendar .fc .fc-daygrid-event {
+  border-radius: 0.5rem;
+  border-width: 1px;
+  border-style: solid;
+  background: var(--event-bg, #DCE9DE);
+  border-color: var(--event-border, #B7D2BD);
+  color: var(--event-color, #1E4D2B);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.admin-calendar .fc .fc-h-event,
+.admin-calendar .fc .fc-v-event {
+  background: transparent;
+  border: none;
+}
+
+.admin-calendar .fc .fc-day-today {
+  background: #F1F6F2 !important;
+}

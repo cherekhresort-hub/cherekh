@@ -1,0 +1,81 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Team access API — rewrite before SPA fallback in dist/_redirects
+[[redirects]]
+  from = "/api/team-members"
+  to = "/.netlify/functions/team-members"
+  status = 200
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# www → apex for primary domain
+[[redirects]]
+  from = "http://www.cherekhcenter.com/*"
+  to = "https://cherekhcenter.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.cherekhcenter.com/*"
+  to = "https://cherekhcenter.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://cherekhcenter.com/*"
+  to = "https://cherekhcenter.com/:splat"
+  status = 301
+  force = true
+
+# Legacy domain → apex
+[[redirects]]
+  from = "http://www.cherekhresort.com/*"
+  to = "https://cherekhcenter.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.cherekhresort.com/*"
+  to = "https://cherekhcenter.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://cherekhresort.com/*"
+  to = "https://cherekhcenter.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://cherekhresort.com/*"
+  to = "https://cherekhcenter.com/:splat"
+  status = 301
+  force = true
+
+# SPA fallback + prerendered route rules: generated in dist/_redirects at build time
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.emailjs.com https://www.google-analytics.com https://www.googletagmanager.com"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/cherekhImages/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
