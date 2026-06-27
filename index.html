@@ -304,8 +304,35 @@
     <script>
       (function () {
         if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-        var path = window.location.pathname.replace(/\/+$/, '') || '/';
-        if (path === '/') {
+
+        var path = window.location.pathname;
+        var search = window.location.search;
+        var hash = window.location.hash;
+        var changed = false;
+
+        if (path !== '/' && /\/+$/.test(path)) {
+          path = path.replace(/\/+$/, '') || '/';
+          changed = true;
+        }
+
+        if (search) {
+          var params = new URLSearchParams(search);
+          ['fbclid', 'gclid', 'gbraid', 'wbraid', 'msclkid', 'mc_eid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(function (key) {
+            if (params.has(key)) {
+              params.delete(key);
+              changed = true;
+            }
+          });
+          search = params.toString();
+          search = search ? '?' + search : '';
+        }
+
+        if (changed) {
+          history.replaceState(null, '', path + search + hash);
+        }
+
+        var routePath = path.replace(/\/+$/, '') || '/';
+        if (routePath === '/') {
           window.scrollTo(0, 0);
         } else {
           var splash = document.getElementById('hero-splash');

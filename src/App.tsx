@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
 import { RouteFallback } from './components/RouteFallback'
+import { UrlNormalization } from './components/UrlNormalization'
 
 // Public marketing pages — loaded on demand
 const Home = lazy(() => import('./pages/Home'))
@@ -56,6 +57,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
+        <UrlNormalization />
         <Routes>
           <Route path="/login" element={withSuspense(<Login />)} />
 

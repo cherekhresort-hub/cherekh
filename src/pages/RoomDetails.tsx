@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import Button from '../components/Button'
@@ -42,6 +42,7 @@ interface RoomDisplay {
 const RoomDetails = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const roomId = id?.trim() ?? ''
   const [roomPrice, setRoomPrice] = useState<number | null>(null)
   const [roomListPrice, setRoomListPrice] = useState<number | null>(null)
   const [selectedImage, setSelectedImage] = useState(0)
@@ -59,8 +60,8 @@ const RoomDetails = () => {
 
   useEffect(() => {
     const syncPrice = () => {
-      if (!id) return
-      const storedRoom = getRoomById(id)
+      if (!roomId) return
+      const storedRoom = getRoomById(roomId)
       if (storedRoom) {
         setRoomPrice(storedRoom.price)
         setRoomListPrice(storedRoom.listPrice)
@@ -71,7 +72,11 @@ const RoomDetails = () => {
     void loadRoomRates().then(syncPrice)
     window.addEventListener(ROOM_RATES_CHANGED_EVENT, syncPrice)
     return () => window.removeEventListener(ROOM_RATES_CHANGED_EVENT, syncPrice)
-  }, [id])
+  }, [roomId])
+
+  if (!roomId) {
+    return <Navigate to="/rooms" replace />
+  }
 
   const getMinCheckInDate = () => getTodayDate()
 

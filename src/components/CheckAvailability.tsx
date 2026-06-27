@@ -253,8 +253,8 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
 
   return (
     <section
-      className={`relative z-20 px-4 sm:px-6 lg:px-8 ${
-        compact ? '-mt-10 pb-6' : '-mt-16 sm:-mt-20 pb-8'
+      className={`relative z-30 px-4 sm:px-6 lg:px-8 ${
+        compact ? '-mt-16 sm:-mt-[4.5rem] pb-6' : '-mt-16 sm:-mt-20 pb-8'
       }`}
     >
       <div className="max-w-5xl mx-auto">
