@@ -64,6 +64,12 @@
   force = true
 
 # SPA fallback + prerendered route rules: generated in dist/_redirects at build time
+# Pretty URLs must stay off: folder index.html would 301 /faq → /faq/ and Search Console
+# reports "Page with redirect" for every sitemap URL.
+[build.processing]
+  skip_processing = false
+[build.processing.html]
+  pretty_urls = false
 
 [[headers]]
   for = "/*"

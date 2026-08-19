@@ -5,6 +5,7 @@ import { getBlogPostById } from '../data/blogPosts'
 import { getPageMeta } from '../utils/meta'
 import { faqSchemaJsonLd } from '../data/faqCatalog'
 import { siteAssetUrl, siteUrl } from '../data/siteConfig'
+import { resortContact, resortEntitySameAs, resortLocation } from '../data/contactInfo'
 
 const SCHEMA_ID = 'route-schema-jsonld'
 
@@ -40,15 +41,11 @@ const organizationSchema = (): Record<string, unknown> => ({
     '@type': 'ImageObject',
     url: siteAssetUrl('/images/CherekhLogoFinal.png'),
   },
-  sameAs: [
-    'https://www.facebook.com/cherekhcenter',
-    'https://www.instagram.com/cherekhcenter',
-    'https://www.youtube.com/@CherekhCenter',
-  ],
+  sameAs: [...resortEntitySameAs],
 })
 
 const lodgingSchema = (): Record<string, unknown> => ({
-  '@type': 'LodgingBusiness',
+  '@type': ['LodgingBusiness', 'Hotel'],
   '@id': `${siteUrl('/')}#lodging`,
   name: 'Cherekh Center',
   description:
@@ -69,15 +66,20 @@ const lodgingSchema = (): Record<string, unknown> => ({
   },
   geo: {
     '@type': 'GeoCoordinates',
-    latitude: 21.81657,
-    longitude: 92.433641,
+    latitude: resortLocation.latitude,
+    longitude: resortLocation.longitude,
   },
-  telephone: '+8801601719735',
-  email: 'cherekhcenter@gmail.com',
+  hasMap: resortLocation.mapsPlaceUrl,
+  telephone: resortContact.phoneE164,
+  email: resortContact.email,
   priceRange: '$$',
   checkinTime: '14:00',
   checkoutTime: '11:00',
   numberOfRooms: roomCatalog.length,
+  areaServed: [
+    { '@type': 'AdministrativeArea', name: 'Thanchi' },
+    { '@type': 'AdministrativeArea', name: 'Bandarban' },
+  ],
   amenityFeature: [
     'Nine guest rooms',
     'AC and Non-AC rooms',
@@ -91,6 +93,7 @@ const lodgingSchema = (): Record<string, unknown> => ({
     name,
     value: true,
   })),
+  sameAs: [...resortEntitySameAs],
   parentOrganization: { '@id': `${siteUrl('/')}#organization` },
 })
 

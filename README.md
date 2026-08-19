@@ -130,7 +130,7 @@ Replace placeholder images with your own:
 
 - All images are currently using Unsplash placeholders
 - Replace with actual resort images before deployment
-- Update Google Maps embed URL with actual location coordinates
+- Google Maps uses the official Cherekh Center listing (`src/data/contactInfo.ts`)
 - Configure form submission endpoint in `ContactForm.tsx`
 
 ## 🔧 Development

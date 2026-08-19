@@ -100,8 +100,9 @@ export const STATIC_PAGE_META = {
     changefreq: 'monthly',
   },
   '/best-resort-thanchi': {
-    title: 'Best Accommodation in Thanchi - Cherekh Center',
-    description: 'Why Cherekh Center is a top choice for the best accommodation in Thanchi.',
+    title: 'Where to Stay in Thanchi | Cherekh Center, Bandarban',
+    description:
+      'Cherekh Center is a hill stay in Thanchi, Bandarban: nine rooms, on-site dining, and an official Google Maps listing. Compare rooms and book direct.',
     ogImage: '/cherekhImages/homepageHero/Cover.jpg',
     priority: '0.8',
     changefreq: 'monthly',

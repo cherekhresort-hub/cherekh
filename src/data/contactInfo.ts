@@ -12,15 +12,21 @@ export const resortSocialSameAs = [
   resortSocial.youtube,
 ] as const
 
-const RESORT_LAT = 21.81657
-const RESORT_LNG = 92.433641
+/** Profiles and listings search engines use to match this property. */
+export const resortEntitySameAs = [
+  ...resortSocialSameAs,
+  'https://maps.app.goo.gl/NsotNbMtt8tRfpkL7',
+] as const
+
+const RESORT_LAT = 21.8166336
+const RESORT_LNG = 92.4336567
 
 /** Cherekh Center - Thanchi, Bandarban */
 export const resortLocation = {
   latitude: RESORT_LAT,
   longitude: RESORT_LNG,
   addressLines: ['Cherekh Center', 'Thanchi, Bandarban', 'Bangladesh'] as const,
-  mapsPlaceUrl: 'https://maps.app.goo.gl/LGUmV2ihgnjv5ijZ6',
+  mapsPlaceUrl: 'https://maps.app.goo.gl/NsotNbMtt8tRfpkL7',
   mapsEmbedUrl: `https://www.google.com/maps?q=${RESORT_LAT},${RESORT_LNG}&hl=en&z=16&output=embed`,
   mapsDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${RESORT_LAT},${RESORT_LNG}&travelmode=driving`,
 } as const
@@ -38,5 +44,6 @@ export const resortContact = {
   bookingUrl: siteConfig.bookingUrl,
   social: resortSocial,
   socialSameAs: resortSocialSameAs,
+  entitySameAs: resortEntitySameAs,
   location: resortLocation,
 } as const
