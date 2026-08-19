@@ -1,4 +1,4 @@
--- Published site settings (contact, check-in/out) — admin editable, public readable
+-- Published site settings (contact, check-in/out) - admin editable, public readable
 
 create table if not exists public.site_settings (
   id text primary key default 'default',

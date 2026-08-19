@@ -239,7 +239,7 @@ export const GuestDrawer = ({ guest, onClose, onChanged }: GuestDrawerProps) => 
           <Card className="text-center">
             <p className="text-xs text-stone-500">Last stay</p>
             <p className="font-medium text-forest-700 text-sm mt-1">
-              {guest.lastStay ? formatShortDate(guest.lastStay) : '—'}
+              {guest.lastStay ? formatShortDate(guest.lastStay) : '-'}
             </p>
           </Card>
           <Card className="text-center">

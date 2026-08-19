@@ -1,9 +1,9 @@
-# EmailJS — booking confirmation emails
+# EmailJS - booking confirmation emails
 
 When a booking is created (website, conference, or admin), the app sends:
 
-1. **Guest email** — only if the guest provided an email address  
-2. **Resort email** — to `VITE_EMAILJS_RESORT_TO_EMAIL` (default `cherekhcenter@gmail.com`)
+1. **Guest email** - only if the guest provided an email address  
+2. **Resort email** - to `VITE_EMAILJS_RESORT_TO_EMAIL` (default `cherekhcenter@gmail.com`)
 
 Emails are sent from the browser via [EmailJS](https://www.emailjs.com/). Booking save still succeeds if EmailJS fails.
 
@@ -27,7 +27,7 @@ Use these placeholders in **both** templates (same names):
 
 | Variable | Example content |
 |----------|-----------------|
-| `{{to_email}}` | Recipient (set by app — guest or resort inbox) |
+| `{{to_email}}` | Recipient (set by app - guest or resort inbox) |
 | `{{to_name}}` | Recipient display name |
 | `{{guest_name}}` | Lead guest name |
 | `{{guest_email}}` | Guest email |
@@ -44,7 +44,7 @@ Use these placeholders in **both** templates (same names):
 | `{{discount}}` | Discount amount |
 | `{{total}}` | Amount due after discount |
 | `{{status}}` | `pending`, `confirmed`, etc. |
-| `{{special_requests}}` | Guest notes or `—` |
+| `{{special_requests}}` | Guest notes or ` - ` |
 | `{{resort_name}}` | Cherekh Center |
 | `{{resort_phone}}` | Resort phone |
 | `{{resort_email}}` | Resort email |
@@ -60,7 +60,7 @@ Use these placeholders in **both** templates (same names):
 | **To Name** | `{{to_name}}` |
 | **From Name** | `Cherekh Center` |
 | **Reply To** | `{{resort_email}}` |
-| **Subject** | `Your stay at {{resort_name}} — {{check_in}}` |
+| **Subject** | `Your stay at {{resort_name}} - {{check_in}}` |
 
 Paste into **Content** (HTML mode). Uses inline styles for Gmail/Outlook; forest + teal accents match the website without loud “promo” colors.
 
@@ -269,14 +269,14 @@ Staff alert layout: clear sections, easy to scan on mobile, reply goes to the gu
 
 - **Subjects** are calm and specific (no ALL CAPS, “FREE”, or “URGENT”).
 - **One** primary button per email; no image-only body.
-- **Brand greens** (`#1E4D2B`, `#367E7E`) and cream (`#FBF8F1`) — not neon red/yellow promo blocks.
+- **Brand greens** (`#1E4D2B`, `#367E7E`) and cream (`#FBF8F1`) - not neon red/yellow promo blocks.
 - Plenty of plain text content so filters see a real transactional message.
 
 ## 3. EmailJS dashboard checklist
 
-1. **Email Service** `service_iued587` — connected to your sending account (Gmail, etc.).  
-2. **Templates** — variables match the table above.  
-3. **Account → API keys** — copy the **Public Key** into `VITE_EMAILJS_USER_ID` in `.env.local` and **save the file**.  
+1. **Email Service** `service_iued587` - connected to your sending account (Gmail, etc.).  
+2. **Templates** - variables match the table above.  
+3. **Account → API keys** - copy the **Public Key** into `VITE_EMAILJS_USER_ID` in `.env.local` and **save the file**.  
 4. Under each template, note the **Template ID** if you create new ones and update env vars.
 
 ## 4. Testing

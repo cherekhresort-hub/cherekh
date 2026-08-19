@@ -35,6 +35,11 @@ export type StaffActivityEntry = {
   read: boolean
 }
 
+export const STAFF_LOGIN_ACTION = 'staff.login'
+
+export const isStaffLoginEntry = (entry: Pick<StaffActivityEntry, 'action'>): boolean =>
+  entry.action === STAFF_LOGIN_ACTION
+
 type ActivityRow = {
   id: string
   actor_email: string
@@ -195,6 +200,7 @@ export type ActivityCounts = {
   today: number
   week: number
   unread: number
+  login: number
   byCategory: Record<StaffActivityCategory, number>
   byRole: Record<StaffRole, number>
 }
@@ -229,17 +235,22 @@ export const computeActivityCounts = (entries: StaffActivityEntry[]): ActivityCo
   let today = 0
   let week = 0
   let unread = 0
+  let login = 0
 
   for (const entry of entries) {
     const at = new Date(entry.createdAt).getTime()
     if (at >= todayStart) today += 1
     if (at >= weekStart) week += 1
     if (!entry.read) unread += 1
-    byCategory[entry.category] += 1
+    if (isStaffLoginEntry(entry)) {
+      login += 1
+    } else {
+      byCategory[entry.category] += 1
+    }
     byRole[entry.actorRole] += 1
   }
 
-  return { total: entries.length, today, week, unread, byCategory, byRole }
+  return { total: entries.length, today, week, unread, login, byCategory, byRole }
 }
 
 export type FetchActivityOptions = {
@@ -416,4 +427,26 @@ export const roleLabelForActivity = (role: StaffRole): string => {
   if (role === 'admin') return 'Admin'
   if (role === 'manager') return 'Manager'
   return 'Booking officer'
+}
+
+const formatLoginTime = (date: Date): string =>
+  date.toLocaleString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+
+/** Record a staff panel sign-in. Visible to admins on the Activity page. */
+export const logStaffLogin = async (actorEmail: string, actorRole: StaffRole): Promise<void> => {
+  const loginAt = new Date()
+  await logStaffActivity({
+    category: 'staff',
+    action: STAFF_LOGIN_ACTION,
+    title: 'Staff signed in',
+    message: `${actorEmail} · ${roleLabelForActivity(actorRole)} · ${formatLoginTime(loginAt)}`,
+    metadata: { loginAt: loginAt.toISOString() },
+  })
 }

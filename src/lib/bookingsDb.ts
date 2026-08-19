@@ -24,15 +24,34 @@ export type AvailabilityRow = {
   rooms: BookingRoomLine[] | unknown
 }
 
-const rowFromBooking = (booking: Booking): Omit<BookingRow, 'created_at' | 'updated_at'> => ({
-  id: booking.id,
-  payload: booking,
-  status: booking.status,
-  check_in: booking.checkIn,
-  check_out: booking.checkOut,
-  guest_email: booking.email || null,
-  guest_phone: booking.phone || null,
-})
+const persistableBooking = (booking: Booking): Booking => {
+  const {
+    listNetPaid: _listNetPaid,
+    listTxCount: _listTxCount,
+    listLastTransaction: _listLastTransaction,
+    ...payment
+  } = booking.payment ?? {
+    amount: 0,
+    status: 'pending' as const,
+  }
+  const { listExtrasTotal: _listExtrasTotal, ...rest } = booking
+  return { ...rest, payment }
+}
+
+export const toPersistedBooking = persistableBooking
+
+const rowFromBooking = (booking: Booking): Omit<BookingRow, 'created_at' | 'updated_at'> => {
+  const payload = persistableBooking(booking)
+  return {
+    id: payload.id,
+    payload,
+    status: payload.status,
+    check_in: payload.checkIn,
+    check_out: payload.checkOut,
+    guest_email: payload.email || null,
+    guest_phone: payload.phone || null,
+  }
+}
 
 export const loadBookingsFromLocal = (): Booking[] => {
   if (typeof window === 'undefined') return []
@@ -72,7 +91,7 @@ export type BookingsListFetch = {
   fullPayload: boolean
 }
 
-/** Admin list hydration — uses `bookings_list` view (small rows, no full JSON payload). */
+/** Admin list hydration - uses `bookings_list` view (small rows, no full JSON payload). */
 export const fetchBookingsList = async (): Promise<BookingsListFetch> => {
   const supabase = getSupabase()
   if (!supabase) {
@@ -204,7 +223,7 @@ export const insertBookingIfAvailable = async (booking: Booking): Promise<Bookin
 
   const { data, error } = await supabase.rpc('insert_booking_if_available', {
     p_id: booking.id,
-    p_payload: booking,
+    p_payload: persistableBooking(booking),
     p_check_in: booking.checkIn,
     p_check_out: booking.checkOut,
     p_guest_email: booking.email || null,
@@ -225,7 +244,7 @@ export const upsertBookingIfAvailable = async (booking: Booking): Promise<Bookin
 
   const { data, error } = await supabase.rpc('upsert_booking_if_available', {
     p_id: booking.id,
-    p_payload: booking,
+    p_payload: persistableBooking(booking),
     p_status: booking.status,
     p_check_in: booking.checkIn,
     p_check_out: booking.checkOut,

@@ -3,6 +3,7 @@ import {
   computeActivityCounts,
   deleteActivityEntry,
   fetchStaffActivityLog,
+  isStaffLoginEntry,
   markActivityAsRead,
   markAllActivityAsRead,
   STAFF_ACTIVITY_EVENT,
@@ -11,7 +12,7 @@ import {
 } from '../../lib/staffActivityLog'
 import { getSupabase, isSupabaseConfigured } from '../../lib/supabase'
 
-export type ActivityCategoryFilter = StaffActivityCategory | 'all'
+export type ActivityCategoryFilter = StaffActivityCategory | 'all' | 'login'
 export type ActivityReadFilter = 'all' | 'unread' | 'read'
 
 const FETCH_LIMIT = 500
@@ -85,8 +86,10 @@ export const useStaffActivityLog = () => {
 
   const filtered = useMemo(() => {
     let list = entries
-    if (category !== 'all') {
-      list = list.filter((entry) => entry.category === category)
+    if (category === 'login') {
+      list = list.filter((entry) => isStaffLoginEntry(entry))
+    } else if (category !== 'all') {
+      list = list.filter((entry) => entry.category === category && !isStaffLoginEntry(entry))
     }
     if (readFilter === 'unread') {
       list = list.filter((entry) => !entry.read)

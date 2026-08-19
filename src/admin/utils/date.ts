@@ -1,19 +1,19 @@
 export const formatShortDate = (iso: string | Date): string => {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const date = typeof iso === 'string' ? new Date(iso) : iso
-  if (Number.isNaN(date.getTime())) return '—'
+  if (Number.isNaN(date.getTime())) return '-'
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export const formatTime = (iso: string | Date): string => {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const date = typeof iso === 'string' ? new Date(iso) : iso
-  if (Number.isNaN(date.getTime())) return '—'
+  if (Number.isNaN(date.getTime())) return '-'
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
 export const formatDateTime = (iso: string | Date): string => {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return `${formatShortDate(iso)} · ${formatTime(iso)}`
 }
 

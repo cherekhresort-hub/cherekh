@@ -69,5 +69,5 @@ const useSiteSettings = (): SiteSettingsContextValue => {
   return ctx
 }
 
-/** Shorthand for public pages — contact info merged with published settings. */
+/** Shorthand for public pages - contact info merged with published settings. */
 export const useResortContact = (): ResortContact => useSiteSettings().contact

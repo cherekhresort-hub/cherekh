@@ -443,6 +443,8 @@ const ConferenceRoomBooking = () => {
                     onChange={handleChange}
                     max={maxAttendees}
                     required
+                    min={1}
+                    placeholder="e.g. 40"
                     className={`${inputClass} ${dateErrors.attendees ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20' : ''}`}
                   />
                   {dateErrors.attendees ? (
@@ -504,6 +506,7 @@ const ConferenceRoomBooking = () => {
                         onChange={handleChange}
                         required
                         autoComplete="name"
+                        placeholder="e.g. MD Rafiq"
                         className={inputClass}
                       />
                     </div>
@@ -520,6 +523,7 @@ const ConferenceRoomBooking = () => {
                           value={formData.organization}
                           onChange={handleChange}
                           className={inputClass}
+                          placeholder="Company or organization name"
                         />
                       </div>
                     ) : null}
@@ -539,6 +543,7 @@ const ConferenceRoomBooking = () => {
                           pattern="^[^\s@]+@[^\s@]+\.[^\s@]{2,}$"
                           autoComplete="email"
                           inputMode="email"
+                          placeholder="name@example.com"
                           className={inputClass}
                         />
                       </div>
@@ -555,6 +560,7 @@ const ConferenceRoomBooking = () => {
                           required
                           autoComplete="tel"
                           inputMode="tel"
+                          placeholder="+880 1XXX XXXXXX"
                           className={inputClass}
                         />
                       </div>

@@ -265,7 +265,7 @@ const DEFAULT_COL_WIDTHS = [
 ]
 
 /**
- * Excel export — loads xlsx only on Export click.
+ * Excel export - loads xlsx only on Export click.
  * Write-only (no parsing uploaded files); npm audit flags apply mainly to untrusted parses.
  */
 export const exportBookingsToExcel = async (

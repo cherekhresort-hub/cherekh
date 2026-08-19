@@ -42,7 +42,7 @@ export const buildBookingMessages = (booking: Booking): BookingMessageBundle => 
     : `Stay: ${formatShortDate(booking.checkIn)} → ${formatShortDate(booking.checkOut)} (${nights} night${nights === 1 ? '' : 's'})`
 
   const summary = [
-    `${settings.resortName} — Booking #${bookingId}`,
+    `${settings.resortName} - Booking #${bookingId}`,
     `Guest: ${booking.name}`,
     stayLine,
     `Rooms: ${roomNames}`,

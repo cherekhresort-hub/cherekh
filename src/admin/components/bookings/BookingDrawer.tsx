@@ -21,6 +21,7 @@ import {
   Sparkles,
   Receipt,
   ArrowRight,
+  UtensilsCrossed,
 } from 'lucide-react'
 import { FaPrint } from 'react-icons/fa'
 import { Drawer } from '../ui/Drawer'
@@ -32,6 +33,7 @@ import { Card } from '../ui/Card'
 import { Tabs } from '../ui/Tabs'
 import { GuestDetailsSection } from './GuestDetailsSection'
 import { PaymentSection } from './PaymentSection'
+import { ExtraChargesSection } from './ExtraChargesSection'
 import { BookingActions } from './BookingActions'
 import { printBookingInvoice } from '../../utils/bookingInvoice'
 import { confirmDelete } from '../../utils/confirmDelete'
@@ -60,7 +62,7 @@ import {
 } from '../../../utils/bookingHelpers'
 import { cn } from '../../utils/cn'
 
-type TabKey = 'overview' | 'payment' | 'guests' | 'notes'
+type TabKey = 'overview' | 'payment' | 'bills' | 'guests' | 'notes'
 
 interface BookingDrawerProps {
   booking: Booking | null
@@ -173,6 +175,7 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
   }
 
   const noteCount = booking.notes?.length ?? 0
+  const extraCount = booking.extras?.length ?? 0
   const filledGuestCount = (booking.guests ?? []).filter(
     (g) => g.idNumber || g.idType !== 'nid'
   ).length
@@ -206,7 +209,7 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
         <button
           type="button"
           onClick={handlePrint}
-          title="Print invoice / Save as PDF"
+          title="Print invoice on letterhead pad"
           className="shrink-0 h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white inline-flex items-center justify-center transition-colors"
         >
           <FaPrint className="w-4 h-4" />
@@ -244,10 +247,11 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
       layoutId="booking-drawer-tabs"
       value={tab}
       onChange={setTab}
-      className="w-full justify-between"
+      className="w-full justify-start flex-wrap"
       items={[
         { value: 'overview', label: <span className="inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Overview</span> },
         { value: 'payment', label: <span className="inline-flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5" /> Payment</span> },
+        { value: 'bills', label: <span className="inline-flex items-center gap-1.5"><UtensilsCrossed className="w-3.5 h-3.5" /> Bills</span>, count: extraCount || undefined },
         { value: 'guests', label: <span className="inline-flex items-center gap-1.5"><IdCard className="w-3.5 h-3.5" /> Guests</span>, count: filledGuestCount || undefined },
         { value: 'notes', label: <span className="inline-flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> Notes</span>, count: noteCount || undefined },
       ]}
@@ -328,6 +332,7 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
             />
           )}
           {tab === 'payment' && <PaymentSection booking={booking} onChanged={onChanged} />}
+          {tab === 'bills' && <ExtraChargesSection booking={booking} onChanged={onChanged} />}
           {tab === 'guests' && (
             <GuestDetailsSection booking={booking} onSaved={onChanged} />
           )}
@@ -421,7 +426,7 @@ const OverviewTab = ({
               href={`mailto:${booking.email}`}
               className="font-medium hover:text-forest-700 truncate"
             >
-              {booking.email || '—'}
+              {booking.email || '-'}
             </a>
           </li>
           <li className="flex items-center gap-2 text-stone-700">
@@ -566,7 +571,7 @@ const NotesTab = ({ booking, note, onChangeNote, onSave }: NotesTabProps) => (
       <Textarea
         value={note}
         onChange={(e) => onChangeNote(e.target.value)}
-        placeholder="Visible to staff only — preferences, payment details, follow-ups…"
+        placeholder="Visible to staff only - preferences, payment details, follow-ups…"
         rows={3}
       />
     </Field>

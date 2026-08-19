@@ -1,6 +1,6 @@
 import { AvailabilityLoadError, fetchAvailabilityRows, type AvailabilityRow } from './bookingsDb'
 
-/** Reuse availability rows for a few minutes — booking page date changes won't re-hit Supabase. */
+/** Reuse availability rows for a few minutes - booking page date changes won't re-hit Supabase. */
 const TTL_MS = 3 * 60 * 1000
 
 let cached: { rows: AvailabilityRow[]; fetchedAt: number } | null = null

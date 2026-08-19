@@ -1,4 +1,4 @@
-/** Env-only check — does not import @supabase/supabase-js */
+/** Env-only check - does not import @supabase/supabase-js */
 export const isSupabaseConfigured = (): boolean =>
   Boolean(
     import.meta.env.VITE_SUPABASE_URL?.trim() &&

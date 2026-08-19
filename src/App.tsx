@@ -5,7 +5,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import { RouteFallback } from './components/RouteFallback'
 import { UrlNormalization } from './components/UrlNormalization'
 
-// Public marketing pages — loaded on demand
+// Public marketing pages - loaded on demand
 const Home = lazy(() => import('./pages/Home'))
 const Rooms = lazy(() => import('./pages/Rooms'))
 const RoomDetails = lazy(() => import('./pages/RoomDetails'))
@@ -33,7 +33,7 @@ const Developer = lazy(() => import('./pages/Developer'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Login = lazy(() => import('./pages/Login'))
 
-// Admin — separate chunk; not downloaded on homepage
+// Admin - separate chunk; not downloaded on homepage
 const AdminLayout = lazy(() =>
   import('./admin/layouts/AdminLayout').then((m) => ({ default: m.AdminLayout }))
 )
@@ -48,6 +48,7 @@ const AdminReports = lazy(() => import('./admin/pages/Reports'))
 const AdminSettings = lazy(() => import('./admin/pages/Settings'))
 const AdminTeamAccess = lazy(() => import('./admin/pages/TeamAccess'))
 const AdminActivity = lazy(() => import('./admin/pages/Activity'))
+const AdminMenu = lazy(() => import('./admin/pages/RestaurantMenu'))
 
 const withSuspense = (element: ReactNode) => (
   <Suspense fallback={<RouteFallback />}>{element}</Suspense>
@@ -72,6 +73,7 @@ function App() {
             <Route path="rooms" element={withSuspense(<AdminRooms />)} />
             <Route path="guests" element={withSuspense(<AdminGuests />)} />
             <Route path="housekeeping" element={withSuspense(<AdminHousekeeping />)} />
+            <Route path="menu" element={withSuspense(<AdminMenu />)} />
             <Route path="staff" element={withSuspense(<AdminStaff />)} />
             <Route path="inquiries" element={withSuspense(<AdminInquiries />)} />
             <Route path="reports" element={withSuspense(<AdminReports />)} />

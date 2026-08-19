@@ -16,7 +16,7 @@ interface DrawerProps {
   width?: 'sm' | 'md' | 'lg' | 'xl'
   children: ReactNode
   footer?: ReactNode
-  /** Remove default padding around children — useful for full-bleed sections. */
+  /** Remove default padding around children - useful for full-bleed sections. */
   contentPadding?: boolean
 }
 

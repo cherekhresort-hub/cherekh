@@ -342,7 +342,7 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
         const withStatus = await updateBookingStatus(booking.id, guest.status)
         if (!withStatus) {
           setError(
-            `Booking saved as pending. Could not mark as ${guest.status} — rooms are no longer available for these dates.`
+            `Booking saved as pending. Could not mark as ${guest.status} - rooms are no longer available for these dates.`
           )
           const pending = getBookingById(booking.id) ?? booking
           onCreated(pending)
@@ -623,11 +623,11 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
               />
             </Field>
           ) : (
-            <Field label="Subtotal (BDT)" hint="From rate card — managers cannot override rent">
+            <Field label="Subtotal (BDT)" hint="From rate card - managers cannot override rent">
               <Input
                 type="text"
                 readOnly
-                value={suggestedTotal > 0 ? formatBDT(suggestedTotal) : '—'}
+                value={suggestedTotal > 0 ? formatBDT(suggestedTotal) : '-'}
                 className="bg-stone-50 text-stone-600"
               />
             </Field>
@@ -670,7 +670,7 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
             <Input
               value={guest.discountReason}
               onChange={(e) => updateGuest('discountReason', e.target.value)}
-              placeholder="Reason (optional) — e.g. returning guest, group rate"
+              placeholder="Reason (optional) - e.g. returning guest, group rate"
             />
             {guest.discountValue > 0 && guest.totalAmount > 0 && (
               <p className="text-xs text-stone-500">

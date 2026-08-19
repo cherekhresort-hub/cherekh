@@ -12,10 +12,10 @@ export const cherekhMeaningBn = {
 export const cherekhMeaningEn = {
   title: 'The Meaning of Cherekh',
   paragraphs: [
-    '“Cherekh” is originally a Marma word. In Bengali it means “bishramsthan”—a place of rest. In the Chittagong Hill Tracts, the cherekh holds an important place in community life. It carries historical weight, and the value of its culture and heritage is equally profound.',
+    '“Cherekh” is originally a Marma word. In Bengali it means “bishramsthan” - a place of rest. In the Chittagong Hill Tracts, the cherekh holds an important place in community life. It carries historical weight, and the value of its culture and heritage is equally profound.',
     'A cherekh can be seen in the middle of indigenous villages or along riverbanks. Weary travelers stop here to rest and drink water. Traditionally, a cherekh is built from bamboo and reed.',
     'An earthen pot of water is kept at the cherekh. Water stored in clay vessels stays cool, so tired travelers sit, rest, and quench their thirst.',
-    'Over time, these cherekhs have become rare. Yet they can still be found in many indigenous villages—especially in Marma communities and at river ghats.',
+    'Over time, these cherekhs have become rare. Yet they can still be found in many indigenous villages - especially in Marma communities and at river ghats.',
     'A cherekh is built entirely through voluntary community labor. Villagers gather bamboo, posts, and reed on their own initiative and erect the cherekh together through collective effort.',
   ],
 } as const

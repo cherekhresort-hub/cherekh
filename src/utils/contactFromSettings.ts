@@ -79,5 +79,5 @@ export const buildResortContact = (settings?: ResortSettings | null): ResortCont
   }
 }
 
-/** Non-React callers (emails, PDFs) — uses cached Supabase settings when loaded. */
+/** Non-React callers (emails, PDFs) - uses cached Supabase settings when loaded. */
 export const getResortContact = (): ResortContact => buildResortContact()

@@ -17,7 +17,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'Discover the natural beauty of Thanchi, Bandarban at Cherekh Center. Experience peace in the hills with our premium accommodations.',
     content:
-      'Cherekh Center welcomes travelers to Thanchi, Bandarban — a peaceful hill destination with comfortable rooms, local cuisine, and easy access to trekking, rivers, and cultural experiences. Book direct for transparent pricing and a warm local stay.',
+      'Cherekh Center welcomes travelers to Thanchi, Bandarban - a peaceful hill destination with comfortable rooms, local cuisine, and easy access to trekking, rivers, and cultural experiences. Book direct for transparent pricing and a warm local stay.',
     author: 'Cherekh Center',
     date: '2025-01-15',
     category: 'updates',
@@ -30,7 +30,7 @@ export const blogPosts: BlogPost[] = [
     excerpt:
       'Learn about the best seasons to visit Bandarban and what to expect during each time of year.',
     content:
-      'Bandarban is pleasant year-round, but winter and early spring offer clear skies for hill views and trekking. Monsoon brings lush greenery and fewer crowds. Plan your Thanchi stay around the activities you want — trekking, river visits, or quiet relaxation.',
+      'Bandarban is pleasant year-round, but winter and early spring offer clear skies for hill views and trekking. Monsoon brings lush greenery and fewer crowds. Plan your Thanchi stay around the activities you want - trekking, river visits, or quiet relaxation.',
     author: 'Cherekh Center',
     date: '2025-01-10',
     category: 'guides',

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Banknote,
@@ -22,8 +22,10 @@ import { Field, Input, Select, Textarea } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../../contexts/AuthProvider'
 import {
+  backfillMissingPaymentTransactions,
   computeBookingFinancials,
   deletePaymentTransaction,
+  inferredLedgerFromPaymentStatus,
   PAYMENT_METHOD_LABELS,
   recordPaymentTransaction,
   setBookingDiscount,
@@ -38,7 +40,6 @@ import { formatBDT } from '../../utils/format'
 import { formatDateTime } from '../../utils/date'
 import { cn } from '../../utils/cn'
 import { confirmDelete } from '../../utils/confirmDelete'
-
 interface PaymentSectionProps {
   booking: Booking
   onChanged: () => void
@@ -67,10 +68,11 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
   const { canDelete, canEditPricing } = useAuth()
   const toast = useToast()
   const fin = useMemo(() => computeBookingFinancials(booking), [booking])
+  const paymentComplete = fin.status === 'paid'
   const suggestedTotal = useMemo(() => calculateBookingTotal(booking), [booking])
   const transactions = useMemo(
     () =>
-      [...(booking.payment?.transactions ?? [])].sort((a, b) =>
+      [...inferredLedgerFromPaymentStatus(booking)].sort((a, b) =>
         a.recordedAt < b.recordedAt ? 1 : -1
       ),
     [booking]
@@ -96,6 +98,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
   const [method, setMethod] = useState<PaymentMethod>('cash')
   const [reference, setReference] = useState('')
   const [notes, setNotes] = useState('')
+  const backfillAttempted = useRef<string | null>(null)
 
   useEffect(() => {
     setTotalDraft(fin.subtotal)
@@ -111,6 +114,23 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
     setMethod('cash')
     setOpen(false)
   }, [booking.id, fin.subtotal, booking.payment?.discount?.type, booking.payment?.discount?.value, booking.payment?.discount?.reason])
+
+  useEffect(() => {
+    if (fin.status === 'paid' && type === 'payment') {
+      setType('refund')
+      setOpen(false)
+    }
+  }, [fin.status, type])
+
+  useEffect(() => {
+    if ((booking.payment?.transactions ?? []).length > 0) return
+    if (fin.paid <= 0 && fin.refunded <= 0) return
+    if (backfillAttempted.current === booking.id) return
+    backfillAttempted.current = booking.id
+    void backfillMissingPaymentTransactions(booking.id).then((updated) => {
+      if ((updated?.payment?.transactions?.length ?? 0) > 0) onChanged()
+    })
+  }, [booking.id, booking.payment?.transactions, fin.paid, fin.refunded, onChanged])
 
   const saveTotal = async () => {
     if (!canEditPricing) {
@@ -182,6 +202,10 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
     suggestedTotal > 0 && suggestedTotal !== fin.subtotal && !editingTotal
 
   const submitTx = async () => {
+    if (paymentComplete && type === 'payment') {
+      toast.error('Payment is already complete')
+      return
+    }
     if (!amount || amount <= 0) {
       toast.error('Enter a valid amount')
       return
@@ -197,7 +221,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
     setAmount(0)
     setReference('')
     setNotes('')
-    setType('payment')
+    setType(paymentComplete ? 'refund' : 'payment')
     setOpen(false)
     onChanged()
   }
@@ -217,6 +241,11 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
   }
 
   const statusTone = PAYMENT_STATUS_TONES[fin.status] ?? 'neutral'
+
+  const openRecorder = (nextType: PaymentTransactionType = paymentComplete ? 'refund' : 'payment') => {
+    setType(nextType)
+    setOpen((wasOpen) => (wasOpen && type === nextType ? false : true))
+  }
 
   return (
     <Card padded={false} className="p-5">
@@ -245,7 +274,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
       <div className="rounded-2xl border border-stone-100 p-3 mb-4 bg-cream/40 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wide text-stone-500">Subtotal</p>
+            <p className="text-[10px] uppercase tracking-wide text-stone-500">Room rent</p>
             {editingTotal ? (
               <div className="mt-1 flex items-center gap-2">
                 <Input
@@ -280,7 +309,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
               leftIcon={<Pencil className="w-3.5 h-3.5" />}
               onClick={() => setEditingTotal(true)}
             >
-              Edit subtotal
+              Edit room rent
             </Button>
           )}
         </div>
@@ -304,9 +333,13 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
         {showSuggestion && !canEditPricing && (
           <p className="text-xs text-stone-500 rounded-xl bg-stone-50 border border-stone-100 px-3 py-2">
             Rate card subtotal: <span className="font-medium">{formatBDT(suggestedTotal)}</span>
-            {' '}(managers cannot change rent — contact admin to override)
+            {' '}(managers cannot change rent - contact admin to override)
           </p>
         )}
+
+        <p className="text-xs text-stone-500 border-t border-stone-200/70 pt-3">
+          Add food (breakfast, lunch, dinner) and other charges in the Bills tab. They are included in total due.
+        </p>
 
         <div className="border-t border-stone-200/70 pt-3">
           <div className="flex items-center justify-between gap-3 mb-2">
@@ -378,7 +411,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
               <Input
                 value={discountReason}
                 onChange={(e) => setDiscountReason(e.target.value)}
-                placeholder="Reason (optional) — e.g. returning guest, group rate"
+                placeholder="Reason (optional) - e.g. returning guest, group rate"
                 className="h-9"
               />
               <div className="flex items-center justify-between gap-2">
@@ -446,9 +479,27 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
           )}
         </div>
 
-        <div className="border-t border-stone-200/70 pt-3 flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-wide text-stone-500">Total payment</p>
-          <p className="font-serif text-xl text-forest-700">{formatBDT(fin.total)}</p>
+        <div className="border-t border-stone-200/70 pt-3 space-y-1">
+          {fin.extrasTotal > 0 && (
+            <>
+              {fin.foodTotal > 0 && (
+                <div className="flex items-center justify-between text-xs text-stone-600">
+                  <span>Food bill</span>
+                  <span>{formatBDT(fin.foodTotal)}</span>
+                </div>
+              )}
+              {fin.otherTotal > 0 && (
+                <div className="flex items-center justify-between text-xs text-stone-600">
+                  <span>Other bills</span>
+                  <span>{formatBDT(fin.otherTotal)}</span>
+                </div>
+              )}
+            </>
+          )}
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-wide text-stone-500">Total due</p>
+            <p className="font-serif text-xl text-forest-700">{formatBDT(fin.total)}</p>
+          </div>
         </div>
 
         {fin.refunded > 0 && (
@@ -463,13 +514,24 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
           <Receipt className="w-3 h-3" /> Transactions
           <span className="text-stone-400 normal-case font-normal">({transactions.length})</span>
         </h4>
-        <Button
-          size="sm"
-          leftIcon={<Plus className="w-3.5 h-3.5" />}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? 'Close' : 'Record payment'}
-        </Button>
+        {paymentComplete ? (
+          <Button
+            size="sm"
+            variant={open ? 'outline' : 'ghost'}
+            leftIcon={open ? undefined : <Undo2 className="w-3.5 h-3.5" />}
+            onClick={() => openRecorder('refund')}
+          >
+            {open ? 'Close' : 'Record refund'}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
+            onClick={() => openRecorder('payment')}
+          >
+            {open ? 'Close' : 'Record payment'}
+          </Button>
+        )}
       </div>
 
       <AnimatePresence initial={false}>
@@ -490,7 +552,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
                       onChange={(e) => setType(e.target.value as PaymentTransactionType)}
                       className="pr-8"
                     >
-                      <option value="payment">Payment received</option>
+                      {!paymentComplete && <option value="payment">Payment received</option>}
                       <option value="refund">Refund issued</option>
                       <option value="adjustment">Adjustment / credit</option>
                     </Select>

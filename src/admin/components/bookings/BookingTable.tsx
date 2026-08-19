@@ -10,8 +10,11 @@ import { formatBDT, truncate } from '../../utils/format'
 import {
   computeBookingFinancials,
   getBookingRooms,
+  PAYMENT_METHOD_LABELS,
   type Booking,
+  type PaymentMethod,
 } from '../../../utils/bookings'
+import { Badge } from '../ui/Badge'
 import {
   buildBookingMessages,
   whatsappHref,
@@ -28,7 +31,7 @@ interface BookingTableProps {
 }
 
 type Column = {
-  key: keyof Booking | 'totalGuests'
+  key: keyof Booking | 'totalGuests' | 'payment'
   label: string
   sortable?: boolean
   className?: string
@@ -41,7 +44,8 @@ const columns: Column[] = [
   { key: 'roomName', label: 'Room' },
   { key: 'checkIn', label: 'Stay', sortable: true },
   { key: 'totalGuests', label: 'Guests', sortable: true },
-  { key: 'status', label: 'Status', sortable: true },
+          { key: 'status', label: 'Status', sortable: true },
+  { key: 'payment', label: 'Payment' },
   { key: 'specialRequests', label: 'Notes' },
 ]
 
@@ -75,7 +79,7 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: B
               <th key={col.key as string} className={cn('py-3 px-4 font-medium', col.className)}>
                 {col.sortable ? (
                   <button
-                    onClick={() => onSort(col.key)}
+                    onClick={() => onSort(col.key as keyof Booking | 'totalGuests')}
                     className="inline-flex items-center gap-1 hover:text-forest-700"
                   >
                     {col.label}
@@ -144,22 +148,13 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: B
                 </td>
                 <td className="py-3 px-4">
                   <BookingStatusBadge status={booking.status} />
-                  {(() => {
-                    const fin = computeBookingFinancials(booking)
-                    if (fin.total <= 0) return null
-                    return (
-                      <p className="text-[11px] text-stone-500 mt-1">
-                        {formatBDT(fin.total)}
-                        {fin.discount > 0 && (
-                          <span className="text-stone-400"> · {formatBDT(fin.subtotal)} − {formatBDT(fin.discount)}</span>
-                        )}
-                      </p>
-                    )
-                  })()}
+                </td>
+                <td className="py-3 px-4">
+                  <BookingPaymentCell booking={booking} />
                 </td>
                 <td className="py-3 px-4 max-w-[12rem]">
                   <p className="text-xs text-stone-500 truncate">
-                    {truncate(booking.specialRequests || '—', 48)}
+                    {truncate(booking.specialRequests || '-', 48)}
                   </p>
                 </td>
                 <td className="py-3 px-4 text-right">
@@ -169,7 +164,7 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: B
                       onClick={() => print(booking)}
                       className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-forest-50 text-stone-500 hover:text-forest-700"
                       aria-label="Print invoice"
-                      title="Print invoice / Save as PDF"
+                      title="Print invoice on letterhead pad"
                     >
                       <FaPrint className="w-4 h-4" />
                     </button>
@@ -201,6 +196,55 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: B
           })}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+const paymentBadge = (status: string) => {
+  if (status === 'paid') return { tone: 'forest' as const, label: 'Paid' }
+  if (status === 'partial') return { tone: 'amber' as const, label: 'Partial' }
+  if (status === 'refunded') return { tone: 'red' as const, label: 'Refunded' }
+  return { tone: 'neutral' as const, label: 'Unpaid' }
+}
+
+const BookingPaymentCell = ({ booking }: { booking: Booking }) => {
+  const fin = computeBookingFinancials(booking)
+  const txs = [...(booking.payment?.transactions ?? [])].sort((a, b) =>
+    a.recordedAt < b.recordedAt ? 1 : -1
+  )
+  const lastTx = txs[0] ?? booking.payment?.listLastTransaction
+  const txCount = txs.length || booking.payment?.listTxCount || (lastTx ? 1 : 0)
+  const badge = paymentBadge(fin.status)
+  const method = lastTx?.method
+    ? PAYMENT_METHOD_LABELS[lastTx.method as PaymentMethod] ?? lastTx.method
+    : null
+
+  return (
+    <div className="min-w-[9rem]">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge tone={badge.tone} size="sm">
+          {badge.label}
+        </Badge>
+        {txCount > 1 && (
+          <span className="text-[10px] text-stone-400">{txCount} txns</span>
+        )}
+      </div>
+      <p className="text-[11px] text-stone-600 mt-1">
+        {fin.status === 'paid'
+          ? formatBDT(fin.paid)
+          : `${formatBDT(fin.paid)} / ${formatBDT(fin.total)}`}
+      </p>
+      {fin.outstanding > 0 && (
+        <p className="text-[11px] text-amber-700">due {formatBDT(fin.outstanding)}</p>
+      )}
+      {lastTx && (
+        <p className="text-[11px] text-stone-500 mt-0.5 truncate">
+          {lastTx.type === 'refund' ? '−' : '+'}
+          {formatBDT(lastTx.amount)}
+          {method ? ` · ${method}` : ''}
+          {lastTx.recordedAt ? ` · ${formatShortDate(lastTx.recordedAt)}` : ''}
+        </p>
+      )}
     </div>
   )
 }

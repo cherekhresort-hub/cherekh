@@ -85,7 +85,7 @@ export const netlifyFunctionsDevPlugin = (mode: string): Plugin => {
         if (!process.env[key]) process.env[key] = value
       }
 
-      // Accept misnamed VITE_ key locally only — never use VITE_ prefix for service role in .env.local
+      // Accept misnamed VITE_ key locally only - never use VITE_ prefix for service role in .env.local
       if (!process.env.SUPABASE_SERVICE_ROLE_KEY && env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
         process.env.SUPABASE_SERVICE_ROLE_KEY = env.VITE_SUPABASE_SERVICE_ROLE_KEY
         console.warn(

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   TrendingUp,
   CalendarRange,
@@ -10,10 +10,14 @@ import {
   AlertCircle,
   Tag,
   XCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { TopBar } from '../components/layout/TopBar'
 import { Card, CardDescription, CardTitle } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { Field, Input, Select } from '../components/ui/Input'
 import {
   MonthlyBookingsBarChart,
   OccupancyAreaChart,
@@ -27,59 +31,124 @@ import { useRoomsData } from '../hooks/useRoomsData'
 import {
   computeBookingFinancials,
   countsTowardRevenue,
+  getBookingCashMovements,
   getBookingRooms,
   PAYMENT_METHOD_LABELS,
   type PaymentMethod,
 } from '../../utils/bookings'
 import { formatBDT } from '../utils/format'
-import { formatShortDate } from '../utils/date'
+import { formatShortDate, toISODate } from '../utils/date'
 import { toLocalDateString } from '../../utils/dates'
-
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+import {
+  bookingInReportRange,
+  currentYearMonth,
+  daysInRange,
+  defaultReportPeriod,
+  eachCalendarMonth,
+  formatReportRangeLabel,
+  getReportRange,
+  isoDateInRange,
+  rollingMonths,
+  shiftYearMonth,
+  yearMonths,
+  type ReportPeriodMode,
+} from '../utils/reportPeriod'
 
 const Reports = () => {
   const { bookings } = useBookingsData()
   const { rooms } = useRoomsData()
+  const [period, setPeriod] = useState(defaultReportPeriod)
+
+  const range = useMemo(() => getReportRange(period), [period])
+  const rangeLabel = useMemo(() => formatReportRangeLabel(period, range), [period, range])
+
+  const periodBookings = useMemo(
+    () => bookings.filter((booking) => bookingInReportRange(booking, range)),
+    [bookings, range]
+  )
 
   const occupancyData = useMemo(() => {
     const totalRooms = Math.max(1, rooms.length)
-    const today = new Date()
-    return Array.from({ length: 14 }).map((_, i) => {
-      const d = new Date(today)
-      d.setDate(today.getDate() - (13 - i))
-      const iso = toLocalDateString(d)
-      const occupied = bookings.reduce((sum, b) => {
-        if (b.status !== 'confirmed') return sum
-        if (b.checkIn <= iso && b.checkOut > iso) return sum + getBookingRooms(b).length
+    const today = toISODate()
+    const days = range
+      ? daysInRange(range.from, range.to)
+      : daysInRange(
+          toLocalDateString(new Date(Date.now() - 13 * 86400000)),
+          today
+        )
+    const sampled = days.length > 62 ? days.filter((_, idx) => idx % Math.ceil(days.length / 31) === 0) : days
+
+    return sampled.map((iso) => {
+      const occupied = bookings.reduce((sum, booking) => {
+        if (booking.status !== 'confirmed') return sum
+        if (booking.checkIn <= iso && booking.checkOut > iso) {
+          return sum + getBookingRooms(booking).length
+        }
         return sum
       }, 0)
+      const date = new Date(`${iso}T12:00:00`)
       return {
-        day: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        day: date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        }),
         occupancy: Math.min(100, Math.round((occupied / totalRooms) * 100)),
       }
     })
-  }, [bookings, rooms])
+  }, [bookings, range, rooms])
+
+  const chartMonths = useMemo(() => {
+    if (period.mode === 'month' && period.month) {
+      return yearMonths(Number(period.month.slice(0, 4)))
+    }
+    if (range) return eachCalendarMonth(range.from, range.to)
+    return rollingMonths(12)
+  }, [period.mode, period.month, range])
 
   const monthlyBookings = useMemo(() => {
-    const map = new Map<number, number>()
-    bookings.forEach((b) => {
-      if (!countsTowardRevenue(b)) return
-      const month = new Date(b.checkIn).getMonth()
-      map.set(month, (map.get(month) ?? 0) + 1)
+    const map = new Map<string, number>()
+    periodBookings.forEach((booking) => {
+      if (!countsTowardRevenue(booking)) return
+      const key = booking.checkIn.slice(0, 7)
+      map.set(key, (map.get(key) ?? 0) + 1)
     })
-    return MONTH_LABELS.map((label, idx) => ({ month: label, bookings: map.get(idx) ?? 0 }))
-  }, [bookings])
+    return chartMonths.map((month) => ({
+      month: month.label,
+      bookings: map.get(month.key) ?? 0,
+    }))
+  }, [chartMonths, periodBookings])
 
-  const seasonalData = useMemo(() =>
-    monthlyBookings.map((m) => ({
-      period: m.month,
-      thisYear: m.bookings,
-      lastYear: Math.max(0, Math.round(m.bookings * 0.75 + ((m.bookings + 3) % 5))),
-    })),
-  [monthlyBookings])
+  const seasonalData = useMemo(() => {
+    const focusYear =
+      period.mode === 'month' && period.month
+        ? Number(period.month.slice(0, 4))
+        : range
+          ? Number(range.from.slice(0, 4))
+          : new Date().getFullYear()
+    const thisYearMonths = yearMonths(focusYear)
+    const countByMonth = (year: number) => {
+      const map = new Map<number, number>()
+      bookings.forEach((booking) => {
+        if (!countsTowardRevenue(booking)) return
+        const checkIn = booking.checkIn.slice(0, 10)
+        const yearNum = Number(checkIn.slice(0, 4))
+        if (yearNum !== year) return
+        const monthIdx = Number(checkIn.slice(5, 7)) - 1
+        map.set(monthIdx, (map.get(monthIdx) ?? 0) + 1)
+      })
+      return map
+    }
+    const thisYear = countByMonth(focusYear)
+    const lastYear = countByMonth(focusYear - 1)
+    return thisYearMonths.map((month, idx) => ({
+      period: month.label,
+      thisYear: thisYear.get(idx) ?? 0,
+      lastYear: lastYear.get(idx) ?? 0,
+    }))
+  }, [bookings, period.mode, period.month, range])
 
   const financials = useMemo(() => {
-    const active = bookings.filter(countsTowardRevenue)
+    const active = periodBookings.filter(countsTowardRevenue)
     let totalRevenue = 0
     let totalRefunds = 0
     let totalOutstanding = 0
@@ -88,10 +157,15 @@ const Reports = () => {
     let discountedBookings = 0
     let paidBookings = 0
     let outstandingBookings = 0
-    active.forEach((b) => {
-      const fin = computeBookingFinancials(b)
-      totalRevenue += fin.paid
-      totalRefunds += fin.refunded
+
+    const addMovement = (amount: number, isRefund: boolean, recordedAt: string) => {
+      if (range && !isoDateInRange(recordedAt, range.from, range.to)) return
+      if (isRefund) totalRefunds += Math.abs(amount)
+      else totalRevenue += amount
+    }
+
+    active.forEach((booking) => {
+      const fin = computeBookingFinancials(booking)
       totalOutstanding += fin.outstanding
       totalBilled += fin.total
       totalDiscount += fin.discount
@@ -99,6 +173,13 @@ const Reports = () => {
       if (fin.status === 'paid') paidBookings += 1
       if (fin.outstanding > 0) outstandingBookings += 1
     })
+
+    bookings.forEach((booking) => {
+      getBookingCashMovements(booking).forEach((move) => {
+        addMovement(move.amount, move.isRefund, move.recordedAt)
+      })
+    })
+
     return {
       totalRevenue,
       totalRefunds,
@@ -110,71 +191,72 @@ const Reports = () => {
       outstandingBookings,
       bookingCount: active.length,
     }
-  }, [bookings])
+  }, [bookings, periodBookings, range])
 
   const cancelledFinancials = useMemo(() => {
-    const cancelled = bookings.filter((b) => b.status === 'cancelled')
+    const cancelled = periodBookings.filter((booking) => booking.status === 'cancelled')
     let totalBilled = 0
-    cancelled.forEach((b) => {
-      totalBilled += computeBookingFinancials(b).total
+    cancelled.forEach((booking) => {
+      totalBilled += computeBookingFinancials(booking).total
     })
     return {
       count: cancelled.length,
       totalBilled,
     }
-  }, [bookings])
+  }, [periodBookings])
 
   const monthlyRevenue = useMemo(() => {
-    const rev = new Map<number, number>()
-    const ref = new Map<number, number>()
-    bookings.forEach((b) => {
-      if (!countsTowardRevenue(b)) return
-      ;(b.payment?.transactions ?? []).forEach((tx) => {
-        const m = new Date(tx.recordedAt).getMonth()
-        if (tx.type === 'refund') {
-          ref.set(m, (ref.get(m) ?? 0) + Math.abs(tx.amount))
+    const rev = new Map<string, number>()
+    const refunds = new Map<string, number>()
+    bookings.forEach((booking) => {
+      getBookingCashMovements(booking).forEach((move) => {
+        const day = move.recordedAt.slice(0, 10)
+        if (range && (day < range.from || day > range.to)) return
+        const key = day.slice(0, 7)
+        if (move.isRefund) {
+          refunds.set(key, (refunds.get(key) ?? 0) + Math.abs(move.amount))
         } else {
-          rev.set(m, (rev.get(m) ?? 0) + tx.amount)
+          rev.set(key, (rev.get(key) ?? 0) + move.amount)
         }
       })
     })
-    return MONTH_LABELS.map((label, idx) => ({
-      month: label,
-      revenue: rev.get(idx) ?? 0,
-      refunds: ref.get(idx) ?? 0,
+    return chartMonths.map((month) => ({
+      month: month.label,
+      revenue: rev.get(month.key) ?? 0,
+      refunds: refunds.get(month.key) ?? 0,
     }))
-  }, [bookings])
+  }, [bookings, chartMonths, range])
 
   const paymentMethodBreakdown = useMemo(() => {
     const map = new Map<PaymentMethod, number>()
-    bookings.forEach((b) => {
-      if (!countsTowardRevenue(b)) return
-      ;(b.payment?.transactions ?? []).forEach((tx) => {
-        if (tx.type === 'refund') return
-        const key = (tx.method ?? 'other') as PaymentMethod
-        map.set(key, (map.get(key) ?? 0) + tx.amount)
+    bookings.forEach((booking) => {
+      getBookingCashMovements(booking).forEach((move) => {
+        if (move.isRefund) return
+        if (range && !isoDateInRange(move.recordedAt, range.from, range.to)) return
+        const key = (move.method ?? 'other') as PaymentMethod
+        map.set(key, (map.get(key) ?? 0) + move.amount)
       })
     })
     const entries = Array.from(map.entries())
-      .filter(([, v]) => v > 0)
-      .map(([k, v]) => ({ name: PAYMENT_METHOD_LABELS[k] ?? k, value: v }))
+      .filter(([, value]) => value > 0)
+      .map(([key, value]) => ({ name: PAYMENT_METHOD_LABELS[key] ?? key, value }))
     return entries.length > 0 ? entries : [{ name: 'No data yet', value: 1 }]
-  }, [bookings])
+  }, [bookings, range])
 
   const outstandingList = useMemo(() => {
-    return bookings
+    return periodBookings
       .filter(countsTowardRevenue)
-      .map((b) => ({ booking: b, fin: computeBookingFinancials(b) }))
+      .map((booking) => ({ booking, fin: computeBookingFinancials(booking) }))
       .filter(({ fin }) => fin.outstanding > 0)
       .sort((a, b) => b.fin.outstanding - a.fin.outstanding)
       .slice(0, 8)
-  }, [bookings])
+  }, [periodBookings])
 
   const returnRate = useMemo(() => {
     const guests = new Map<string, number>()
-    bookings.forEach((b) => {
-      if (!countsTowardRevenue(b)) return
-      const key = `${b.email}|${b.name}`.toLowerCase()
+    periodBookings.forEach((booking) => {
+      if (!countsTowardRevenue(booking)) return
+      const key = `${booking.email}|${booking.name}`.toLowerCase()
       guests.set(key, (guests.get(key) ?? 0) + 1)
     })
     let newGuests = 0
@@ -187,9 +269,9 @@ const Reports = () => {
     })
     if (newGuests + returning + frequent === 0) {
       return [
-        { name: 'New guests', value: 12 },
-        { name: 'Returning', value: 8 },
-        { name: 'Frequent (5+)', value: 4 },
+        { name: 'New guests', value: 0 },
+        { name: 'Returning', value: 0 },
+        { name: 'Frequent (5+)', value: 0 },
       ]
     }
     return [
@@ -197,25 +279,146 @@ const Reports = () => {
       { name: 'Returning', value: returning },
       { name: 'Frequent (5+)', value: frequent },
     ]
-  }, [bookings])
+  }, [periodBookings])
+
+  const occupancyCaption = range ? rangeLabel : 'Last 14 days'
+
+  const setMode = (mode: ReportPeriodMode) => {
+    setPeriod((prev) => {
+      if (mode === 'month') {
+        return {
+          ...prev,
+          mode,
+          month: prev.month || currentYearMonth(),
+        }
+      }
+      if (mode === 'custom') {
+        const bounds = prev.month
+          ? {
+              from: `${prev.month}-01`,
+              to: getReportRange({ ...prev, mode: 'month' })?.to ?? toISODate(),
+            }
+          : { from: prev.from, to: prev.to }
+        return { ...prev, mode, from: bounds.from || prev.from, to: bounds.to || prev.to }
+      }
+      return { ...prev, mode }
+    })
+  }
 
   return (
     <>
       <TopBar
         title="Reports"
-        description="Operational analytics and seasonality trends"
+        description="Financial totals and trends for a month or custom date range"
       />
       <main className="px-4 lg:px-8 py-6 space-y-6">
+        <section className="rounded-2xl border border-stone-200/80 bg-white p-4 space-y-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <Field label="Period" className="min-w-[10rem]">
+              <Select
+                value={period.mode}
+                onChange={(event) => setMode(event.target.value as ReportPeriodMode)}
+              >
+                <option value="all">All time</option>
+                <option value="month">By month</option>
+                <option value="custom">Custom range</option>
+              </Select>
+            </Field>
+
+            {period.mode === 'month' && (
+              <>
+                <Field label="Month" className="min-w-[11rem]">
+                  <Input
+                    type="month"
+                    value={period.month}
+                    max={currentYearMonth()}
+                    onChange={(event) =>
+                      setPeriod((prev) => ({ ...prev, month: event.target.value }))
+                    }
+                  />
+                </Field>
+                <div className="flex gap-1 pb-0.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10"
+                    aria-label="Previous month"
+                    onClick={() =>
+                      setPeriod((prev) => ({
+                        ...prev,
+                        month: shiftYearMonth(prev.month || currentYearMonth(), -1),
+                      }))
+                    }
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10"
+                    aria-label="Next month"
+                    disabled={
+                      (period.month || currentYearMonth()) >= currentYearMonth()
+                    }
+                    onClick={() =>
+                      setPeriod((prev) => {
+                        const next = shiftYearMonth(prev.month || currentYearMonth(), 1)
+                        return {
+                          ...prev,
+                          month: next > currentYearMonth() ? currentYearMonth() : next,
+                        }
+                      })
+                    }
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {period.mode === 'custom' && (
+              <>
+                <Field label="From" className="min-w-[10rem]">
+                  <Input
+                    type="date"
+                    value={period.from}
+                    max={period.to || undefined}
+                    onChange={(event) =>
+                      setPeriod((prev) => ({ ...prev, from: event.target.value }))
+                    }
+                  />
+                </Field>
+                <Field label="To" className="min-w-[10rem]">
+                  <Input
+                    type="date"
+                    value={period.to}
+                    min={period.from || undefined}
+                    onChange={(event) =>
+                      setPeriod((prev) => ({ ...prev, to: event.target.value }))
+                    }
+                  />
+                </Field>
+              </>
+            )}
+          </div>
+          <p className="text-xs text-stone-500">
+            Showing <span className="font-medium text-forest-700">{rangeLabel}</span>
+            {period.mode === 'month' && ' - use the arrows to move month to month.'}
+            {period.mode === 'custom' && ' - stays overlapping these dates, payments recorded in this range.'}
+            {period.mode === 'all' && ' - lifetime totals. Monthly charts show the last 12 months.'}
+          </p>
+        </section>
+
         <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="font-serif text-xl text-forest-700 flex items-center gap-2">
-                <Wallet className="w-5 h-5" /> Financial overview
-              </h2>
-              <p className="text-xs text-stone-500">
-                Live totals derived from bookings and recorded payment transactions
-              </p>
-            </div>
+          <div>
+            <h2 className="font-serif text-xl text-forest-700 flex items-center gap-2">
+              <Wallet className="w-5 h-5" /> Financial overview
+            </h2>
+            <p className="text-xs text-stone-500">
+              Bookings whose stay overlaps this period · payments and refunds by transaction date
+            </p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
@@ -224,7 +427,7 @@ const Reports = () => {
               value={formatBDT(financials.totalRevenue)}
               icon={<Banknote className="w-4 h-4" />}
               tone="forest"
-              hint={`From ${financials.bookingCount} active booking${financials.bookingCount === 1 ? '' : 's'}`}
+              hint={`${financials.bookingCount} booking${financials.bookingCount === 1 ? '' : 's'} in ${rangeLabel}`}
             />
             <FinancialStat
               label="Outstanding"
@@ -245,7 +448,7 @@ const Reports = () => {
               value={formatBDT(financials.totalRefunds)}
               icon={<RefreshCcw className="w-4 h-4" />}
               tone="red"
-              hint="Lifetime"
+              hint={rangeLabel}
             />
             <FinancialStat
               label="Total billed"
@@ -259,7 +462,7 @@ const Reports = () => {
               value={String(cancelledFinancials.count)}
               icon={<XCircle className="w-4 h-4" />}
               tone="red"
-              hint="Not included in revenue or booking totals above"
+              hint="Not included in revenue totals above"
             />
             <FinancialStat
               label="Cancelled booking revenue"
@@ -277,7 +480,13 @@ const Reports = () => {
                   <CardTitle className="flex items-center gap-2">
                     <Banknote className="w-4 h-4 text-forest-600" /> Monthly revenue
                   </CardTitle>
-                  <CardDescription>Payments collected vs refunds, by month</CardDescription>
+                  <CardDescription>
+                    {period.mode === 'month'
+                      ? `Payments vs refunds across ${period.month.slice(0, 4)}`
+                      : period.mode === 'custom'
+                        ? 'Payments vs refunds in the selected range'
+                        : 'Payments vs refunds, last 12 months'}
+                  </CardDescription>
                 </div>
               </div>
               <RevenueBarChart data={monthlyRevenue} />
@@ -289,7 +498,7 @@ const Reports = () => {
                   <CardTitle className="flex items-center gap-2">
                     <Wallet className="w-4 h-4 text-teal-600" /> Payment methods
                   </CardTitle>
-                  <CardDescription>Share of collected revenue</CardDescription>
+                  <CardDescription>Share of collected revenue in {rangeLabel}</CardDescription>
                 </div>
               </div>
               <PaymentMethodPie data={paymentMethodBreakdown} />
@@ -302,7 +511,7 @@ const Reports = () => {
                 <CardTitle className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-600" /> Outstanding balances
                 </CardTitle>
-                <CardDescription>Bookings with money still to collect</CardDescription>
+                <CardDescription>Unpaid balances on stays in {rangeLabel}</CardDescription>
               </div>
               {outstandingList.length > 0 && (
                 <Badge tone="amber" size="sm">{outstandingList.length}</Badge>
@@ -365,7 +574,7 @@ const Reports = () => {
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-forest-600" /> Occupancy rate
                 </CardTitle>
-                <CardDescription>Last 14 days</CardDescription>
+                <CardDescription>{occupancyCaption}</CardDescription>
               </div>
             </div>
             <OccupancyAreaChart data={occupancyData} />
@@ -377,7 +586,10 @@ const Reports = () => {
                 <CardTitle className="flex items-center gap-2">
                   <CalendarRange className="w-4 h-4 text-teal-600" /> Monthly bookings
                 </CardTitle>
-                <CardDescription>Total reservations by month</CardDescription>
+                <CardDescription>
+                  Check-ins by month
+                  {period.mode === 'month' ? ` in ${period.month.slice(0, 4)}` : ''}
+                </CardDescription>
               </div>
             </div>
             <MonthlyBookingsBarChart data={monthlyBookings} />
@@ -389,7 +601,7 @@ const Reports = () => {
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-sand-600" /> Seasonal trends
                 </CardTitle>
-                <CardDescription>Year-over-year comparison</CardDescription>
+                <CardDescription>Year-over-year bookings (real data)</CardDescription>
               </div>
             </div>
             <SeasonalLineChart data={seasonalData} />
@@ -401,7 +613,7 @@ const Reports = () => {
                 <CardTitle className="flex items-center gap-2">
                   <RefreshCcw className="w-4 h-4 text-violet-600" /> Guest return rate
                 </CardTitle>
-                <CardDescription>Mix of new vs. returning guests</CardDescription>
+                <CardDescription>New vs returning guests in {rangeLabel}</CardDescription>
               </div>
             </div>
             <ReturnRatePie data={returnRate} />

@@ -13,7 +13,7 @@ interface TabsProps<T extends string> {
   onChange: (value: T) => void
   items: TabItem<T>[]
   className?: string
-  /** Used as the framer-motion layoutId — make unique per group so multiple
+  /** Used as the framer-motion layoutId - make unique per group so multiple
    * Tabs instances on the page don't share the animated indicator. */
   layoutId?: string
 }

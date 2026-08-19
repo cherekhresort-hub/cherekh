@@ -30,7 +30,7 @@ const formatDisplayDate = (iso: string): string => {
 
 const buildRoomsSummary = (booking: Booking): string => {
   const rooms = getBookingRooms(booking)
-  if (rooms.length === 0) return booking.roomName || '—'
+  if (rooms.length === 0) return booking.roomName || '-'
   return rooms
     .map((r) => {
       const guests = r.totalGuests ?? r.adults + r.children
@@ -39,7 +39,7 @@ const buildRoomsSummary = (booking: Booking): string => {
     .join('; ')
 }
 
-/** Template variables — use the same keys in both EmailJS templates. */
+/** Template variables - use the same keys in both EmailJS templates. */
 export const buildBookingEmailParams = (booking: Booking): Record<string, string> => {
   const fin = computeBookingFinancials(booking)
   const isConferenceOnly = bookingIsConferenceOnly(booking)
@@ -73,7 +73,7 @@ export const buildBookingEmailParams = (booking: Booking): Record<string, string
     discount: formatBDT(fin.discount),
     total: formatBDT(fin.total),
     status: booking.status,
-    special_requests: booking.specialRequests?.trim() || '—',
+    special_requests: booking.specialRequests?.trim() || '-',
     resort_name: 'Cherekh Center',
     resort_phone: resortContact.phoneDisplay,
     resort_email: resortContact.email,
@@ -84,7 +84,7 @@ export const buildBookingEmailParams = (booking: Booking): Record<string, string
 }
 
 /**
- * Sends guest + resort notification emails. Never throws — booking save must succeed
+ * Sends guest + resort notification emails. Never throws - booking save must succeed
  * even if EmailJS is down or misconfigured.
  */
 export const sendBookingCreatedEmails = async (booking: Booking): Promise<void> => {
@@ -92,7 +92,7 @@ export const sendBookingCreatedEmails = async (booking: Booking): Promise<void> 
   if (!emailConfig.ok) {
     if (import.meta.env.DEV) {
       console.info(
-        '[EmailJS] Skipped — set VITE_EMAILJS_USER_ID in .env.local, save the file, then restart dev server. Missing:',
+        '[EmailJS] Skipped - set VITE_EMAILJS_USER_ID in .env.local, save the file, then restart dev server. Missing:',
         emailConfig.missing.join(', ')
       )
     }

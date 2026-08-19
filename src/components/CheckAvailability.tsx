@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { FaCalendarAlt, FaUsers, FaSearch } from 'react-icons/fa'
 import RoomCard from './RoomCard'
 import { getAvailableRooms, getRooms, AvailabilityLoadError } from '../utils/rooms'
-import { roomCatalog, MAX_SINGLE_ROOM_CAPACITY } from '../data/roomCatalog'
+import { roomCatalog, MAX_INCLUDED_GUESTS_PER_ROOM } from '../data/roomCatalog'
 import { addDaysToDateString, getTodayDate, toLocalDateString } from '../utils/dates'
 import {
   BOOKING_PARTY_SPLIT_KEY,
+  allocateGuestsToRooms,
   pickRoomIdsForParty,
   type BookingPartySplitHint,
 } from '../utils/bookingParty'
@@ -92,8 +93,21 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
     if (Number.isNaN(parsed) || parsed < 1) return 1
     return Math.min(MAX_GUEST_COUNT, parsed)
   })()
-  const needsMultipleRooms = normalizedGuests > MAX_SINGLE_ROOM_CAPACITY
+  const needsMultipleRooms = normalizedGuests > MAX_INCLUDED_GUESTS_PER_ROOM
   const datesValid = Boolean(checkIn && checkOut && checkOut > checkIn)
+
+  const guestAssignments = useMemo(() => {
+    if (selectedList.length === 0 || availableRooms.length === 0) return []
+    const selectedRooms = availableRooms
+      .filter((room) => selectedList.includes(room.id))
+      .map((room) => ({ id: room.id, includedGuests: room.guests, capacity: room.maxGuests }))
+    return allocateGuestsToRooms(normalizedGuests, 0, selectedRooms)
+  }, [availableRooms, normalizedGuests, selectedList])
+
+  const guestsByRoomId = useMemo(
+    () => Object.fromEntries(guestAssignments.map((entry) => [entry.id, entry.guests])),
+    [guestAssignments]
+  )
 
   useEffect(() => {
     if (checkIn) {
@@ -183,7 +197,11 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
     const autoSelected = pickRoomIdsForParty(
       normalizedGuests,
       0,
-      roomsToShow.map((room) => ({ id: room.id, capacity: room.maxGuests })),
+      roomsToShow.map((room) => ({
+        id: room.id,
+        includedGuests: room.guests,
+        capacity: room.maxGuests,
+      })),
       preferredRoomType
     )
     selectRooms(autoSelected)
@@ -301,23 +319,35 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                   <FaCalendarAlt className="w-4 h-4 text-resort-cta" aria-hidden />
                   Check-in
                 </label>
-                <input
-                  id="home-check-in"
-                  type="date"
-                  value={checkIn}
-                  onChange={(e) => {
-                    setCheckIn(e.target.value)
-                    setErrors((prev) => ({ ...prev, checkIn: '' }))
-                  }}
-                  min={minCheckInDate}
-                  max={maxDate}
-                  required
-                  className={`w-full border rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta ${
-                    compact ? 'p-2.5 text-sm' : 'p-3'
-                  } ${
-                    errors.checkIn ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
+                <div className="relative">
+                  <input
+                    id="home-check-in"
+                    type="date"
+                    value={checkIn}
+                    onChange={(e) => {
+                      setCheckIn(e.target.value)
+                      setErrors((prev) => ({ ...prev, checkIn: '' }))
+                    }}
+                    min={minCheckInDate}
+                    max={maxDate}
+                    required
+                    autoComplete="off"
+                    className={`w-full border rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta ${
+                      compact ? 'p-2.5 text-sm' : 'p-3'
+                    } ${
+                      errors.checkIn ? 'border-red-500' : 'border-gray-300'
+                    } ${!checkIn ? 'date-input-empty' : ''}`}
+                  />
+                  {!checkIn && (
+                    <span
+                      className={`pointer-events-none absolute inset-y-0 left-0 flex items-center text-stone-400 ${
+                        compact ? 'px-2.5 text-sm' : 'px-3'
+                      }`}
+                    >
+                      dd/mm/yyyy
+                    </span>
+                  )}
+                </div>
                 {errors.checkIn && (
                   <p className="mt-1 text-xs text-red-600">{errors.checkIn}</p>
                 )}
@@ -331,24 +361,38 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                   <FaCalendarAlt className="w-4 h-4 text-resort-cta" aria-hidden />
                   Check-out
                 </label>
-                <input
-                  id="home-check-out"
-                  type="date"
-                  value={checkOut}
-                  onChange={(e) => {
-                    setCheckOut(e.target.value)
-                    setErrors((prev) => ({ ...prev, checkOut: '' }))
-                  }}
-                  min={minCheckOut || minCheckInDate}
-                  max={maxDate}
-                  disabled={!checkIn}
-                  required
-                  className={`w-full border rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta ${
-                    compact ? 'p-2.5 text-sm' : 'p-3'
-                  } ${
-                    errors.checkOut ? 'border-red-500' : 'border-gray-300'
-                  } ${!checkIn ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                />
+                <div className="relative">
+                  <input
+                    id="home-check-out"
+                    type="date"
+                    value={checkOut}
+                    onChange={(e) => {
+                      setCheckOut(e.target.value)
+                      setErrors((prev) => ({ ...prev, checkOut: '' }))
+                    }}
+                    min={minCheckOut || minCheckInDate}
+                    max={maxDate}
+                    disabled={!checkIn}
+                    required
+                    autoComplete="off"
+                    className={`w-full border rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta ${
+                      compact ? 'p-2.5 text-sm' : 'p-3'
+                    } ${
+                      errors.checkOut ? 'border-red-500' : 'border-gray-300'
+                    } ${!checkIn ? 'bg-gray-100 cursor-not-allowed' : ''} ${
+                      !checkOut ? 'date-input-empty' : ''
+                    }`}
+                  />
+                  {!checkOut && (
+                    <span
+                      className={`pointer-events-none absolute inset-y-0 left-0 flex items-center text-stone-400 ${
+                        compact ? 'px-2.5 text-sm' : 'px-3'
+                      }`}
+                    >
+                      dd/mm/yyyy
+                    </span>
+                  )}
+                </div>
                 {errors.checkOut && (
                   <p className="mt-1 text-xs text-red-600">{errors.checkOut}</p>
                 )}
@@ -397,8 +441,8 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                   }`}
                 />
                 <p className="mt-1 text-xs text-stone-500">
-                  Up to {MAX_SINGLE_ROOM_CAPACITY} guests per room · larger groups can book multiple
-                  rooms
+                  Up to {MAX_INCLUDED_GUESTS_PER_ROOM} included guests per room · couple rooms 2,
+                  double rooms 3 · larger groups book multiple rooms
                 </p>
               </div>
 
@@ -443,9 +487,9 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                       {normalizedGuests} guests need more than one room
                     </p>
                     <p className="mt-1 text-blue-800">
-                      Each room fits up to {MAX_SINGLE_ROOM_CAPACITY} guests. We&apos;ve highlighted
-                      rooms that best fit your group — adjust the selection if you prefer different
-                      rooms.
+                      Each room is assigned up to its included occupancy (couple 2, double 3), not
+                      the extra-guest maximum. We&apos;ve highlighted rooms that best fit your
+                      group - adjust the selection if you prefer different rooms.
                     </p>
                   </div>
                 )}
@@ -466,9 +510,21 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                     <p className="font-medium">
                       {selectedCount} rooms auto-selected for {normalizedGuests} guests
                     </p>
-                    <p className="mt-1 text-emerald-800">
-                      Selected using each room&apos;s maximum capacity. Change any room below before
-                      booking.
+                    {guestAssignments.length > 0 && (
+                      <ul className="mt-2 space-y-0.5 text-emerald-800">
+                        {guestAssignments.map((entry) => {
+                          const room = availableRooms.find((item) => item.id === entry.id)
+                          return (
+                            <li key={entry.id}>
+                              {room?.name ?? `Room ${entry.id}`} - {entry.guests}{' '}
+                              {entry.guests === 1 ? 'guest' : 'guests'}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                    <p className="mt-2 text-emerald-800">
+                      Change any room below before booking if you prefer a different split.
                     </p>
                   </div>
                 )}
@@ -506,6 +562,7 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                       compact
                       selectable
                       selected={isSelected(room.id)}
+                      assignedGuests={guestsByRoomId[room.id]}
                       onSelectToggle={toggle}
                     />
                   ))}

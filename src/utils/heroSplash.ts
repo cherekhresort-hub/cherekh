@@ -1,4 +1,4 @@
-/** True only for the marketing homepage — splash is for LCP there only. */
+/** True only for the marketing homepage - splash is for LCP there only. */
 export const isHomePath = (pathname: string): boolean => {
   const normalized = pathname.replace(/\/+$/, '') || '/'
   return normalized === '/' || normalized === '/index.html'

@@ -20,6 +20,7 @@ import {
 } from '../lib/roles'
 import { isSupabaseConfigured, isAuthRoute } from '../lib/supabaseConfig'
 import { getSupabase } from '../lib/supabase'
+import { logStaffLogin } from '../lib/staffActivityLog'
 import { isLegacyAuthEnabled } from '../lib/legacyAuth'
 import {
   isLegacyAuthenticated,
@@ -155,6 +156,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         applyRole(allowedRole)
+        void logStaffLogin(normalizedEmail, allowedRole)
         return {}
       }
 
@@ -169,6 +171,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!ok) return { error: 'Invalid email or password.' }
       setLegacyAuth(true)
       applyRole('admin')
+      void logStaffLogin(normalizedEmail || email.trim(), 'admin')
       return {}
     },
     [usesSupabase, legacyAuthEnabled, applyRole]

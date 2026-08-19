@@ -11,9 +11,10 @@ import {
   formatCurrency,
 } from '../utils/rooms'
 import { addDaysToDateString, getTodayDate, toLocalDateString } from '../utils/dates'
-import { CONFERENCE_ROOM_ID, MAX_SINGLE_ROOM_CAPACITY } from '../data/roomCatalog'
+import { CONFERENCE_ROOM_ID, MAX_INCLUDED_GUESTS_PER_ROOM } from '../data/roomCatalog'
 import {
   BOOKING_PARTY_SPLIT_KEY,
+  allocateGuestsToRooms,
   buildRoomLinesForParty,
   type BookingPartySplitHint,
 } from '../utils/bookingParty'
@@ -198,12 +199,28 @@ const Booking = () => {
         ),
       ])
     } else {
-      setRoomLines(
-        validIds.map((id) => {
+      const selectedRooms = validIds
+        .map((id) => {
           const option = roomOptions.find((room) => room.value === id)
-          const adults = Math.min(2, option?.capacity ?? 2)
-          return createRoomLine(id, adults, 0)
+          if (!option) return null
+          return {
+            id,
+            includedGuests: option.includedGuests,
+            capacity: option.capacity,
+          }
         })
+        .filter((room): room is { id: string; includedGuests: number; capacity: number } =>
+          Boolean(room)
+        )
+      const allocation = allocateGuestsToRooms(
+        hint.adults ?? initialAdults,
+        hint.children ?? initialChildren,
+        selectedRooms
+      )
+      setRoomLines(
+        allocation.length > 0
+          ? allocation.map((entry) => createRoomLine(entry.id, entry.guests, 0))
+          : validIds.map((id) => createRoomLine(id, 1, 0))
       )
     }
 
@@ -219,7 +236,7 @@ const Booking = () => {
   useEffect(() => {
     if (selectedRoomsAppliedRef.current) return
     const partyTotal = initialAdults + initialChildren
-    if (partyTotal <= MAX_SINGLE_ROOM_CAPACITY || roomOptions.length === 0) return
+    if (partyTotal <= MAX_INCLUDED_GUESTS_PER_ROOM || roomOptions.length === 0) return
     if (!formData.checkIn || !formData.checkOut || formData.checkOut <= formData.checkIn) return
     if (roomLines.length > 1) return
 
@@ -967,6 +984,8 @@ const Booking = () => {
                       value={formData.name}
                       onChange={handleChange}
                       required
+                      autoComplete="name"
+                      placeholder="e.g. MD Rafiq"
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta"
                     />
                   </div>
@@ -980,6 +999,8 @@ const Booking = () => {
                       value={formData.email}
                       onChange={handleChange}
                       required
+                      autoComplete="email"
+                      placeholder="name@example.com"
                       pattern="^[^\s@]+@[^\s@]+\.[^\s@]{2,}$"
                       title="Please enter a valid email address."
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta"
@@ -997,6 +1018,8 @@ const Booking = () => {
                       value={formData.phone}
                       onChange={handleChange}
                       required
+                      autoComplete="tel"
+                      placeholder="+880 1XXX XXXXXX"
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta"
                     />
                   </div>

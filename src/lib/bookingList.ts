@@ -3,6 +3,8 @@ import type {
   BookingDiscount,
   BookingRoomLine,
   Payment,
+  PaymentMethod,
+  PaymentTransactionType,
 } from '../utils/bookings'
 
 export type BookingListRow = {
@@ -25,6 +27,13 @@ export type BookingListRow = {
   payment_amount: number
   payment_status: string
   payment_discount: BookingDiscount | null
+  payment_net?: number | string | null
+  payment_tx_count?: number | string | null
+  payment_last_amount?: number | string | null
+  payment_last_type?: string | null
+  payment_last_method?: string | null
+  payment_last_at?: string | null
+  extras_total?: number | string | null
 }
 
 const parseRooms = (raw: unknown): BookingRoomLine[] | undefined => {
@@ -52,10 +61,32 @@ const buildPayment = (row: BookingListRow): Payment => {
   }
   const discount = parseDiscount(row.payment_discount)
   if (discount) payment.discount = discount
+  if (row.payment_net !== undefined && row.payment_net !== null && row.payment_net !== '') {
+    const net = Number(row.payment_net)
+    if (Number.isFinite(net) && net !== 0) payment.listNetPaid = net
+  }
+  const txCount = Number(row.payment_tx_count)
+  if (Number.isFinite(txCount) && txCount > 0) payment.listTxCount = txCount
+  const lastAmount = Number(row.payment_last_amount)
+  if (Number.isFinite(lastAmount) && lastAmount > 0) {
+    const type =
+      row.payment_last_type === 'refund' || row.payment_last_type === 'adjustment'
+        ? row.payment_last_type
+        : 'payment'
+    payment.listLastTransaction = {
+      amount: lastAmount,
+      type: type as PaymentTransactionType,
+      recordedAt: row.payment_last_at || row.updated_at,
+      method: row.payment_last_method ? (row.payment_last_method as PaymentMethod) : undefined,
+    }
+    if (row.payment_last_method) {
+      payment.method = row.payment_last_method
+    }
+  }
   return payment
 }
 
-/** Lightweight booking for tables, dashboard, and guests — full payload loaded on demand. */
+/** Lightweight booking for tables, dashboard, and guests - full payload loaded on demand. */
 export const bookingFromListRow = (row: BookingListRow): Booking => {
   const rooms = parseRooms(row.rooms)
   const adults = Number(row.adults) || 0
@@ -79,6 +110,7 @@ export const bookingFromListRow = (row: BookingListRow): Booking => {
     specialRequests: row.special_requests ?? '',
     notes: [],
     payment: buildPayment(row),
+    listExtrasTotal: Number(row.extras_total) || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

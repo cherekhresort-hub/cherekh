@@ -1,6 +1,8 @@
 import type { StaffActivityEntry } from './staffActivityLog'
+import { isStaffLoginEntry } from './staffActivityLog'
 
-export const getActivityDestination = (entry: StaffActivityEntry): string => {
+export const getActivityDestination = (entry: StaffActivityEntry): string | null => {
+  if (isStaffLoginEntry(entry)) return null
   switch (entry.category) {
     case 'booking':
       return entry.entityId
@@ -31,6 +33,7 @@ export const getActivityDestination = (entry: StaffActivityEntry): string => {
 }
 
 export const getActivityDestinationLabel = (entry: StaffActivityEntry): string => {
+  if (isStaffLoginEntry(entry)) return ''
   switch (entry.category) {
     case 'booking':
       return entry.entityId ? 'Open booking' : 'Go to bookings'

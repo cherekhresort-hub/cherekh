@@ -1,4 +1,4 @@
-/** Tracking query params added by Facebook, Google, etc. — safe to strip from the address bar. */
+/** Tracking query params added by Facebook, Google, etc. - safe to strip from the address bar. */
 const TRACKING_PARAMS = new Set([
   'fbclid',
   'gclid',

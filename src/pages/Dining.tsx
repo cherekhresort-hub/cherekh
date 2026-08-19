@@ -1,10 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { menuCategories, formatMenuPrice } from '../data/menuCatalog'
+import { defaultMenuCategories, formatMenuPortion, formatMenuPrice, type MenuCategory } from '../data/menuCatalog'
 import { restaurantImages } from '../data/roomCatalog'
+import { loadRestaurantMenu, RESTAURANT_MENU_CHANGED_EVENT } from '../lib/restaurantMenuDb'
 
-const isDefined = <T,>(value: T | undefined | null): value is T => value !== undefined && value !== null
+/** Full restaurant menu service begins on this date (Asia/Dhaka). */
+const MENU_AVAILABLE_ON = '2026-10-01'
+
+const dhakaCalendarDate = (): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date())
+
+const showMenuOpeningNotice = (): boolean => dhakaCalendarDate() < MENU_AVAILABLE_ON
 
 const itemReveal = {
   hidden: { opacity: 0, y: 8 },
@@ -21,13 +28,18 @@ const itemReveal = {
 
 const Dining = () => {
   const [selectedImage, setSelectedImage] = useState(0)
-  const menuOrder = ['main-courses', 'snacks', 'beverages', 'breakfast'] as const
-  const orderedCategories = [
-    ...menuOrder
-      .map((id) => menuCategories.find((category) => category.id === id))
-      .filter(isDefined),
-    ...menuCategories.filter((category) => !menuOrder.includes(category.id as never)),
-  ]
+  const [categories, setCategories] = useState<MenuCategory[]>(defaultMenuCategories)
+  const [showOpeningNotice, setShowOpeningNotice] = useState(showMenuOpeningNotice)
+
+  useEffect(() => {
+    setShowOpeningNotice(showMenuOpeningNotice())
+    const refresh = () => {
+      void loadRestaurantMenu().then(setCategories)
+    }
+    refresh()
+    window.addEventListener(RESTAURANT_MENU_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(RESTAURANT_MENU_CHANGED_EVENT, refresh)
+  }, [])
 
   return (
     <div className="min-h-screen bg-resort-bg">
@@ -45,10 +57,27 @@ const Dining = () => {
             Cherekh Restaurant
           </h1>
           <p className="mt-3 text-[15px] leading-relaxed text-stone-600 sm:text-base">
-            Authentic Bangla main courses, snacks, breakfast, and fresh juices, served on site in
-            Thanchi. Complimentary breakfast is included with every room stay.
+            Authentic local and traditional flavours, served on site in Thanchi. Complimentary
+            breakfast is included with every room stay.
           </p>
         </motion.header>
+
+        {showOpeningNotice && (
+          <motion.aside
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.04 }}
+            className="mb-8 overflow-hidden rounded-2xl border border-resort-heading/15 bg-sand-100/80 px-5 py-4 shadow-sm sm:px-6"
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-resort-heading">
+              Opening 1 October 2026
+            </p>
+            <p className="mt-2 text-[15px] leading-relaxed text-stone-700 sm:text-base">
+              This restaurant menu will be available from 1 October 2026. Until then, complimentary
+              breakfast remains included with every room stay.
+            </p>
+          </motion.aside>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -88,10 +117,7 @@ const Dining = () => {
 
         <div className="mb-8 overflow-hidden rounded-2xl border border-stone-200/80 bg-cream shadow-sm px-5 py-4 sm:px-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-stone-600">
-              All prices in Bangladeshi Taka (৳). Items marked{' '}
-              <span className="font-medium text-resort-heading">Favourite</span> are house specials.
-            </p>
+            <p className="text-sm text-stone-600">All prices in Bangladeshi Taka (৳).</p>
             <Link
               to="/booking"
               className="shrink-0 text-sm font-medium text-resort-heading hover:text-resort-cta transition-colors"
@@ -101,8 +127,10 @@ const Dining = () => {
           </div>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4 xl:gap-6">
-          {orderedCategories.map((category, categoryIndex) => (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 xl:gap-6">
+          {categories
+            .filter((category) => category.items.length > 0)
+            .map((category, categoryIndex) => (
             <motion.section
               key={category.id}
               initial={{ opacity: 0, y: 12 }}
@@ -122,16 +150,16 @@ const Dining = () => {
                     id={`menu-${category.id}`}
                     className="font-serif text-base font-semibold text-resort-heading transition-colors duration-300 group-hover/section:text-resort-cta lg:text-lg"
                   >
-                    {category.titleEn}
+                    {category.title}
                   </h2>
-                  <p className="mt-0.5 text-xs text-stone-500 sm:text-sm">{category.titleBn}</p>
-                  <p className="mt-1 text-[11px] text-stone-400">{category.subtitle}</p>
                 </div>
 
                 <ul className="divide-y divide-stone-100 px-4 lg:px-4">
-                  {category.items.map((item, itemIndex) => (
+                  {category.items.map((item, itemIndex) => {
+                    const portion = formatMenuPortion(item.portion)
+                    return (
                     <motion.li
-                      key={item.number}
+                      key={item.id}
                       custom={itemIndex}
                       variants={itemReveal}
                       initial="hidden"
@@ -141,24 +169,20 @@ const Dining = () => {
                       transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                       className="group flex items-start justify-between gap-2 py-3 transition-colors hover:bg-sand-100/70 lg:gap-3"
                     >
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs font-medium text-resort-heading sm:text-sm">
-                            {item.nameBn}
-                          </span>
-                          {item.isHouseFavourite ? (
-                            <span className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-stone-500">
-                              Favourite
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-0.5 text-[11px] text-stone-500 sm:text-xs">{item.nameEn}</p>
-                      </div>
+                      <p className="min-w-0">
+                        <span className="block text-xs font-medium text-resort-heading sm:text-sm">
+                          {item.name}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-stone-500 sm:text-xs">
+                          {portion}
+                        </span>
+                      </p>
                       <span className="shrink-0 text-xs font-medium tabular-nums text-resort-heading transition-colors group-hover:text-resort-cta sm:text-sm">
                         {formatMenuPrice(item.price)}
                       </span>
                     </motion.li>
-                  ))}
+                    )
+                  })}
                 </ul>
               </div>
             </motion.section>
@@ -173,7 +197,6 @@ const Dining = () => {
           className="mt-10 overflow-hidden rounded-2xl border border-stone-200/80 bg-cream shadow-sm px-5 py-6 text-center sm:px-8"
         >
           <p className="font-serif text-lg text-resort-heading">Thank you for dining with us</p>
-          <p className="mt-1 text-sm text-stone-500">আমাদের সাথে dining করার জন্য ধন্যবাদ</p>
         </motion.footer>
       </div>
     </div>

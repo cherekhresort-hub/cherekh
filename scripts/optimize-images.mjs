@@ -103,7 +103,7 @@ async function hasOptimizedAssets() {
 async function main() {
   // Netlify builds already include committed WebP assets; skip sharp to save time/RAM.
   if (process.env.NETLIFY === 'true' && (await hasOptimizedAssets())) {
-    console.log('[optimize:images] Skipping on Netlify — using committed public/cherekhImages/_optimized/')
+    console.log('[optimize:images] Skipping on Netlify - using committed public/cherekhImages/_optimized/')
     return
   }
 

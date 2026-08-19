@@ -6,7 +6,7 @@ export type FaqItem = {
   answer: string
 }
 
-/** Shown on the homepage FAQ teaser — full list lives on /faq */
+/** Shown on the homepage FAQ teaser - full list lives on /faq */
 export const FAQ_HOMEPAGE_PREVIEW_IDS = [
   'best-in-thanchi',
   'room-types',
@@ -26,13 +26,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'top-bandarban',
     question: 'Is Cherekh Center a good place to stay in Bandarban?',
     answer:
-      'Cherekh Center is located in Thanchi — a scenic upazila in Bandarban district. Guests visit for hill views, river access, trekking, and indigenous cultural experiences. We combine guest rooms, restaurant, conference facilities, and trip planning in one property.',
+      'Cherekh Center is located in Thanchi - a scenic upazila in Bandarban district. Guests visit for hill views, river access, trekking, and indigenous cultural experiences. We combine guest rooms, restaurant, conference facilities, and trip planning in one property.',
   },
   {
     id: 'what-is-cherekh',
     question: 'What does “Cherekh” mean?',
     answer:
-      'Cherekh is a Marma word meaning a community rest shelter — a traditional place of welcome, cool water, and pause on a journey through the Chittagong Hill Tracts. Cherekh Center takes its name from that spirit of hospitality in Thanchi, Bandarban.',
+      'Cherekh is a Marma word meaning a community rest shelter - a traditional place of welcome, cool water, and pause on a journey through the Chittagong Hill Tracts. Cherekh Center takes its name from that spirit of hospitality in Thanchi, Bandarban.',
   },
   {
     id: 'location',
@@ -44,7 +44,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'how-to-reach',
     question: 'How do I reach Cherekh Center in Thanchi?',
     answer:
-      'Most guests travel by road from Bandarban town toward Thanchi — often by jeep or reserved transport on hilly routes. Roads can be slower during monsoon season, so allow extra travel time. WhatsApp or call us before you depart; we can help with directions or coordinate local pickup when possible.',
+      'Most guests travel by road from Bandarban town toward Thanchi - often by jeep or reserved transport on hilly routes. Roads can be slower during monsoon season, so allow extra travel time. WhatsApp or call us before you depart; we can help with directions or coordinate local pickup when possible.',
   },
   {
     id: 'room-types',
@@ -74,19 +74,19 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'check-in-times',
     question: 'What are check-in and check-out times?',
     answer:
-      'Standard check-in is from 2:00 PM (14:00) and check-out is by 11:00 AM. If you expect a late arrival, mention it when booking or contact us — we will do our best to accommodate.',
+      'Standard check-in is from 2:00 PM (14:00) and check-out is by 11:00 AM. If you expect a late arrival, mention it when booking or contact us - we will do our best to accommodate.',
   },
   {
     id: 'dining',
     question: 'What dining options are available at Cherekh Center?',
     answer:
-      'Cherekh Restaurant serves authentic Bangla main courses, snacks, breakfast, and fresh juices on site. Complimentary breakfast is included with every room booking. View the menu at cherekhcenter.com/dining.',
+      'Cherekh Restaurant serves authentic local and traditional dishes on site - rice and dal, fish, chicken, and hill-style specials. Complimentary breakfast is included with every room booking. View the menu at cherekhcenter.com/dining.',
   },
   {
     id: 'experiences',
     question: 'What activities and experiences can I do near Cherekh Center?',
     answer:
-      'From Thanchi you can arrange hill trekking, river rafting, village and cultural visits, sunset viewpoints, and cultural nights with local music and dance. We help guests plan experiences that fit their schedule — see cherekhcenter.com/experiences for an overview.',
+      'From Thanchi you can arrange hill trekking, river rafting, village and cultural visits, sunset viewpoints, and cultural nights with local music and dance. We help guests plan experiences that fit their schedule - see cherekhcenter.com/experiences for an overview.',
   },
   {
     id: 'families',
@@ -116,7 +116,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'best-time-visit',
     question: 'When is the best time to visit Thanchi and Bandarban?',
     answer:
-      'October to March is generally the most comfortable season — cooler, drier weather ideal for trekking and outdoor activities. The green monsoon months (June–September) are lush but roads can be slower. Festive and holiday periods are popular; book early for those dates.',
+      'October to March is generally the most comfortable season - cooler, drier weather ideal for trekking and outdoor activities. The green monsoon months (June–September) are lush but roads can be slower. Festive and holiday periods are popular; book early for those dates.',
   },
   {
     id: 'cancellation',

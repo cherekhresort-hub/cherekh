@@ -220,7 +220,7 @@ const TeamAccess = () => {
               </p>
             )}
             <p className="mt-2 text-xs text-amber-700">
-              Production: Netlify → Site configuration → Environment variables — set{' '}
+              Production: Netlify → Site configuration → Environment variables - set{' '}
               <code className="font-mono">SUPABASE_URL</code>,{' '}
               <code className="font-mono">SUPABASE_ANON_KEY</code>, and{' '}
               <code className="font-mono">SUPABASE_SERVICE_ROLE_KEY</code> (not{' '}
@@ -338,6 +338,7 @@ const TeamAccess = () => {
                 autoComplete="off"
                 value={form.email}
                 onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
+                placeholder="staff@example.com"
                 required
               />
             </Field>
@@ -364,6 +365,7 @@ const TeamAccess = () => {
                 onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
                 required={formMode === 'create'}
                 minLength={formMode === 'create' ? 8 : undefined}
+                placeholder={formMode === 'create' ? 'Minimum 8 characters' : 'Leave blank to keep current'}
                 className="pr-10"
               />
               <button

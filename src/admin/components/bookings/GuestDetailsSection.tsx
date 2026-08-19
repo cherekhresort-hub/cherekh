@@ -416,7 +416,7 @@ const ReadOnlyView = ({
           <ShieldAlert className="w-3 h-3" /> Emergency contact
         </h5>
         <div className="bg-cream/60 rounded-xl px-3 py-2">
-          <p className="text-sm text-forest-700 font-medium">{emergency.name || '—'}</p>
+          <p className="text-sm text-forest-700 font-medium">{emergency.name || '-'}</p>
           <p className="text-xs text-stone-600">
             {[emergency.phone, emergency.relation].filter(Boolean).join(' · ') || 'No phone'}
           </p>

@@ -168,13 +168,13 @@ export const RoomDetailsModal = ({ room, onClose, onChanged }: RoomDetailsModalP
           <div className="bg-cream/70 rounded-xl p-3">
             <p className="text-xs text-stone-500">{isConference ? 'Current event' : 'Current guest'}</p>
             <p className="font-medium text-forest-700 truncate">
-              {room.currentGuest ?? (isConference ? 'Available' : '—')}
+              {room.currentGuest ?? (isConference ? 'Available' : '-')}
             </p>
           </div>
           <div className="bg-cream/70 rounded-xl p-3">
             <p className="text-xs text-stone-500">{isConference ? 'Event dates' : 'Stay'}</p>
             <p className="font-medium text-forest-700 text-sm">
-              {room.currentCheckIn ? `${room.currentCheckIn} → ${room.currentCheckOut}` : '—'}
+              {room.currentCheckIn ? `${room.currentCheckIn} → ${room.currentCheckOut}` : '-'}
             </p>
           </div>
           <div className="bg-cream/70 rounded-xl p-3">
@@ -212,7 +212,7 @@ export const RoomDetailsModal = ({ room, onClose, onChanged }: RoomDetailsModalP
                   ? `${discountPercent}% off · used for ${isConference ? 'event day' : 'booking'} totals`
                   : parsePriceInput(discountedPriceInput) != null &&
                       parsePriceInput(listPriceInput) != null
-                    ? 'Same as original — no promo badge shown'
+                    ? 'Same as original - no promo badge shown'
                     : isConference
                       ? 'Used for conference booking totals (per event day)'
                       : 'Used for booking totals'

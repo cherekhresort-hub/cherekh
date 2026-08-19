@@ -1,4 +1,4 @@
-/* SweetAlert2 — compact admin delete dialogs (scoped via customClass) */
+/* SweetAlert2 - compact admin delete dialogs (scoped via customClass) */
 .swal2-popup.cherekh-swal-popup {
   width: 17.5rem;
   max-width: calc(100vw - 2rem);

@@ -285,7 +285,7 @@ export const getBookableRoomRef = (id: string): BookableRoomRef | undefined => {
     return {
       id: CONFERENCE_ROOM_ID,
       name: facility.name,
-      selectLabel: `${facility.name} — Event space`,
+      selectLabel: `${facility.name} - Event space`,
       typeSummary: facility.capacity,
       capacity: CONFERENCE_CAPACITY,
       includedGuests: CONFERENCE_CAPACITY,
@@ -298,7 +298,7 @@ export const getBookableRoomRef = (id: string): BookableRoomRef | undefined => {
   return undefined
 }
 
-/** Guest rooms plus conference — for admin and public booking selectors. */
+/** Guest rooms plus conference - for admin and public booking selectors. */
 export const bookableRoomCatalog = (): BookableRoomRef[] => {
   const conference = getBookableRoomRef(CONFERENCE_ROOM_ID)
   return [
@@ -312,6 +312,11 @@ export const BOOKABLE_ROOM_COUNT = roomCatalog.length + 1
 /** Largest occupancy allowed in a single room (double rooms: 3 included + 1 extra). */
 export const MAX_SINGLE_ROOM_CAPACITY = Math.max(...roomCatalog.map((room) => room.capacity))
 
+/** Standard occupancy used for auto room assignment (couple 2, double 3) - not extra-guest max. */
+export const MAX_INCLUDED_GUESTS_PER_ROOM = Math.max(
+  ...roomCatalog.map((room) => room.includedGuests)
+)
+
 export const getRoomTypeSummary = (
   room: Pick<RoomCatalogEntry, 'bedCategory' | 'features'>
 ): string => {
@@ -322,7 +327,7 @@ export const getRoomTypeSummary = (
 
 export const getRoomSelectLabel = (
   room: Pick<RoomCatalogEntry, 'roomNumber' | 'bedCategory' | 'features'>
-): string => `Room ${room.roomNumber} — ${getRoomTypeSummary(room)}`
+): string => `Room ${room.roomNumber} - ${getRoomTypeSummary(room)}`
 
 export const getGuestPolicyLabel = (room: Pick<RoomCatalogEntry, 'bedCategory' | 'includedGuests' | 'maxExtraGuests' | 'extraGuestPrice'>): string => {
   const extraFee = `${room.extraGuestPrice.toLocaleString('en-BD')} BDT/adult/night`

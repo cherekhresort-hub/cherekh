@@ -1,4 +1,4 @@
-import { MAX_SINGLE_ROOM_CAPACITY } from '../data/roomCatalog'
+import { MAX_INCLUDED_GUESTS_PER_ROOM } from '../data/roomCatalog'
 import { createRoomLine, getLineTotalGuests, type RoomBookingLine, type RoomOption } from './bookingHelpers'
 
 export const BOOKING_PARTY_SPLIT_KEY = 'cherekh_booking_party_split'
@@ -10,7 +10,10 @@ export interface BookingPartySplitHint {
   expires: number
 }
 
-/** Split a party across multiple room lines (unique room types, max capacity each). */
+const assignmentCapacity = (option: RoomOption): number =>
+  option.includedGuests > 0 ? option.includedGuests : option.capacity
+
+/** Split a party across rooms using included occupancy (not extra-guest maximum). */
 export const buildRoomLinesForParty = (
   adults: number,
   children: number,
@@ -22,19 +25,21 @@ export const buildRoomLinesForParty = (
     return [createRoomLine(preferredRoomType || '', 1, 0)]
   }
 
-  if (totalGuests <= MAX_SINGLE_ROOM_CAPACITY && options.length > 0) {
+  if (totalGuests <= MAX_INCLUDED_GUESTS_PER_ROOM && options.length > 0) {
     const preferred = preferredRoomType
       ? options.find((o) => o.value === preferredRoomType)
       : undefined
-    const target = preferred ?? options.find((o) => o.capacity >= totalGuests) ?? options[0]
-    if (target && target.capacity >= totalGuests) {
-      const roomChildren = Math.min(children, target.capacity - Math.min(adults, target.capacity))
-      const roomAdults = Math.min(adults, target.capacity - roomChildren)
+    const target =
+      preferred ?? options.find((o) => assignmentCapacity(o) >= totalGuests) ?? options[0]
+    if (target && assignmentCapacity(target) >= totalGuests) {
+      const space = assignmentCapacity(target)
+      const roomChildren = Math.min(children, space - Math.min(adults, space))
+      const roomAdults = Math.min(adults, space - roomChildren)
       return [createRoomLine(target.value, Math.max(1, roomAdults), roomChildren)]
     }
   }
 
-  const sorted = [...options].sort((a, b) => b.capacity - a.capacity)
+  const sorted = [...options].sort((a, b) => assignmentCapacity(b) - assignmentCapacity(a))
   if (preferredRoomType) {
     const idx = sorted.findIndex((o) => o.value === preferredRoomType)
     if (idx > 0) {
@@ -52,7 +57,7 @@ export const buildRoomLinesForParty = (
     const option = sorted.find((o) => !used.has(o.value))
     if (!option) break
 
-    const space = option.capacity
+    const space = assignmentCapacity(option)
     const adultsInRoom = Math.min(remAdults, Math.max(1, Math.min(space, remAdults)))
     const childrenInRoom = Math.min(remChildren, space - adultsInRoom)
 
@@ -72,7 +77,7 @@ export const buildRoomLinesForParty = (
     const last = lines[lines.length - 1]
     const option = sorted.find((o) => o.value === last.roomType)
     if (option) {
-      const canAdd = option.capacity - getLineTotalGuests(last)
+      const canAdd = assignmentCapacity(option) - getLineTotalGuests(last)
       if (canAdd > 0) {
         const addChildren = Math.min(remChildren, canAdd)
         const addAdults = Math.min(remAdults, canAdd - addChildren)
@@ -87,8 +92,9 @@ export const buildRoomLinesForParty = (
   while ((remAdults > 0 || remChildren > 0) && used.size < sorted.length) {
     const option = sorted.find((o) => !used.has(o.value))
     if (!option) break
-    const adultsInRoom = Math.min(remAdults, Math.max(1, Math.min(option.capacity, remAdults)))
-    const childrenInRoom = Math.min(remChildren, option.capacity - adultsInRoom)
+    const space = assignmentCapacity(option)
+    const adultsInRoom = Math.min(remAdults, Math.max(1, Math.min(space, remAdults)))
+    const childrenInRoom = Math.min(remChildren, space - adultsInRoom)
     if (adultsInRoom < 1) break
     lines.push(createRoomLine(option.value, adultsInRoom, childrenInRoom))
     remAdults -= adultsInRoom
@@ -101,7 +107,54 @@ export const buildRoomLinesForParty = (
 
 type AvailableRoomForParty = {
   id: string
-  capacity: number
+  includedGuests: number
+  capacity?: number
+}
+
+const roomsToOptions = (availableRooms: AvailableRoomForParty[]): RoomOption[] =>
+  availableRooms.map((room) => ({
+    value: room.id,
+    label: room.id,
+    typeSummary: '',
+    capacity: room.capacity ?? room.includedGuests,
+    includedGuests: room.includedGuests,
+    maxExtraGuests: 0,
+    extraGuestPrice: 0,
+    price: 0,
+    listPrice: 0,
+    isConference: false,
+  }))
+
+export interface RoomGuestAllocation {
+  id: string
+  guests: number
+}
+
+/** Split a party across rooms and return how many guests each room holds. */
+export const allocateGuestsToRooms = (
+  adults: number,
+  children: number,
+  availableRooms: AvailableRoomForParty[],
+  preferredRoomType?: string
+): RoomGuestAllocation[] => {
+  const totalGuests = adults + children
+  if (totalGuests <= 0 || availableRooms.length === 0) return []
+
+  const lines = buildRoomLinesForParty(
+    adults,
+    children,
+    roomsToOptions(availableRooms),
+    preferredRoomType
+  )
+  const assigned = lines
+    .map((line) => ({
+      id: line.roomType,
+      guests: getLineTotalGuests(line),
+    }))
+    .filter((entry) => entry.id && entry.guests > 0)
+
+  const assignedGuests = assigned.reduce((sum, entry) => sum + entry.guests, 0)
+  return assignedGuests >= totalGuests ? assigned : []
 }
 
 /** Pick the fewest available rooms needed to fit a party (largest capacity first). */
@@ -110,26 +163,7 @@ export const pickRoomIdsForParty = (
   children: number,
   availableRooms: AvailableRoomForParty[],
   preferredRoomType?: string
-): string[] => {
-  const totalGuests = adults + children
-  if (totalGuests <= 0 || availableRooms.length === 0) return []
-
-  const options: RoomOption[] = availableRooms.map((room) => ({
-    value: room.id,
-    label: room.id,
-    typeSummary: '',
-    capacity: room.capacity,
-    includedGuests: 0,
-    maxExtraGuests: 0,
-    extraGuestPrice: 0,
-    price: 0,
-    listPrice: 0,
-    isConference: false,
-  }))
-
-  const lines = buildRoomLinesForParty(adults, children, options, preferredRoomType)
-  const roomIds = lines.map((line) => line.roomType).filter(Boolean)
-  const assignedGuests = lines.reduce((sum, line) => sum + getLineTotalGuests(line), 0)
-
-  return assignedGuests >= totalGuests ? roomIds : []
-}
+): string[] =>
+  allocateGuestsToRooms(adults, children, availableRooms, preferredRoomType).map(
+    (entry) => entry.id
+  )

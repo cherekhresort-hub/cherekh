@@ -29,6 +29,8 @@ interface RoomCardProps {
   selectable?: boolean
   selected?: boolean
   onSelectToggle?: (id: string) => void
+  /** Guests assigned to this room for the current search party. */
+  assignedGuests?: number
 }
 
 const RoomCard = ({
@@ -52,6 +54,7 @@ const RoomCard = ({
   selectable = false,
   selected = false,
   onSelectToggle,
+  assignedGuests,
 }: RoomCardProps) => {
   const displayPricing =
     price !== undefined && price > 0 ? resolveRoomDisplayPricing(price, listPrice) : null
@@ -113,6 +116,15 @@ const RoomCard = ({
         {bedType && (
           <p className={`text-gray-600 mb-1 sm:mb-2 ${compact ? 'text-xs sm:text-sm' : ''}`}>
             {bedType}
+          </p>
+        )}
+        {type === 'room' && assignedGuests !== undefined && assignedGuests > 0 && (
+          <p
+            className={`mb-1 sm:mb-2 rounded-md bg-emerald-50 px-2 py-1 font-medium text-emerald-900 ${
+              compact ? 'text-xs sm:text-sm' : 'text-sm'
+            }`}
+          >
+            Holds {assignedGuests} {assignedGuests === 1 ? 'guest' : 'guests'} in your group
           </p>
         )}
         {type === 'room' && guests !== undefined && (

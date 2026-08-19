@@ -72,7 +72,7 @@ export const bookingIsConferenceOnly = (
   booking: Pick<Booking, 'roomType' | 'rooms'>
 ): boolean => bookingIncludesConference(booking) && !bookingHasGuestRooms(booking)
 
-/** Admin guest-ID slots — one host for conference-only; headcount for guest rooms only. */
+/** Admin guest-ID slots - one host for conference-only; headcount for guest rooms only. */
 export const getGuestDetailSlotCount = (
   booking: Pick<Booking, 'roomType' | 'rooms' | 'totalGuests' | 'adults' | 'children'>
 ): number => {
@@ -204,7 +204,7 @@ export const datesInStayRange = (checkIn: string, checkOut: string): string[] =>
   return dates
 }
 
-/** Event day(s) for a conference booking — explicit list or legacy stay range. */
+/** Event day(s) for a conference booking - explicit list or legacy stay range. */
 export const getBookingEventDates = (
   booking: Pick<Booking, 'checkIn' | 'checkOut' | 'eventDates' | 'roomType' | 'rooms'>
 ): string[] => {
@@ -264,7 +264,7 @@ export const formatEventDayLabel = (count: number): string =>
 export const formatNightLabel = (count: number): string =>
   count === 1 ? '1 night' : `${count} nights`
 
-/** Price-summary duration — event days for conference-only bookings, nights otherwise. */
+/** Price-summary duration - event days for conference-only bookings, nights otherwise. */
 export const formatBookingDurationLabel = (
   count: number,
   conferenceOnly: boolean
@@ -273,7 +273,7 @@ export const formatBookingDurationLabel = (
 /**
  * Compute the expected stay total for a booking using the room catalog as the
  * source of truth for prices, included guests, and extra-guest fees. Pure
- * function — does not read or mutate localStorage, so it can run on the server,
+ * function - does not read or mutate localStorage, so it can run on the server,
  * in `saveBooking`, or to derive a suggested total in the admin UI.
  */
 export const calculateBookingTotal = (

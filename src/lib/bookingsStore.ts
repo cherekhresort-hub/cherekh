@@ -8,6 +8,7 @@ import {
   loadBookingsFromLocal,
   migrateLocalBookingsToRemote,
   saveBookingsToLocal,
+  toPersistedBooking,
   upsertBookingIfAvailable,
 } from './bookingsDb'
 import { getSupabase } from './supabase'
@@ -98,9 +99,21 @@ export const ensureBookingsHydrated = async (): Promise<Booking[]> => {
       clearDetailLoadedFlags()
       const { bookings: remote, fullPayload } = await fetchBookingsList()
       if (remote.length > 0) {
-        bookingsCache = remote
-        saveBookingsToLocal(bookingsCache)
-        if (fullPayload) remote.forEach((b) => markBookingDetailLoaded(b.id))
+        if (fullPayload) {
+          bookingsCache = remote
+          saveBookingsToLocal(bookingsCache)
+          remote.forEach((b) => markBookingDetailLoaded(b.id))
+        } else {
+          const existingById = new Map(bookingsCache.map((b) => [b.id, b]))
+          bookingsCache = remote.map((stub) => {
+            const existing = existingById.get(stub.id)
+            if (existing?.payment?.transactions?.length) {
+              return mergeListStubOntoDetail(existing, stub)
+            }
+            return stub
+          })
+          saveBookingsToLocal(bookingsCache)
+        }
       } else if (bookingsCache.length > 0 && import.meta.env.DEV) {
         await migrateLocalBookingsToRemote(bookingsCache)
         invalidateAvailabilityCache()
@@ -131,14 +144,18 @@ const mergeListStubOntoDetail = (existing: Booking, stub: Booking): Booking => (
   payment: {
     ...(existing.payment ?? {}),
     amount: stub.payment.amount,
-    status: stub.payment.status,
     discount: stub.payment.discount ?? existing.payment?.discount,
     transactions: existing.payment?.transactions,
     method: existing.payment?.method,
     transactionId: existing.payment?.transactionId,
     paidAt: existing.payment?.paidAt,
     notes: existing.payment?.notes,
+    listNetPaid: stub.payment.listNetPaid,
+    listTxCount: stub.payment.listTxCount,
+    listLastTransaction: stub.payment.listLastTransaction,
   },
+  extras: existing.extras,
+  listExtrasTotal: stub.listExtrasTotal,
   createdAt: stub.createdAt,
   updatedAt: stub.updatedAt,
 })
@@ -160,6 +177,9 @@ export const refreshBookingsList = async (): Promise<Booking[]> => {
   const existingById = new Map(bookingsCache.map((b) => [b.id, b]))
   bookingsCache = remote.map((stub) => {
     const existing = existingById.get(stub.id)
+    if (existing?.payment?.transactions?.length) {
+      return mergeListStubOntoDetail(existing, stub)
+    }
     if (existing && detailLoadedIds.has(stub.id)) {
       return mergeListStubOntoDetail(existing, stub)
     }
@@ -226,17 +246,37 @@ export const persistBooking = async (booking: Booking): Promise<void> => {
   const cacheBefore = [...bookingsCache]
   const previousAtIndex = index === -1 ? null : bookingsCache[index]
 
-  if (index === -1) bookingsCache = [...bookingsCache, booking]
+  let toSave = booking
+  if (!toSave.payment?.transactions?.length) {
+    const cachedTxs = previousAtIndex?.payment?.transactions
+    if (cachedTxs?.length) {
+      toSave = {
+        ...toSave,
+        payment: { ...toSave.payment, transactions: cachedTxs },
+      }
+    } else if (isSupabaseConfigured() && toSave.id) {
+      const remote = await fetchBookingById(toSave.id)
+      if (remote?.payment?.transactions?.length) {
+        toSave = {
+          ...toSave,
+          payment: { ...toSave.payment, transactions: remote.payment.transactions },
+        }
+      }
+    }
+  }
+  toSave = toPersistedBooking(toSave)
+
+  if (index === -1) bookingsCache = [...bookingsCache, toSave]
   else {
     const next = [...bookingsCache]
-    next[index] = booking
+    next[index] = toSave
     bookingsCache = next
   }
   saveBookingsToLocal(bookingsCache)
-  markBookingDetailLoaded(booking.id)
+  markBookingDetailLoaded(toSave.id)
   if (isSupabaseConfigured()) {
     try {
-      await persistBookingRemote(booking)
+      await persistBookingRemote(toSave)
     } catch (e) {
       if (previousAtIndex) {
         const next = [...bookingsCache]

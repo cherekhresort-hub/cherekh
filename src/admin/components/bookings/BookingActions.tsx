@@ -66,8 +66,8 @@ export const BookingActions = ({ booking }: BookingActionsProps) => {
   const actions: ActionItem[] = [
     {
       key: 'print',
-      label: 'Invoice PDF',
-      description: 'Print or save as PDF',
+      label: 'Print on pad',
+      description: 'Billing details for letterhead',
       icon: <FaPrint className="w-4 h-4" />,
       tone: 'forest',
       onClick: print,

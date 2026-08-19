@@ -9,7 +9,7 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# Team access API — rewrite before SPA fallback in dist/_redirects
+# Team access API - rewrite before SPA fallback in dist/_redirects
 [[redirects]]
   from = "/api/team-members"
   to = "/.netlify/functions/team-members"

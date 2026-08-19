@@ -65,6 +65,15 @@ export interface Payment {
   notes?: string
   transactions?: PaymentTransaction[]
   discount?: BookingDiscount
+  /**
+   * Net collected (payments − refunds) from the admin list view.
+   * Used only when full transaction lines are not loaded. Never persist this.
+   */
+  listNetPaid?: number
+  listTxCount?: number
+  listLastTransaction?: Pick<PaymentTransaction, 'amount' | 'type' | 'recordedAt'> & {
+    method?: PaymentMethod
+  }
 }
 
 export const computeDiscountAmount = (
@@ -107,7 +116,7 @@ export interface EmergencyContact {
   relation?: string
 }
 
-/** @deprecated use Booking.guests / emergencyContact / adminNotes — kept for migration */
+/** @deprecated use Booking.guests / emergencyContact / adminNotes - kept for migration */
 export interface GuestDetails {
   idType?: GuestIdType
   idNumber?: string
@@ -121,6 +130,40 @@ export interface GuestDetails {
   emergencyContactRelation?: string
   adminNotes?: string
 }
+
+export type ExtraChargeCategory = 'food' | 'other'
+export type FoodMeal = 'breakfast' | 'lunch' | 'dinner'
+
+export const FOOD_MEALS: FoodMeal[] = ['breakfast', 'lunch', 'dinner']
+export const FOOD_MEAL_LABELS: Record<FoodMeal, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+}
+
+export interface ExtraCharge {
+  id: string
+  category: ExtraChargeCategory
+  name: string
+  amount: number
+  quantity: number
+  unitPrice?: number
+  roomName?: string
+  menuItemId?: string
+  meal?: FoodMeal
+  recordedAt: string
+  recordedBy?: string
+}
+
+export const extraLineTotal = (extra: ExtraCharge): number => Math.round(Number(extra.amount) || 0)
+
+export const sumExtras = (
+  extras: ExtraCharge[] | undefined,
+  category?: ExtraChargeCategory
+): number =>
+  (extras ?? [])
+    .filter((extra) => !category || extra.category === category)
+    .reduce((sum, extra) => sum + extraLineTotal(extra), 0)
 
 export interface Booking {
   id: string
@@ -148,6 +191,9 @@ export interface Booking {
   guestDetails?: GuestDetails
   notes: BookingNote[]
   payment: Payment
+  extras?: ExtraCharge[]
+  /** List-row extra charges total when full extras are not loaded. Never persist. */
+  listExtrasTotal?: number
   createdAt: string
   updatedAt: string
 }
@@ -478,6 +524,10 @@ export const updateBookingPayment = async (
 }
 
 export interface BookingFinancials {
+  roomRent: number
+  extrasTotal: number
+  foodTotal: number
+  otherTotal: number
   subtotal: number
   discount: number
   total: number
@@ -490,16 +540,52 @@ export interface BookingFinancials {
 
 export const computeBookingFinancials = (booking: Booking): BookingFinancials => {
   const txs = booking.payment?.transactions ?? []
-  const paid = txs
-    .filter((t) => t.type === 'payment' || t.type === 'adjustment')
-    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
-  const refunded = txs
-    .filter((t) => t.type === 'refund')
-    .reduce((sum, t) => sum + Math.abs(Number(t.amount) || 0), 0)
-  const subtotal = Number(booking.payment?.amount) || 0
-  const discount = computeDiscountAmount(subtotal, booking.payment?.discount)
-  const total = Math.max(0, subtotal - discount)
-  const net = paid - refunded
+  const money = (n: number) => Math.round(Number(n) || 0)
+
+  let paid = money(
+    txs
+      .filter((t) => t.type === 'payment' || t.type === 'adjustment')
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+  )
+  let refunded = money(
+    txs
+      .filter((t) => t.type === 'refund')
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount) || 0), 0)
+  )
+  const roomRent = money(Number(booking.payment?.amount) || 0)
+  const extras = booking.extras ?? []
+  const foodTotal = money(sumExtras(extras, 'food'))
+  const otherTotal = money(sumExtras(extras, 'other'))
+  const extrasTotal =
+    extras.length > 0 ? money(foodTotal + otherTotal) : money(Number(booking.listExtrasTotal) || 0)
+  const discount = money(computeDiscountAmount(roomRent, booking.payment?.discount))
+  const total = Math.max(0, roomRent - discount + extrasTotal)
+  let net = paid - refunded
+
+  // List stubs omit transaction lines. Without this, a paid booking looks fully outstanding
+  // until the full payload is fetched (reports, filters, dashboard).
+  if (txs.length === 0) {
+    const listNet = booking.payment?.listNetPaid
+    const stored = booking.payment?.status
+    const hasListNet = typeof listNet === 'number' && Number.isFinite(listNet) && listNet !== 0
+    if (hasListNet) {
+      net = money(listNet)
+      if (net >= 0) {
+        paid = net
+        refunded = 0
+      } else {
+        paid = 0
+        refunded = Math.abs(net)
+      }
+    } else if (stored === 'paid' && total > 0) {
+      net = total
+      paid = total
+    } else if (stored === 'refunded') {
+      refunded = Math.max(refunded, total)
+      net = paid - refunded
+    }
+  }
+
   const outstanding = Math.max(0, total - net)
   let status: Payment['status'] = booking.payment?.status ?? 'pending'
   if (total === 0 && net === 0) status = 'pending'
@@ -510,7 +596,11 @@ export const computeBookingFinancials = (booking: Booking): BookingFinancials =>
 
   const sortedTxs = [...txs].sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : -1))
   return {
-    subtotal,
+    roomRent,
+    extrasTotal,
+    foodTotal,
+    otherTotal,
+    subtotal: roomRent,
     discount,
     total,
     paid: net,
@@ -519,6 +609,80 @@ export const computeBookingFinancials = (booking: Booking): BookingFinancials =>
     status,
     lastPaymentAt: sortedTxs.find((t) => t.type !== 'refund')?.recordedAt,
   }
+}
+
+/** Rebuild a ledger line when the booking is paid/refunded but transaction rows were lost. */
+export const inferredLedgerFromPaymentStatus = (booking: Booking): PaymentTransaction[] => {
+  const existing = booking.payment?.transactions ?? []
+  if (existing.length > 0) return existing
+
+  const fin = computeBookingFinancials(booking)
+  if (fin.paid <= 0 && fin.refunded <= 0) return []
+
+  const recordedAt =
+    booking.payment?.paidAt || booking.updatedAt || booking.createdAt || new Date().toISOString()
+  const method = (booking.payment?.method as PaymentMethod | undefined) ?? undefined
+
+  if (fin.refunded > 0 && fin.paid <= 0) {
+    return [
+      {
+        id: `restored-refund-${booking.id}`,
+        type: 'refund',
+        amount: fin.refunded,
+        method,
+        recordedAt,
+        recordedBy: 'System',
+        notes: 'Restored from booking payment status',
+      },
+    ]
+  }
+
+  return [
+    {
+      id: `restored-payment-${booking.id}`,
+      type: 'payment',
+      amount: fin.paid,
+      method,
+      recordedAt,
+      recordedBy: 'System',
+      notes: 'Restored from paid balance',
+    },
+  ]
+}
+
+export type BookingCashMovement = {
+  amount: number
+  isRefund: boolean
+  recordedAt: string
+  method?: PaymentMethod
+}
+
+/** Cash in/out for reports. Uses transaction lines when loaded; otherwise list-summary net paid. */
+export const getBookingCashMovements = (booking: Booking): BookingCashMovement[] => {
+  const txs = booking.payment?.transactions ?? []
+  if (txs.length > 0) {
+    return txs
+      .filter((tx) => tx.type === 'payment' || tx.type === 'refund' || tx.type === 'adjustment')
+      .map((tx) => ({
+        amount: Math.abs(Number(tx.amount) || 0),
+        isRefund: tx.type === 'refund',
+        recordedAt: tx.recordedAt,
+        method: tx.method,
+      }))
+  }
+
+  const fin = computeBookingFinancials(booking)
+  const recordedAt =
+    booking.payment?.paidAt || booking.updatedAt || booking.createdAt || new Date().toISOString()
+  const method = (booking.payment?.method as PaymentMethod | undefined) ?? undefined
+
+  if (fin.refunded > 0 && fin.paid <= 0) {
+    return [{ amount: fin.refunded, isRefund: true, recordedAt, method }]
+  }
+  if (fin.paid > 0) {
+    return [{ amount: fin.paid, isRefund: false, recordedAt, method }]
+  }
+  return []
 }
 
 const recomputePaymentStatus = (booking: Booking): Booking => {
@@ -601,8 +765,104 @@ export const setBookingDiscount = async (
     category: 'booking',
     action: cleanDiscount ? 'booking.discount' : 'booking.discount_removed',
     title: cleanDiscount ? 'Discount applied' : 'Discount removed',
-    message: `${bookingRef.name}: ${label}${cleanDiscount?.reason ? ` — ${cleanDiscount.reason}` : ''}`,
+    message: `${bookingRef.name}: ${label}${cleanDiscount?.reason ? ` - ${cleanDiscount.reason}` : ''}`,
     entityId: id,
+  })
+  return next
+}
+
+export type ExtraChargeInput = {
+  category: ExtraChargeCategory
+  name: string
+  amount: number
+  quantity?: number
+  unitPrice?: number
+  roomName?: string
+  menuItemId?: string
+  meal?: FoodMeal
+  recordedBy?: string
+}
+
+export const addBookingExtras = async (
+  id: string,
+  inputs: ExtraChargeInput[]
+): Promise<Booking | null> => {
+  const existing = getBookings().find((b) => b.id === id)
+  if (!existing) return null
+  const bookingRef = (await ensureBookingDetail(id)) ?? existing
+  const stamp = Date.now()
+  const extras: ExtraCharge[] = []
+
+  for (const [index, input] of inputs.entries()) {
+    const quantity = Math.max(1, Math.round(Number(input.quantity) || 1))
+    const unitPrice = Math.max(0, Math.round(Number(input.unitPrice ?? input.amount) || 0))
+    const amount = Math.max(0, Math.round(Number(input.amount) || unitPrice * quantity))
+    if (!input.name.trim() || amount <= 0) continue
+    extras.push({
+      id: `xtr-${stamp}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+      category: input.category,
+      name: input.name.trim(),
+      amount,
+      quantity,
+      unitPrice,
+      roomName: input.roomName?.trim() || undefined,
+      menuItemId: input.menuItemId,
+      meal: input.category === 'food' ? input.meal : undefined,
+      recordedAt: new Date().toISOString(),
+      recordedBy: input.recordedBy?.trim() || 'Staff',
+    })
+  }
+
+  if (extras.length === 0) return null
+
+  const next: Booking = recomputePaymentStatus({
+    ...bookingRef,
+    extras: [...(bookingRef.extras ?? []), ...extras],
+    updatedAt: new Date().toISOString(),
+  })
+  await persistBooking(next)
+  const foodCount = extras.filter((extra) => extra.category === 'food').length
+  const mealLabel =
+    extras[0]?.meal && extras.every((extra) => extra.meal === extras[0].meal)
+      ? FOOD_MEAL_LABELS[extras[0].meal]
+      : undefined
+  void notifyAdminOfManagerAction({
+    category: 'booking',
+    action: 'booking.extra_added',
+    title: foodCount === extras.length ? 'Food billed to room' : 'Extra charge added',
+    message: `${bookingRef.name}: ${extras.length} item${extras.length === 1 ? '' : 's'} · ${extras.reduce((sum, extra) => sum + extra.amount, 0)} BDT${mealLabel ? ` · ${mealLabel}` : ''}`,
+    entityId: id,
+  })
+  return next
+}
+
+export const addBookingExtra = async (
+  id: string,
+  input: ExtraChargeInput
+): Promise<Booking | null> => addBookingExtras(id, [input])
+
+export const removeBookingExtra = async (
+  bookingId: string,
+  extraId: string
+): Promise<Booking | null> => {
+  const existing = getBookings().find((b) => b.id === bookingId)
+  if (!existing) return null
+  const bookingRef = (await ensureBookingDetail(bookingId)) ?? existing
+  const remaining = (bookingRef.extras ?? []).filter((extra) => extra.id !== extraId)
+  if (remaining.length === (bookingRef.extras ?? []).length) return bookingRef
+
+  const next: Booking = recomputePaymentStatus({
+    ...bookingRef,
+    extras: remaining,
+    updatedAt: new Date().toISOString(),
+  })
+  await persistBooking(next)
+  void notifyAdminOfManagerAction({
+    category: 'booking',
+    action: 'booking.extra_removed',
+    title: 'Extra charge removed',
+    message: `${bookingRef.name}: extra charge deleted`,
+    entityId: bookingId,
   })
   return next
 }
@@ -622,7 +882,10 @@ export const recordPaymentTransaction = async (
   input: RecordPaymentInput
 ): Promise<Booking | null> => {
   const bookings = getBookings()
-  const index = bookings.findIndex((b) => b.id === id)
+  const existing = bookings.find((b) => b.id === id)
+  if (!existing) return null
+  const bookingRef = (await ensureBookingDetail(id)) ?? existing
+  const index = getBookings().findIndex((b) => b.id === id)
   if (index === -1) return null
 
   const tx: PaymentTransaction = {
@@ -636,11 +899,11 @@ export const recordPaymentTransaction = async (
     recordedAt: input.recordedAt ?? new Date().toISOString(),
   }
 
-  const existingTxs = bookings[index].payment?.transactions ?? []
+  const existingTxs = bookingRef.payment?.transactions ?? []
   const next: Booking = recomputePaymentStatus({
-    ...bookings[index],
+    ...bookingRef,
     payment: {
-      ...bookings[index].payment,
+      ...bookingRef.payment,
       transactions: [...existingTxs, tx],
     },
     updatedAt: new Date().toISOString(),
@@ -650,9 +913,28 @@ export const recordPaymentTransaction = async (
     category: 'booking',
     action: 'booking.payment',
     title: 'Payment activity',
-    message: `${bookings[index].name}: ${tx.type} ${tx.amount} BDT${tx.method ? ` via ${tx.method}` : ''}`,
+    message: `${bookingRef.name}: ${tx.type} ${tx.amount} BDT${tx.method ? ` via ${tx.method}` : ''}`,
     entityId: id,
   })
+  return next
+}
+
+export const backfillMissingPaymentTransactions = async (id: string): Promise<Booking | null> => {
+  const existing = getBookings().find((b) => b.id === id)
+  if (!existing) return null
+  const full = (await ensureBookingDetail(id)) ?? existing
+  if ((full.payment?.transactions ?? []).length > 0) return full
+  const inferred = inferredLedgerFromPaymentStatus(full)
+  if (inferred.length === 0) return full
+  const next: Booking = recomputePaymentStatus({
+    ...full,
+    payment: {
+      ...full.payment,
+      transactions: inferred,
+    },
+    updatedAt: new Date().toISOString(),
+  })
+  await persistBooking(next)
   return next
 }
 
@@ -718,7 +1000,7 @@ export const updateBooking = async (
     category: 'booking',
     action: 'booking.updated',
     title: 'Booking updated',
-    message: `${updated.name} — reservation details changed`,
+    message: `${updated.name} - reservation details changed`,
     entityId: id,
   })
   return updated
@@ -750,7 +1032,7 @@ export const updateBookingGuestInfo = async (
     category: 'booking',
     action: 'booking.guest_info',
     title: 'Guest details updated',
-    message: `${updated.name} — guest IDs, emergency contact, or admin notes changed`,
+    message: `${updated.name} - guest IDs, emergency contact, or admin notes changed`,
     entityId: id,
   })
   return updated

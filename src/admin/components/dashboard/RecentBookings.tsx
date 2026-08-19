@@ -103,7 +103,12 @@ export const RecentBookings = ({ bookings }: RecentBookingsProps) => {
                         return (
                           <>
                             <p className="font-serif text-forest-700">{formatBDT(fin.total)}</p>
-                            <p className="text-xs text-stone-500">{b.payment?.status ?? 'pending'}</p>
+                            <p className="text-xs text-stone-500">{fin.status}</p>
+                            {fin.outstanding > 0 && (
+                              <p className="text-[10px] text-amber-700">
+                                due {formatBDT(fin.outstanding)}
+                              </p>
+                            )}
                             {fin.discount > 0 && (
                               <p className="text-[10px] text-stone-400">
                                 was {formatBDT(fin.subtotal)}

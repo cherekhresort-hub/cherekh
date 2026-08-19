@@ -1,4 +1,4 @@
-/* Self-hosted fonts — latin subset only (smaller bundle) */
+/* Self-hosted fonts - latin subset only (smaller bundle) */
 @import '@fontsource/inter/latin-400.css';
 @import '@fontsource/inter/latin-500.css';
 @import '@fontsource/inter/latin-600.css';
@@ -39,7 +39,7 @@
     @apply pt-4 pb-12 sm:pt-5 sm:pb-16;
   }
 
-  /* Warm beige surfaces — sections inherit page bg; cards sit slightly lighter */
+  /* Warm beige surfaces - sections inherit page bg; cards sit slightly lighter */
   .bg-section {
     @apply bg-resort-bg;
   }
@@ -155,5 +155,20 @@
 
 .hero-dots li button:before {
   display: none;
+}
+
+/* Hide the browser's locale date placeholder so we can show a custom dd/mm/yyyy overlay. */
+.date-input-empty {
+  color: transparent;
+}
+
+.date-input-empty::-webkit-datetime-edit,
+.date-input-empty::-webkit-datetime-edit-fields-wrapper,
+.date-input-empty::-webkit-datetime-edit-text,
+.date-input-empty::-webkit-datetime-edit-month-field,
+.date-input-empty::-webkit-datetime-edit-day-field,
+.date-input-empty::-webkit-datetime-edit-year-field,
+.date-input-empty::-webkit-date-and-time-value {
+  color: transparent;
 }
 

@@ -1,87 +1,137 @@
+export const MENU_PORTIONS = ['1:1', '1:2'] as const
+export type MenuPortion = (typeof MENU_PORTIONS)[number]
+export const DEFAULT_MENU_PORTION: MenuPortion = '1:1'
+
 export interface MenuItem {
-  number: string
-  nameBn: string
-  nameEn: string
+  id: string
+  name: string
   price: number
-  isHouseFavourite?: boolean
+  /** Serving size: `1:1` (one person) or `1:2` (two people). */
+  portion?: MenuPortion
 }
 
 export interface MenuCategory {
   id: string
-  titleBn: string
-  titleEn: string
-  subtitle: string
+  title: string
   items: MenuItem[]
 }
 
-export const menuCategories: MenuCategory[] = [
+/** Default Cherekh restaurant menu. Overridden by admin Menu when published. */
+export const defaultMenuCategories: MenuCategory[] = [
   {
-    id: 'main-courses',
-    titleBn: 'প্রধান খাবার',
-    titleEn: 'Main Courses',
-    subtitle: 'Hearty meals from our kitchen',
+    id: 'rice-dal',
+    title: 'Rice & Dal',
     items: [
-      { number: '01', nameBn: 'ভাত', nameEn: 'Steamed Rice', price: 40 },
-      { number: '02', nameBn: 'দেশি মুরগি', nameEn: 'Local Chicken', price: 300, isHouseFavourite: true },
-      { number: '03', nameBn: 'ব্রয়লার মুরগি', nameEn: 'Broiler Chicken', price: 200 },
-      { number: '04', nameBn: 'চিকেন ফ্রাই', nameEn: 'Chicken Fry', price: 200 },
-      { number: '05', nameBn: 'নদীর মাছ', nameEn: 'River Fish', price: 300, isHouseFavourite: true },
-      { number: '06', nameBn: 'পুকুরের মাছ', nameEn: 'Farm / Regular Fish', price: 250 },
-      { number: '07', nameBn: 'গরুর মাংস', nameEn: 'Beef Curry', price: 350, isHouseFavourite: true },
-      { number: '08', nameBn: 'খাসির মাংস', nameEn: 'Mutton Curry', price: 350 },
-      { number: '09', nameBn: 'বলচাও (শুঁটকি)', nameEn: 'Balachao — Dry Fish', price: 200 },
-      { number: '10', nameBn: 'ডাল', nameEn: 'Lentil Dal', price: 60 },
-      { number: '11', nameBn: 'শাকসবজি', nameEn: 'Mixed Vegetables', price: 100 },
-      { number: '12', nameBn: 'ভর্তা', nameEn: 'Bhorta (Mixed)', price: 90 },
-      { number: '13', nameBn: 'আলু ভর্তা', nameEn: 'Mashed Potato Bhorta', price: 50 },
-      { number: '14', nameBn: 'ডিম ভর্তা', nameEn: 'Egg Bhorta', price: 60 },
-      { number: '15', nameBn: 'ডিম', nameEn: 'Egg (any style)', price: 60 },
-      { number: '16', nameBn: 'সালাদ', nameEn: 'Fresh Salad', price: 100 },
+      { id: 'rice', name: 'Rice', price: 60, portion: '1:1' },
+      { id: 'dal', name: 'Dal', price: 80, portion: '1:1' },
+      { id: 'alu-vorta', name: 'Alu Vorta', price: 60, portion: '1:1' },
+      { id: 'begun-vorta', name: 'Begun Vorta', price: 80, portion: '1:1' },
+      { id: 'tomato-vorta', name: 'Tomato Vorta', price: 80, portion: '1:1' },
+      { id: 'mixed-salad', name: 'Mixed Salad (Local Style)', price: 70, portion: '1:1' },
     ],
   },
   {
-    id: 'snacks',
-    titleBn: 'স্ন্যাকস ও ফাস্ট ফুড',
-    titleEn: 'Snacks & Fast Food',
-    subtitle: 'International bites & light meals',
+    id: 'fish',
+    title: 'Fish Delicacies',
     items: [
-      { number: '17', nameBn: 'ফ্রেঞ্চ ফ্রাই', nameEn: 'French Fries', price: 150 },
-      { number: '18', nameBn: 'নাচোস', nameEn: 'Nachos', price: 300, isHouseFavourite: true },
-      { number: '19', nameBn: 'চাউমিন', nameEn: 'Chow Mein Noodles', price: 250 },
-      { number: '20', nameBn: 'পাস্তা', nameEn: 'Pasta — Red Sauce', price: 250 },
-      { number: '21', nameBn: 'হোয়াইট সস পাস্তা', nameEn: 'White Sauce Pasta', price: 300, isHouseFavourite: true },
-      { number: '22', nameBn: 'স্যুপ', nameEn: 'Soup', price: 120 },
-      { number: '23', nameBn: 'কফি', nameEn: 'Coffee', price: 80 },
+      { id: 'fish-fry', name: 'Fish Fry (Telapia/Rui)', price: 200, portion: '1:1' },
+      { id: 'fish-curry', name: 'Fish Curry (Local Style)', price: 250, portion: '1:1' },
+      { id: 'bamboo-fish', name: 'Bamboo Fish', price: 500, portion: '1:2' },
+      { id: 'fish-pahari', name: 'Fish (Pahari Style)', price: 300, portion: '1:1' },
     ],
   },
   {
-    id: 'breakfast',
-    titleBn: 'সকালের নাস্তা',
-    titleEn: 'Breakfast',
-    subtitle: 'Served fresh every morning',
+    id: 'eggs',
+    title: 'Eggs',
     items: [
-      { number: '24', nameBn: 'পরোটা', nameEn: 'Paratha', price: 30 },
-      { number: '25', nameBn: 'ডিম', nameEn: 'Egg — Omelette / Poached / Boiled', price: 40 },
-      { number: '26', nameBn: 'সবজি ভাজি', nameEn: 'Vegetable Fry', price: 50 },
-      { number: '27', nameBn: 'চা', nameEn: 'Tea', price: 50 },
+      { id: 'egg-lakso', name: 'Egg Lakso', price: 100, portion: '1:1' },
+      { id: 'egg-curry', name: 'Egg Curry', price: 100, portion: '1:1' },
+    ],
+  },
+  {
+    id: 'chicken-meat',
+    title: 'Chicken & Meat',
+    items: [
+      { id: 'chicken-lakso-farm', name: 'Chicken Lakso - Farm', price: 180, portion: '1:1' },
+      { id: 'chicken-lakso-local', name: 'Chicken Lakso - Local (Pahari)', price: 250, portion: '1:1' },
+      { id: 'chicken-bhuna-farm', name: 'Chicken Bhuna - Farm', price: 220, portion: '1:1' },
+      { id: 'chicken-bhuna-local', name: 'Chicken Bhuna - Local (Pahari)', price: 330, portion: '1:1' },
+      { id: 'chicken-pahari-farm', name: 'Chicken Pahari Style - Farm', price: 250, portion: '1:1' },
+      { id: 'chicken-pahari-local', name: 'Chicken Pahari Style - Local (Pahari)', price: 350, portion: '1:1' },
+      { id: 'bamboo-chicken-farm', name: 'Bamboo Chicken - Farm', price: 1000, portion: '1:2' },
+      { id: 'bamboo-chicken-local', name: 'Bamboo Chicken - Local (Pahari)', price: 1600, portion: '1:2' },
+    ],
+  },
+  {
+    id: 'traditional',
+    title: 'Traditional & Local Specials',
+    items: [
+      { id: 'pajon', name: 'Pajon (Vegetable Mix)', price: 120, portion: '1:1' },
     ],
   },
   {
     id: 'beverages',
-    titleBn: 'জুস ও পানীয়',
-    titleEn: 'Juices & Beverages',
-    subtitle: 'Freshly blended',
+    title: 'Beverages',
     items: [
-      { number: '28', nameBn: 'পেঁপে জুস', nameEn: 'Papaya Juice', price: 100, isHouseFavourite: true },
-      { number: '29', nameBn: 'লেবুর শরবত', nameEn: 'Lemon Juice', price: 60 },
-      { number: '30', nameBn: 'তরমুজের জুস', nameEn: 'Watermelon Juice', price: 120 },
-      { number: '31', nameBn: 'গাজরের জুস', nameEn: 'Carrot Juice', price: 120 },
-      { number: '32', nameBn: 'কদবেল জুস', nameEn: 'Wood Apple Juice', price: 120 },
-      { number: '33', nameBn: 'আমের জুস', nameEn: 'Mango Juice', price: 120, isHouseFavourite: true },
-      { number: '34', nameBn: 'আপেল জুস', nameEn: 'Apple Juice', price: 120 },
+      { id: 'tohza', name: 'Tohza', price: 100, portion: '1:1' },
+      { id: 'milk-tea', name: 'Milk Tea', price: 60, portion: '1:1' },
+      { id: 'rong-tea', name: 'Rong Tea', price: 40, portion: '1:1' },
+      { id: 'coffee', name: 'Coffee', price: 120, portion: '1:1' },
     ],
   },
 ]
 
+/** @deprecated use defaultMenuCategories */
+export const menuCategories = defaultMenuCategories
+
 export const formatMenuPrice = (price: number): string =>
   `৳ ${price.toLocaleString('en-BD')}`
+
+export const normalizeMenuPortion = (portion?: string): MenuPortion => {
+  const value = (portion ?? '').trim().replace(/\s+/g, '')
+  return value === '1:2' || value === '1-2' ? '1:2' : '1:1'
+}
+
+export const formatMenuPortion = (portion?: string): MenuPortion => normalizeMenuPortion(portion)
+
+export const flattenMenuItems = (categories: MenuCategory[]): MenuItem[] =>
+  categories.flatMap((category) => category.items)
+
+/** Move an item within a section or into another section. `toIndex` is the insertion index in the destination. */
+export const moveMenuItem = (
+  categories: MenuCategory[],
+  itemId: string,
+  toCategoryId: string,
+  toIndex: number
+): MenuCategory[] => {
+  const fromCategory = categories.find((category) => category.items.some((item) => item.id === itemId))
+  const toCategory = categories.find((category) => category.id === toCategoryId)
+  if (!fromCategory || !toCategory) return categories
+
+  const fromIndex = fromCategory.items.findIndex((item) => item.id === itemId)
+  if (fromIndex < 0) return categories
+
+  const insertBefore = Math.max(0, Math.min(toIndex, toCategory.items.length))
+  if (fromCategory.id === toCategory.id && (insertBefore === fromIndex || insertBefore === fromIndex + 1)) {
+    return categories
+  }
+
+  const item = fromCategory.items[fromIndex]
+  return categories.map((category) => {
+    if (category.id === fromCategory.id && category.id === toCategory.id) {
+      const items = category.items.filter((entry) => entry.id !== itemId)
+      const nextIndex = fromIndex < insertBefore ? insertBefore - 1 : insertBefore
+      items.splice(nextIndex, 0, item)
+      return { ...category, items }
+    }
+    if (category.id === fromCategory.id) {
+      return { ...category, items: category.items.filter((entry) => entry.id !== itemId) }
+    }
+    if (category.id === toCategory.id) {
+      const items = [...category.items]
+      items.splice(insertBefore, 0, item)
+      return { ...category, items }
+    }
+    return category
+  })
+}

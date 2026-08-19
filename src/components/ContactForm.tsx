@@ -116,6 +116,7 @@ const ContactForm = () => {
           value={formData.name}
           onChange={handleChange}
           className={inputClass}
+          placeholder="e.g. MD Rafiq"
         />
       </div>
 
@@ -135,6 +136,7 @@ const ContactForm = () => {
             value={formData.email}
             onChange={handleChange}
             className={inputClass}
+            placeholder="name@example.com"
           />
         </div>
         <div>
@@ -151,6 +153,7 @@ const ContactForm = () => {
             value={formData.phone}
             onChange={handleChange}
             className={inputClass}
+            placeholder="+880 1XXX XXXXXX"
           />
         </div>
       </div>

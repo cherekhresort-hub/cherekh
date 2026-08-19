@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 type LazyWhenVisibleProps = {
   children: ReactNode
-  /** IntersectionObserver rootMargin — load before entering viewport */
+  /** IntersectionObserver rootMargin - load before entering viewport */
   rootMargin?: string
   className?: string
 }
 
 /**
- * Renders children only when near the viewport — defers JS chunks and images below the fold.
+ * Renders children only when near the viewport - defers JS chunks and images below the fold.
  */
 const LazyWhenVisible = ({
   children,

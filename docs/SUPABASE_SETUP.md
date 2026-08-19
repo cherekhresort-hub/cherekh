@@ -1,4 +1,4 @@
-# Supabase setup — Cherekh Center
+# Supabase setup - Cherekh Center
 
 ## 1. Environment variables
 
@@ -18,12 +18,12 @@ VITE_SUPABASE_ANON_KEY=<your anon public key>
    - `supabase/migrations/001_bookings.sql`
    - `supabase/migrations/002_user_roles.sql`
    - `supabase/migrations/003_bookings_list_view.sql`
-   - `supabase/migrations/004_admin_notifications.sql` *(legacy — superseded by 026/027; skip if setting up fresh after 027)*
+   - `supabase/migrations/004_admin_notifications.sql` *(legacy - superseded by 026/027; skip if setting up fresh after 027)*
 
 **001** creates:
 
 - `bookings` table (full booking JSON in `payload`)
-- `booking_availability` view (dates/rooms only — safe for public availability checks)
+- `booking_availability` view (dates/rooms only - safe for public availability checks)
 - Row Level Security policies
 
 **002** creates:
@@ -35,14 +35,14 @@ VITE_SUPABASE_ANON_KEY=<your anon public key>
 
 **003** creates:
 
-- `bookings_list` view — summary columns extracted from `payload` (guest name, rooms, payment totals) without sending the full JSON blob on every admin page load
+- `bookings_list` view - summary columns extracted from `payload` (guest name, rooms, payment totals) without sending the full JSON blob on every admin page load
 - `grant select` for authenticated users
 
-**004** *(removed)* — was `admin_notifications` for the old manager bell icon. Use **`026_staff_activity_log.sql`** and **`027_drop_admin_notifications.sql`** instead.
+**004** *(removed)* - was `admin_notifications` for the old manager bell icon. Use **`026_staff_activity_log.sql`** and **`027_drop_admin_notifications.sql`** instead.
 
 **026** creates:
 
-- `staff_activity_log` table — all staff roles log important actions; admins read them on the **Activity** page
+- `staff_activity_log` table - all staff roles log important actions; admins read them on the **Activity** page
 - RLS: staff **insert** their own rows; admins **select**
 
 Enable **Realtime** on `staff_activity_log` (Database → Replication) so Activity counts update live.
@@ -51,11 +51,11 @@ Enable **Realtime** on `staff_activity_log` (Database → Replication) so Activi
 
 1. Dashboard → **Authentication** → **Users** → **Add user** (once per email above)
 2. Set a strong password for each account
-3. Sign in at `/login` — only emails listed in `user_roles` can access the admin console
+3. Sign in at `/login` - only emails listed in `user_roles` can access the admin console
 
 Managers can view and edit most of the UI, but:
 
-- **Cannot** change room catalog rates or booking subtotals (rent) — rate card only
+- **Cannot** change room catalog rates or booking subtotals (rent) - rate card only
 - **Cannot** delete bookings, payment lines, discounts, staff, or custom roles
 - **Every staff action** (bookings, discounts, status, staff, housekeeping, guests, settings, inquiries, team access) is recorded in the **Activity** log
 
@@ -75,9 +75,9 @@ On first load with Supabase configured, if the cloud database is empty but the b
 
 Usually one of:
 
-1. **`002_user_roles.sql` not run** — run it so the two emails are seeded in `user_roles`.
-2. **Auth user email must match exactly** (case-insensitive) — e.g. `malthas.dev01@gmail.com`, `cherekhresort@gmail.com`.
-3. **Missing grant on `user_roles`** — if you already ran an older `002`, run:
+1. **`002_user_roles.sql` not run** - run it so the two emails are seeded in `user_roles`.
+2. **Auth user email must match exactly** (case-insensitive) - e.g. `malthas.dev01@gmail.com`, `cherekhresort@gmail.com`.
+3. **Missing grant on `user_roles`** - if you already ran an older `002`, run:
 
 ```sql
 grant select on public.user_roles to authenticated;
@@ -131,6 +131,12 @@ Run **`009_booking_inventory_rpc.sql`** for atomic inventory checks (prevents do
 Run **`030_advisory_locks_and_rate_limits.sql`** for per-room advisory locks (stronger concurrent booking safety), server-side booking/contact rate limits, and contact-form inserts via RPC only.
 
 Run **`031_booking_rate_limit_30.sql`** if you already applied 030 with the older 5/hour booking cap (updates the limit to **30/hour**). Fresh installs that run the updated 030 file already use 30/hour.
+
+Run **`039_advisor_function_security.sql`** to pin `search_path` on guest-email/phone helpers and switch role helpers to `SECURITY INVOKER`.
+
+Run **`040_advisor_hide_definer_rpcs.sql`** after 039. Guest and staff privileged RPCs move into the `private` schema (do not add `private` under **Settings → API → Exposed schemas**). Public `supabase.rpc(...)` names stay the same.
+
+Enable **Authentication → Providers → Email → Leaked password protection** in the dashboard (HaveIBeenPwned; Pro plan and above). That setting is not in SQL and is the only advisor warning 040 cannot clear.
 
 **Rate limits (public):** booking **30/hour** per email or phone; contact form **10/hour** per email or phone. Admin bookings are not rate limited.
 

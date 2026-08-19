@@ -51,7 +51,7 @@ export const pageMeta: Record<string, PageMeta> = {
   '/dining': {
     title: 'Dining & Menu - Cherekh Center',
     description:
-      'Explore the Cherekh Restaurant menu — main courses, snacks, breakfast, and fresh juices. Authentic Bangla cuisine in Thanchi, Bandarban. Complimentary breakfast with every room.',
+      'Explore the Cherekh Restaurant menu - rice and dal, fish, chicken, and traditional local dishes. Authentic flavours in Thanchi, Bandarban. Complimentary breakfast with every room.',
     keywords:
       'Cherekh Center menu, restaurant Thanchi, Bangla food Bandarban, on-site dining, Cherekh Restaurant menu',
     canonical: siteUrl('/dining'),
@@ -123,7 +123,7 @@ export const pageMeta: Record<string, PageMeta> = {
   '/faq': {
     title: 'FAQ - Cherekh Center Thanchi, Bandarban',
     description:
-      'Frequently asked questions about Cherekh Center in Thanchi, Bandarban — rooms, rates, dining, conference facilities, experiences, travel directions, check-in times, cancellation, and booking.',
+      'Frequently asked questions about Cherekh Center in Thanchi, Bandarban - rooms, rates, dining, conference facilities, experiences, travel directions, check-in times, cancellation, and booking.',
     keywords:
       'Cherekh Center FAQ, Thanchi accommodation questions, Bandarban hotel FAQ, Cherekh booking help, conference room Thanchi FAQ',
     canonical: siteUrl('/faq'),

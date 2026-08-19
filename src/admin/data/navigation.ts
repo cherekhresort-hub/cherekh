@@ -10,6 +10,7 @@ import {
   Settings,
   Shield,
   ScrollText,
+  UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -26,6 +27,7 @@ export const adminNavItems: AdminNavItem[] = [
   { to: '/admin/rooms', label: 'Rooms', icon: BedDouble, description: 'Inventory' },
   { to: '/admin/guests', label: 'Guests', icon: Users, description: 'Profiles' },
   { to: '/admin/housekeeping', label: 'Housekeeping', icon: Sparkles, description: 'Cleaning' },
+  { to: '/admin/menu', label: 'Menu', icon: UtensilsCrossed, description: 'Dining prices' },
   { to: '/admin/staff', label: 'Staff', icon: UserCog, description: 'Team roster' },
   { to: '/admin/inquiries', label: 'Inquiries', icon: MessageSquareText, description: 'Contact form' },
   { to: '/admin/reports', label: 'Reports', icon: BarChart3, description: 'Analytics' },

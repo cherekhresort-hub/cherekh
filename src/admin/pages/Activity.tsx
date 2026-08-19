@@ -21,6 +21,7 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../../contexts/AuthProvider'
 import {
   categoryLabel,
+  isStaffLoginEntry,
   roleLabelForActivity,
   type StaffActivityCategory,
   type StaffActivityEntry,
@@ -39,6 +40,7 @@ import { confirmDeleteActivity } from '../utils/confirmDelete'
 
 const CATEGORY_TABS: { value: ActivityCategoryFilter; label: string }[] = [
   { value: 'all', label: 'All' },
+  { value: 'login', label: 'Logins' },
   { value: 'booking', label: 'Bookings' },
   { value: 'inquiry', label: 'Inquiries' },
   { value: 'housekeeping', label: 'Housekeeping' },
@@ -123,9 +125,17 @@ const Activity = () => {
         count:
           tab.value === 'all'
             ? counts.total
-            : counts.byCategory[tab.value as StaffActivityCategory] ?? 0,
-      })).filter((tab) => tab.value === 'all' || tab.count > 0 || category === tab.value),
-    [category, counts.byCategory, counts.total]
+            : tab.value === 'login'
+              ? counts.login
+              : counts.byCategory[tab.value as StaffActivityCategory] ?? 0,
+      })).filter(
+        (tab) =>
+          tab.value === 'all' ||
+          tab.value === 'login' ||
+          tab.count > 0 ||
+          category === tab.value
+      ),
+    [category, counts.byCategory, counts.login, counts.total]
   )
 
   const readTabItems = useMemo(
@@ -141,9 +151,24 @@ const Activity = () => {
     [counts.total, counts.unread]
   )
 
+  const latestLogins = useMemo(() => {
+    const seen = new Set<string>()
+    const list: StaffActivityEntry[] = []
+    for (const entry of allEntries) {
+      if (!isStaffLoginEntry(entry)) continue
+      const key = entry.actorEmail.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      list.push(entry)
+      if (list.length >= 8) break
+    }
+    return list
+  }, [allEntries])
+
   const openEntry = async (entry: StaffActivityEntry) => {
     if (!entry.read) await markRead(entry.id)
-    navigate(getActivityDestination(entry))
+    const destination = getActivityDestination(entry)
+    if (destination) navigate(destination)
   }
 
   const onMarkRead = async (entry: StaffActivityEntry, event: React.MouseEvent) => {
@@ -264,6 +289,40 @@ const Activity = () => {
           </Card>
         </div>
 
+        {latestLogins.length > 0 && (
+          <Card className="p-4">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h2 className="text-sm font-medium text-forest-800">Latest staff logins</h2>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Visible only to admins · last sign-in per person
+                </p>
+              </div>
+              {counts.login > latestLogins.length && (
+                <Button variant="ghost" size="sm" onClick={() => setCategory('login')}>
+                  All logins
+                </Button>
+              )}
+            </div>
+            <ul className="divide-y divide-stone-100">
+              {latestLogins.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="py-2 first:pt-0 last:pb-0 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-stone-800 truncate">{entry.actorEmail}</p>
+                    <p className="text-[11px] text-stone-500">
+                      {roleLabelForActivity(entry.actorRole)}
+                    </p>
+                  </div>
+                  <p className="text-sm text-forest-700 tabular-nums">{formatWhen(entry.createdAt)}</p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
         <div className="-mx-1 px-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <Tabs<ActivityReadFilter>
             value={readFilter}
@@ -349,10 +408,12 @@ const Activity = () => {
                     <span
                       className={cn(
                         'text-[11px] font-medium px-2 py-0.5 rounded-full border',
-                        categoryTone[entry.category]
+                        isStaffLoginEntry(entry)
+                          ? 'text-sky-700 bg-sky-50 border-sky-200'
+                          : categoryTone[entry.category]
                       )}
                     >
-                      {categoryLabel(entry.category)}
+                      {isStaffLoginEntry(entry) ? 'Login' : categoryLabel(entry.category)}
                     </span>
                   </div>
                   <p className="text-sm text-stone-600">{entry.message}</p>
@@ -371,18 +432,20 @@ const Activity = () => {
                   </div>
                 </div>
                 <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="whitespace-nowrap"
-                    leftIcon={<ArrowUpRight className="w-3.5 h-3.5" />}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      void openEntry(entry)
-                    }}
-                  >
-                    {getActivityDestinationLabel(entry)}
-                  </Button>
+                  {getActivityDestination(entry) && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="whitespace-nowrap"
+                      leftIcon={<ArrowUpRight className="w-3.5 h-3.5" />}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void openEntry(entry)
+                      }}
+                    >
+                      {getActivityDestinationLabel(entry)}
+                    </Button>
+                  )}
                   {!entry.read && (
                     <Button
                       variant="ghost"

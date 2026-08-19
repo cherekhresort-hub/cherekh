@@ -11,7 +11,7 @@ export const scrollToTop = (): void => {
   window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
 }
 
-/** On homepage load/reload, always start at the hero — not mid-page. */
+/** On homepage load/reload, always start at the hero - not mid-page. */
 export const resetHomepageScroll = (): void => {
   if (isHomePath(window.location.pathname)) {
     scrollToTop()

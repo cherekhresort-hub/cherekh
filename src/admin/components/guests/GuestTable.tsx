@@ -93,7 +93,7 @@ export const GuestTable = ({ guests, sortKey, sortDir, onSort, onSelect }: Guest
                     <p className="font-medium text-forest-700 truncate">{guest.name}</p>
                     <p className="text-xs text-stone-500 truncate inline-flex items-center gap-1">
                       <Mail className="w-3 h-3 shrink-0" />
-                      {guest.email || '—'}
+                      {guest.email || '-'}
                     </p>
                   </div>
                 </div>
@@ -101,7 +101,7 @@ export const GuestTable = ({ guests, sortKey, sortDir, onSort, onSelect }: Guest
               <td className="py-3 px-4 whitespace-nowrap">
                 <span className="text-forest-700 inline-flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-stone-400" />
-                  {guest.phone || '—'}
+                  {guest.phone || '-'}
                 </span>
               </td>
               <td className="py-3 px-4 hidden md:table-cell">
@@ -111,7 +111,7 @@ export const GuestTable = ({ guests, sortKey, sortDir, onSort, onSelect }: Guest
                 <span className="font-medium text-forest-700">{formatBDT(guest.totalSpent)}</span>
               </td>
               <td className="py-3 px-4 hidden sm:table-cell whitespace-nowrap text-stone-600">
-                {guest.lastStay ? formatShortDate(guest.lastStay) : '—'}
+                {guest.lastStay ? formatShortDate(guest.lastStay) : '-'}
               </td>
               <td className="py-3 px-4 hidden md:table-cell">
                 <GuestTagList tags={guest.tags} hasOverride={guest.hasTagOverride} />
@@ -138,7 +138,7 @@ const GuestTagList = ({
 }) => (
   <div className="flex flex-wrap items-center gap-1 max-w-[14rem]">
     {tags.length === 0 ? (
-      <span className="text-xs text-stone-400">—</span>
+      <span className="text-xs text-stone-400"> - </span>
     ) : (
       tags.map((tag) => (
         <Badge key={tag} tone={tagToTone[tag]} size="sm">

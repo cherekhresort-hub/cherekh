@@ -107,6 +107,7 @@ const Login = () => {
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta"
                   required
                   autoComplete="username"
+                  placeholder={usesSupabase ? 'you@example.com' : 'Username'}
                 />
               </div>
             </div>
@@ -128,6 +129,7 @@ const Login = () => {
                   className="w-full pl-10 pr-11 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta"
                   required
                   autoComplete="current-password"
+                  placeholder="Enter your password"
                 />
                 <button
                   type="button"

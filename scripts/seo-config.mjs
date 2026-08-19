@@ -131,7 +131,7 @@ export const STATIC_PAGE_META = {
     title: 'About Us - Cherekh Center Thanchi, Bandarban',
     crawlHeading: 'About Cherekh Center',
     description:
-      'Learn about Cherekh Center — a hill retreat in Thanchi, Bandarban with guest rooms, restaurant, community center, and local experiences.',
+      'Learn about Cherekh Center - a hill retreat in Thanchi, Bandarban with guest rooms, restaurant, community center, and local experiences.',
     ogImage: '/images/CherekhLogoFinal.png',
     priority: '0.7',
     changefreq: 'monthly',

@@ -15,7 +15,7 @@ export const resortSocialSameAs = [
 const RESORT_LAT = 21.81657
 const RESORT_LNG = 92.433641
 
-/** Cherekh Center — Thanchi, Bandarban */
+/** Cherekh Center - Thanchi, Bandarban */
 export const resortLocation = {
   latitude: RESORT_LAT,
   longitude: RESORT_LNG,
