@@ -2,7 +2,7 @@ import { defaultMenuCategories, normalizeMenuPortion, type MenuCategory, type Me
 import { notifyAdminOfManagerAction } from './adminNotifications'
 import { getSupabase, isSupabaseConfigured } from './supabase'
 
-const LOCAL_KEY = 'cherekh_restaurant_menu'
+const LOCAL_KEY = 'cherekh_restaurant_menu_v2'
 export const RESTAURANT_MENU_CHANGED_EVENT = 'cherekh-restaurant-menu-changed'
 
 export type RestaurantMenuItemRecord = {

@@ -206,8 +206,9 @@ const RestaurantMenu = () => {
         <Card className="p-4">
           <p className="text-sm text-stone-600">
             Drag the grip handle to reorder items or move them into another section. Portion is{' '}
-            <span className="font-medium text-stone-700">1:1</span> (one person) or{' '}
-            <span className="font-medium text-stone-700">1:2</span> (two people). Publish to update
+            <span className="font-medium text-stone-700">1:1</span> (one person),{' '}
+            <span className="font-medium text-stone-700">1:2</span> (two people), or{' '}
+            <span className="font-medium text-stone-700">1:4</span> (four people). Publish to update
             the dining page.
           </p>
         </Card>

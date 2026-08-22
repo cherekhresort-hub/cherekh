@@ -487,7 +487,7 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                       {normalizedGuests} guests need more than one room
                     </p>
                     <p className="mt-1 text-blue-800">
-                      Each room is assigned up to its included occupancy (couple 2, double 3), not
+                      Each room is assigned up to its included occupancy (2 guests), not
                       the extra-guest maximum. We&apos;ve highlighted rooms that best fit your
                       group - adjust the selection if you prefer different rooms.
                     </p>

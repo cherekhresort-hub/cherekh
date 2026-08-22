@@ -124,7 +124,7 @@ const roomSpecs: Array<{
     bedType: 'Double Bed',
     bedCategory: 'double',
     price: 3000,
-    features: ['Non-AC', 'Double Bed', 'Up to 4 Guests'],
+    features: ['Non-AC', 'Double Bed', 'Up to 3 Guests'],
   },
   {
     roomNumber: '104',
@@ -132,7 +132,7 @@ const roomSpecs: Array<{
     bedType: 'Double Bed',
     bedCategory: 'double',
     price: 3000,
-    features: ['Non-AC', 'Double Bed', 'Up to 4 Guests'],
+    features: ['Non-AC', 'Double Bed', 'Up to 3 Guests'],
   },
   {
     roomNumber: '105',
@@ -149,7 +149,7 @@ const roomSpecs: Array<{
     bedType: 'Double Bed',
     bedCategory: 'double',
     price: 3000,
-    features: ['Non-AC', 'Double Bed', 'Up to 4 Guests'],
+    features: ['Non-AC', 'Double Bed', 'Up to 3 Guests'],
   },
   {
     roomNumber: '202',
@@ -157,7 +157,7 @@ const roomSpecs: Array<{
     bedType: 'Double Bed',
     bedCategory: 'double',
     price: 3000,
-    features: ['Non-AC', 'Double Bed', 'Up to 4 Guests'],
+    features: ['Non-AC', 'Double Bed', 'Up to 3 Guests'],
   },
   {
     roomNumber: '203',
@@ -165,7 +165,7 @@ const roomSpecs: Array<{
     bedType: 'Double Bed',
     bedCategory: 'double',
     price: 3000,
-    features: ['Non-AC', 'Double Bed', 'Up to 4 Guests'],
+    features: ['Non-AC', 'Double Bed', 'Up to 3 Guests'],
   },
   {
     roomNumber: '204',
@@ -198,7 +198,7 @@ const roomSpecs: Array<{
 const getGuestPolicy = (bedCategory: RoomBedCategory) => {
   if (bedCategory === 'double') {
     return {
-      includedGuests: 3,
+      includedGuests: 2,
       maxExtraGuests: 1,
     }
   }
@@ -213,7 +213,7 @@ const buildDescription = (roomNumber: string, label: string, floor: number, bedC
   const floorLabel = floor === 1 ? 'ground floor' : 'second floor'
   const guestNote =
     bedCategory === 'double'
-      ? 'Includes complimentary breakfast for up to 3 guests, with up to 1 additional paying guest at ৳1,000 per night. Children under 12 stay free. Maximum occupancy is 4 guests.'
+      ? 'Includes complimentary breakfast for up to 2 guests, with up to 1 additional paying guest at ৳1,000 per night. Children under 12 stay free. Maximum occupancy is 3 guests.'
       : 'Includes complimentary breakfast for up to 2 guests, with up to 1 additional paying guest at ৳1,000 per night. Children under 12 stay free.'
 
   return `Room ${roomNumber} is a comfortable ${label.toLowerCase()} on the ${floorLabel} at Cherekh Center. ${guestNote} Enjoy peaceful hill-station surroundings, natural light, and a relaxing stay in Thanchi, Bandarban.`
@@ -309,10 +309,10 @@ export const bookableRoomCatalog = (): BookableRoomRef[] => {
 
 export const BOOKABLE_ROOM_COUNT = roomCatalog.length + 1
 
-/** Largest occupancy allowed in a single room (double rooms: 3 included + 1 extra). */
+/** Largest occupancy allowed in a single room (2 included + 1 extra). */
 export const MAX_SINGLE_ROOM_CAPACITY = Math.max(...roomCatalog.map((room) => room.capacity))
 
-/** Standard occupancy used for auto room assignment (couple 2, double 3) - not extra-guest max. */
+/** Standard occupancy used for auto room assignment (2 included) - not extra-guest max. */
 export const MAX_INCLUDED_GUESTS_PER_ROOM = Math.max(
   ...roomCatalog.map((room) => room.includedGuests)
 )

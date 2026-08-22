@@ -102,7 +102,7 @@ const StayIncludesSection = () => {
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sand-50 px-3 py-1 text-xs text-stone-700 border border-stone-200/80">
                   <BedDouble className="w-3 h-3 text-resort-heading/70" />
-                  {doubleBedCount} double-bed · 3 guests · max 4
+                  {doubleBedCount} double-bed · 2 guests · max 3
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sand-50 px-3 py-1 text-xs text-stone-700 border border-stone-200/80">
                   <BedDouble className="w-3 h-3 text-resort-heading/70" />

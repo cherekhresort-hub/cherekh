@@ -50,7 +50,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'room-types',
     question: 'What types of rooms does Cherekh Center offer?',
     answer:
-      'We have nine numbered guest rooms (103–206) across two floors: ground-floor double and couple rooms (mostly Non-AC) and upper-floor options including AC couple rooms with hill views. Double-bed rooms fit 3 guests included, up to 4 guests maximum; couple rooms suit 2–3 guests. See room photos and details at cherekhcenter.com/rooms.',
+      'We have nine numbered guest rooms (103–206) across two floors: ground-floor double and couple rooms (mostly Non-AC) and upper-floor options including AC couple rooms with hill views. Double-bed rooms fit 2 guests included, up to 3 guests maximum; couple rooms suit 2–3 guests. See room photos and details at cherekhcenter.com/rooms.',
   },
   {
     id: 'room-prices',
@@ -62,7 +62,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'extra-guests-children',
     question: 'Are children charged extra? What about additional guests?',
     answer:
-      'Children under 12 are not charged extra-guest fees. Double-bed rooms include breakfast for 3 guests with up to 1 additional paying guest at ৳1,000 per night (4 guests maximum). Couple rooms include breakfast for 2 guests with up to 1 additional paying guest at ৳1,000 per night.',
+      'Children under 12 are not charged extra-guest fees. Double-bed rooms include breakfast for 2 guests with up to 1 additional paying guest at ৳1,000 per night (3 guests maximum). Couple rooms include breakfast for 2 guests with up to 1 additional paying guest at ৳1,000 per night.',
   },
   {
     id: 'included-amenities',
@@ -92,7 +92,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'families',
     question: 'Is Cherekh Center suitable for families?',
     answer:
-      'Yes. Our double-bed rooms (103, 104, 201, 202, 203) comfortably fit up to 4 guests (3 included, 1 extra). Children under 12 stay free of extra-guest charges, and complimentary breakfast is included. We can suggest family-friendly trails and day trips in the Thanchi area.',
+      'Yes. Our double-bed rooms (103, 104, 201, 202, 203) fit 2 guests included, up to 3 guests maximum (1 extra). Children under 12 stay free of extra-guest charges, and complimentary breakfast is included. We can suggest family-friendly trails and day trips in the Thanchi area.',
   },
   {
     id: 'couples',
