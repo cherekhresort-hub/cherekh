@@ -136,6 +136,33 @@ export const createRoomLine = (
   children,
 })
 
+/** One checkout line per explicitly selected room. Never drop a selected room. */
+export const createRoomLinesForSelection = (
+  roomIds: string[],
+  adults = 1,
+  children = 0
+): RoomBookingLine[] => {
+  if (roomIds.length === 0) {
+    return [createRoomLine('', Math.max(1, adults), children)]
+  }
+  if (roomIds.length === 1) {
+    return [createRoomLine(roomIds[0], Math.max(1, adults), children)]
+  }
+
+  const totalAdults = Math.max(roomIds.length, Math.max(0, adults))
+  const base = Math.floor(totalAdults / roomIds.length)
+  let extra = totalAdults % roomIds.length
+  let remainingChildren = Math.max(0, children)
+
+  return roomIds.map((id) => {
+    const roomAdults = base + (extra > 0 ? 1 : 0)
+    if (extra > 0) extra -= 1
+    const roomChildren = remainingChildren
+    remainingChildren = 0
+    return createRoomLine(id, roomAdults, roomChildren)
+  })
+}
+
 export const roomToOption = (room: Room): RoomOption => {
   const ref = getBookableRoomRef(room.id)
   const catalogRoom = roomCatalog.find((entry) => entry.id === room.id)

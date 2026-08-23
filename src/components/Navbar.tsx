@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import MobileMenu from './MobileMenu'
 import BookNowNavButton from './BookNowNavButton'
 import { useRoomSelection } from '../contexts/RoomSelectionProvider'
-import { saveSelectedRoomsHint, buildBookingUrl } from '../utils/roomSelection'
+import { useGoToBooking } from '../hooks/useBookSelectedRooms'
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const location = useLocation()
-  const navigate = useNavigate()
-  const { selectedCount, selectedList, searchDates, clear } = useRoomSelection()
+  const { selectedCount } = useRoomSelection()
+  const handleBookNow = useGoToBooking()
   const isHomePage = location.pathname === '/'
 
   useEffect(() => {
@@ -31,20 +31,6 @@ const Navbar = () => {
     { path: '/experiences', label: 'Experiences' },
     { path: '/contact', label: 'Contact' },
   ]
-
-  const handleBookNow = () => {
-    if (selectedList.length > 0) {
-      saveSelectedRoomsHint({
-        roomIds: selectedList,
-        checkIn: searchDates?.checkIn,
-        checkOut: searchDates?.checkOut,
-        adults: searchDates?.guests,
-        children: 0,
-      })
-      clear()
-    }
-    navigate(buildBookingUrl(searchDates))
-  }
 
   const logoClassName = `h-full w-full object-contain object-left transition-all duration-300 ${
     isHomePage && !isScrolled ? 'brightness-0 invert' : ''

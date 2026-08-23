@@ -49,6 +49,7 @@ import { useToast } from '../ui/Toast'
 import { useAuth } from '../../../contexts/AuthProvider'
 import { isBookingDetailLoaded } from '../../../lib/bookingsStore'
 import { formatDateTime, formatShortDate } from '../../utils/date'
+import { parseRoomLabel } from '../../utils/roomLabel'
 import { formatBookingId } from '../../../utils/bookingId'
 import { formatBDT, initialsOf } from '../../utils/format'
 import {
@@ -203,7 +204,12 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
             {booking.name}
           </h2>
           <p className="text-sm text-white/70 mt-0.5 truncate">
-            {lines.map((l) => l.roomName).join(' · ')}
+            {lines
+              .map((line) => {
+                const parsed = parseRoomLabel(line.roomName)
+                return parsed.number ? `${parsed.number} · ${parsed.bed}` : parsed.bed
+              })
+              .join('  ·  ')}
           </p>
         </div>
         <button
@@ -495,23 +501,34 @@ const OverviewTab = ({
         <Sparkles className="w-3 h-3" /> Rooms ({lines.length})
       </h3>
       <ul className="space-y-2">
-        {lines.map((line) => (
+        {lines.map((line) => {
+          const parsed = parseRoomLabel(line.roomName)
+          return (
           <li
             key={`${booking.id}-${line.roomType}-${line.roomName}`}
             className="flex items-center justify-between bg-cream/70 px-3 py-2.5 rounded-xl"
           >
-            <div className="min-w-0">
-              <p className="font-medium text-forest-700 truncate">{line.roomName}</p>
-              <p className="text-xs text-stone-500">
-                {line.adults} adult{line.adults === 1 ? '' : 's'}
-                {line.children > 0 ? ` · ${line.children} child${line.children === 1 ? '' : 'ren'}` : ''}
-              </p>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-forest-700 font-serif text-xs font-semibold text-white">
+                {parsed.number ?? (parsed.bed.toLowerCase().includes('conference') ? 'CR' : '—')}
+              </span>
+              <div className="min-w-0">
+                <p className="font-medium text-forest-700 truncate">
+                  {parsed.bed}
+                  {parsed.amenity ? ` · ${parsed.amenity}` : ''}
+                </p>
+                <p className="text-xs text-stone-500">
+                  {line.adults} adult{line.adults === 1 ? '' : 's'}
+                  {line.children > 0 ? ` · ${line.children} child${line.children === 1 ? '' : 'ren'}` : ''}
+                </p>
+              </div>
             </div>
             <Badge tone="forest" size="sm">
               {line.totalGuests} guests
             </Badge>
           </li>
-        ))}
+          )
+        })}
       </ul>
     </Card>
 

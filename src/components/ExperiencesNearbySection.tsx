@@ -63,7 +63,6 @@ const ExperienceCard = ({
   <motion.article
     initial={{ opacity: 0, y: 12 }}
     whileInView={{ opacity: 1, y: 0 }}
-    whileHover={{ y: -4, boxShadow: '0 16px 32px -6px rgba(0,0,0,0.10)' }}
     viewport={{ once: true }}
     transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: index * 0.05 }}
     className="group flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-stone-200/80 bg-cream"
@@ -72,7 +71,7 @@ const ExperienceCard = ({
       <img
         src={experience.image}
         alt={experience.title}
-        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+        className="h-full w-full object-cover"
         loading="lazy"
       />
     </div>
@@ -225,7 +224,6 @@ const ExperiencesNearbySection = () => {
                 variants={visitReveal}
                 initial="hidden"
                 whileInView="visible"
-                whileHover={{ y: -4 }}
                 viewport={{ once: true, margin: '-24px' }}
                 transition={{
                   y: { type: 'spring', stiffness: 400, damping: 28 },

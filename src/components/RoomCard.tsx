@@ -66,10 +66,9 @@ const RoomCard = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -5, boxShadow: '0 20px 40px -8px rgba(0,0,0,0.13)' }}
       viewport={{ once: true }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className={`bg-cream rounded-xl sm:rounded-2xl overflow-hidden shadow-lg transition-shadow duration-300 ${
+      className={`bg-cream rounded-xl sm:rounded-2xl overflow-hidden shadow-lg ${
         selected ? 'ring-2 ring-resort-cta ring-offset-2' : ''
       }`}
     >
@@ -80,7 +79,7 @@ const RoomCard = ({
       >
         <ResponsiveImage
           {...cardImageSources(image, name)}
-          className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+          className="w-full h-full object-cover"
           loading="lazy"
           decoding="async"
         />
@@ -224,7 +223,7 @@ const RoomCard = ({
                 )}
                 <Link
                   to={id === 'conference' ? '/conference-room' : `/rooms/${id}`}
-                  className={`shrink-0 bg-resort-cta text-white rounded-full hover:bg-resort-cta/90 transition-colors duration-200 font-medium text-center ${
+                  className={`cursor-pointer shrink-0 bg-resort-cta text-white rounded-full hover:bg-resort-cta/90 transition-colors duration-200 font-medium text-center ${
                     selectable
                       ? `flex-1 ${compact ? 'px-3 py-2 text-xs sm:text-sm' : 'px-5 py-2 text-sm'}`
                       : compact

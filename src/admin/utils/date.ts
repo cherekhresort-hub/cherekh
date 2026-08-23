@@ -1,3 +1,35 @@
+const parseDisplayDate = (iso: string): Date | null => {
+  if (!iso) return null
+  const date = iso.includes('T') ? new Date(iso) : new Date(`${iso}T12:00:00`)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+export const formatStayWeekday = (iso: string): string => {
+  const date = parseDisplayDate(iso)
+  if (!date) return ''
+  return date.toLocaleDateString('en-US', { weekday: 'short' })
+}
+
+/** Compact range: "26–28 Aug 2026" when the stay is in one month. */
+export const formatStayRange = (checkIn: string, checkOut: string): string => {
+  const start = parseDisplayDate(checkIn)
+  const end = parseDisplayDate(checkOut)
+  if (!start || !end) return [formatShortDate(checkIn), formatShortDate(checkOut)].filter((part) => part !== '-').join(' – ') || '-'
+
+  const sameYear = start.getFullYear() === end.getFullYear()
+  const sameMonth = sameYear && start.getMonth() === end.getMonth()
+  if (sameMonth) {
+    const monthYear = start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    return `${start.getDate()}–${end.getDate()} ${monthYear}`
+  }
+  if (sameYear) {
+    const left = start.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+    const right = end.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+    return `${left} – ${right}`
+  }
+  return `${formatShortDate(checkIn)} – ${formatShortDate(checkOut)}`
+}
+
 export const formatShortDate = (iso: string | Date): string => {
   if (!iso) return '-'
   const date = typeof iso === 'string' ? new Date(iso) : iso

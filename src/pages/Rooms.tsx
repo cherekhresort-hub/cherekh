@@ -5,6 +5,7 @@ import RoomCard from '../components/RoomCard'
 import Button from '../components/Button'
 import { useRoomCardList } from '../hooks/useRoomCardList'
 import { useRoomSelection } from '../hooks/useRoomSelection'
+import { usePersistSelectedRooms, useBookingHref } from '../hooks/useBookSelectedRooms'
 import { roomCatalog, ROOM_BASE_AMENITIES } from '../data/roomCatalog'
 
 const acRoomCount = roomCatalog.filter((room) =>
@@ -30,6 +31,8 @@ const SectionHeading = ({
 const Rooms = () => {
   const rooms = useRoomCardList()
   const { toggle, isSelected } = useRoomSelection()
+  const persistSelectedRooms = usePersistSelectedRooms()
+  const bookingHref = useBookingHref()
 
   return (
     <div className="min-h-screen bg-resort-bg">
@@ -70,7 +73,8 @@ const Rooms = () => {
               <span>Complimentary breakfast included</span>
             </div>
             <Link
-              to="/booking"
+              to={bookingHref}
+              onClick={persistSelectedRooms}
               className="group inline-flex shrink-0 items-center gap-1 text-sm font-medium text-resort-heading hover:text-resort-cta transition-colors"
             >
               Check availability{' '}
@@ -124,7 +128,12 @@ const Rooms = () => {
             breakfast is included with every stay.
           </p>
           <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button to="/booking" variant="primary" className="w-full sm:w-auto">
+            <Button
+              to={bookingHref}
+              onClick={persistSelectedRooms}
+              variant="primary"
+              className="w-full sm:w-auto"
+            >
               Book now
             </Button>
             <Button to="/contact" variant="outline" className="w-full sm:w-auto">

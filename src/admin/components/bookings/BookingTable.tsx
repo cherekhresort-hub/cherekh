@@ -4,12 +4,12 @@ import { Avatar } from '../ui/Avatar'
 import { BookingStatusBadge } from '../ui/StatusBadge'
 import { EmptyState } from '../ui/EmptyState'
 import { useToast } from '../ui/Toast'
-import { formatShortDate, formatTime, daysBetween } from '../../utils/date'
+import { formatShortDate, formatTime } from '../../utils/date'
+import { BookingStaySummary } from './BookingStaySummary'
 import { formatBookingId } from '../../../utils/bookingId'
 import { formatBDT, truncate } from '../../utils/format'
 import {
   computeBookingFinancials,
-  getBookingRooms,
   PAYMENT_METHOD_LABELS,
   type Booking,
   type PaymentMethod,
@@ -41,7 +41,6 @@ const columns: Column[] = [
   { key: 'id', label: 'Booking', sortable: true },
   { key: 'name', label: 'Guest', sortable: true },
   { key: 'phone', label: 'Phone' },
-  { key: 'roomName', label: 'Room' },
   { key: 'checkIn', label: 'Stay', sortable: true },
   { key: 'totalGuests', label: 'Guests', sortable: true },
           { key: 'status', label: 'Status', sortable: true },
@@ -99,10 +98,7 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: B
           </tr>
         </thead>
         <tbody className="divide-y divide-stone-100">
-          {bookings.map((booking) => {
-            const lines = getBookingRooms(booking)
-            const nights = daysBetween(booking.checkIn, booking.checkOut)
-            return (
+          {bookings.map((booking) => (
               <tr
                 key={booking.id}
                 onClick={() => onSelect(booking)}
@@ -129,16 +125,7 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: B
                   </span>
                 </td>
                 <td className="py-3 px-4">
-                  <p className="font-medium text-forest-700">{lines.map((l) => l.roomName).join(', ')}</p>
-                  <p className="text-xs text-stone-500">
-                    {lines.length} room{lines.length > 1 ? 's' : ''}
-                  </p>
-                </td>
-                <td className="py-3 px-4">
-                  <p className="text-forest-700">{formatShortDate(booking.checkIn)}</p>
-                  <p className="text-xs text-stone-500">
-                    {nights} night{nights === 1 ? '' : 's'} · until {formatShortDate(booking.checkOut)}
-                  </p>
+                  <BookingStaySummary booking={booking} />
                 </td>
                 <td className="py-3 px-4">
                   <p className="text-forest-700 font-medium">{booking.totalGuests}</p>
@@ -192,8 +179,7 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: B
                   </div>
                 </td>
               </tr>
-            )
-          })}
+          ))}
         </tbody>
       </table>
     </div>

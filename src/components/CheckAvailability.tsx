@@ -266,7 +266,12 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
       sessionStorage.removeItem(BOOKING_PARTY_SPLIT_KEY)
     }
 
-    navigate(buildBookingUrl(search))
+    navigate(
+      buildBookingUrl(
+        search,
+        selectedList.length > 0 ? { rooms: selectedList.join(',') } : undefined
+      )
+    )
   }
 
   return (

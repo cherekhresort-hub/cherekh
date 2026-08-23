@@ -4,9 +4,12 @@ import { FaCalendarCheck, FaFacebook, FaInstagram, FaWhatsapp, FaYoutube } from 
 import { useResortContact } from '../contexts/SiteSettingsProvider'
 import { buildFooterContent } from '../lib/footerContent'
 import { Footer7 } from './ui/footer-7'
+import { usePersistSelectedRooms, useBookingHref } from '../hooks/useBookSelectedRooms'
 
 const Footer = () => {
   const resortContact = useResortContact()
+  const persistSelectedRooms = usePersistSelectedRooms()
+  const bookingHref = useBookingHref()
 
   const footerProps = useMemo(() => {
     const content = buildFooterContent(resortContact)
@@ -41,7 +44,8 @@ const Footer = () => {
       actions: (
         <>
           <Link
-            to="/booking"
+            to={bookingHref}
+            onClick={persistSelectedRooms}
             className="inline-flex items-center gap-2 rounded-full bg-cream text-resort-heading px-4 py-2 text-sm font-medium hover:bg-cream/90 transition-colors"
           >
             <FaCalendarCheck className="size-4 shrink-0" aria-hidden />
@@ -59,7 +63,7 @@ const Footer = () => {
         </>
       ),
     }
-  }, [resortContact])
+  }, [resortContact, bookingHref, persistSelectedRooms])
 
   return <Footer7 {...footerProps} />
 }

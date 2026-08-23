@@ -9,6 +9,9 @@ import {
   resetHomepageScroll,
 } from './utils/scrollRestoration'
 import './index.css'
+import { installStickyPointerCursor } from './pointerCursor'
+
+installStickyPointerCursor()
 
 disableBrowserScrollRestoration()
 resetHomepageScroll()

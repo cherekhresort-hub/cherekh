@@ -62,6 +62,19 @@ export interface BookingSearchParams {
   guests: number
 }
 
+export const parseRoomIdsParam = (raw: string | null): string[] => {
+  if (!raw) return []
+  const seen = new Set<string>()
+  const ids: string[] = []
+  for (const part of raw.split(',')) {
+    const id = part.trim()
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    ids.push(id)
+  }
+  return ids
+}
+
 export const buildBookingUrl = (
   search: BookingSearchParams | null,
   extra?: Record<string, string>

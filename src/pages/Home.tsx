@@ -15,6 +15,7 @@ import FaqSection from '../components/FaqSection'
 import { FAQ_HOMEPAGE_ITEMS } from '../data/faqCatalog'
 import { useRoomCardList } from '../hooks/useRoomCardList'
 import { useRoomSelection } from '../hooks/useRoomSelection'
+import { usePersistSelectedRooms, useBookingHref } from '../hooks/useBookSelectedRooms'
 
 const featuredRoomIds = ['206', '105', '103', '204']
 
@@ -81,6 +82,8 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 const Home = () => {
   const featuredRooms = useRoomCardList(featuredRoomIds)
   const { toggle, isSelected } = useRoomSelection()
+  const persistSelectedRooms = usePersistSelectedRooms()
+  const bookingHref = useBookingHref()
 
   return (
     <div className="bg-resort-bg">
@@ -127,7 +130,12 @@ const Home = () => {
             ))}
           </div>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Button to="/booking" variant="primary" className="text-sm px-6 py-2.5">
+            <Button
+              to={bookingHref}
+              onClick={persistSelectedRooms}
+              variant="primary"
+              className="text-sm px-6 py-2.5"
+            >
               Check availability
             </Button>
             <Button to="/rooms" variant="outline" className="text-sm px-5 py-2">
@@ -216,7 +224,8 @@ const Home = () => {
             className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3"
           >
             <Button
-              to="/booking"
+              to={bookingHref}
+              onClick={persistSelectedRooms}
               variant="primary"
               className="text-sm px-8 py-2.5 w-full sm:w-auto"
             >

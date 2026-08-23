@@ -14,11 +14,15 @@ import { addDaysToDateString, getTodayDate, toLocalDateString } from '../utils/d
 import { CONFERENCE_ROOM_ID, MAX_INCLUDED_GUESTS_PER_ROOM } from '../data/roomCatalog'
 import {
   BOOKING_PARTY_SPLIT_KEY,
-  allocateGuestsToRooms,
   buildRoomLinesForParty,
   type BookingPartySplitHint,
 } from '../utils/bookingParty'
-import { consumeSelectedRoomsHint, peekSelectedRoomsHint } from '../utils/roomSelection'
+import {
+  consumeSelectedRoomsHint,
+  peekSelectedRoomsHint,
+  parseRoomIdsParam,
+} from '../utils/roomSelection'
+import { useRoomSelection } from '../hooks/useRoomSelection'
 import { cacheBookingConfirmation } from '../lib/bookingConfirmationCache'
 import {
   BookingPersistError,
@@ -27,6 +31,7 @@ import {
 } from '../lib/bookingsStore'
 import {
   createRoomLine,
+  createRoomLinesForSelection,
   roomToOption,
   getLineTotalGuests,
   calculateStayNights,
@@ -66,8 +71,10 @@ const Booking = () => {
   const resortContact = useResortContact()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { selectedList, searchDates, clear: clearSelectedRooms } = useRoomSelection()
   const [pendingRoomsHint] = useState(() => peekSelectedRoomsHint())
   const urlRoomType = searchParams.get('roomType')
+  const urlRoomIds = parseRoomIdsParam(searchParams.get('rooms'))
   const urlCheckIn = searchParams.get('checkIn')
   const urlCheckOut = searchParams.get('checkOut')
   const urlGuests = searchParams.get('guests')
@@ -83,10 +90,19 @@ const Booking = () => {
     ? Math.max(0, parseInt(urlChildren, 10) || 0)
     : pendingRoomsHint?.children ?? 0
 
+  const seedRoomIds =
+    urlRoomIds.length > 0
+      ? urlRoomIds
+      : pendingRoomsHint?.roomIds?.length
+        ? pendingRoomsHint.roomIds
+        : selectedList
+
   const [roomOptions, setRoomOptions] = useState<RoomOption[]>([])
-  const [roomLines, setRoomLines] = useState<RoomBookingLine[]>(() => [
-    createRoomLine(urlRoomType || '', initialAdults, initialChildren),
-  ])
+  const [roomLines, setRoomLines] = useState<RoomBookingLine[]>(() =>
+    seedRoomIds.length > 0
+      ? createRoomLinesForSelection(seedRoomIds, initialAdults, initialChildren)
+      : [createRoomLine(urlRoomType || '', initialAdults, initialChildren)]
+  )
 
   const [formData, setFormData] = useState({
     checkIn: urlCheckIn || pendingRoomsHint?.checkIn || '',
@@ -110,7 +126,7 @@ const Booking = () => {
   const [roomsError, setRoomsError] = useState('')
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle')
   const [submitMessage, setSubmitMessage] = useState('')
-  const selectedRoomsAppliedRef = useRef(false)
+  const selectedRoomsAppliedRef = useRef(seedRoomIds.length > 0)
 
   const isSubmitting =
     submitPhase === 'checking' || submitPhase === 'reserving' || submitPhase === 'success'
@@ -180,58 +196,56 @@ const Booking = () => {
   }, [formData.checkIn, formData.checkOut])
 
   useEffect(() => {
+    if (seedRoomIds.length > 0) {
+      clearSelectedRooms()
+    }
+    const timeoutId = window.setTimeout(() => {
+      consumeSelectedRoomsHint()
+    }, 400)
+    return () => window.clearTimeout(timeoutId)
+  }, [seedRoomIds.length, clearSelectedRooms])
+
+  useEffect(() => {
     if (selectedRoomsAppliedRef.current || roomOptions.length === 0) return
 
-    const hint = consumeSelectedRoomsHint()
-    if (!hint) return
+    const hint = peekSelectedRoomsHint()
+    const roomIds =
+      urlRoomIds.length > 0
+        ? urlRoomIds
+        : hint?.roomIds?.length
+          ? hint.roomIds
+          : selectedList
+    if (roomIds.length === 0) return
 
-    const validIds = hint.roomIds.filter((id) => roomOptions.some((room) => room.value === id))
+    const validIds = roomIds.filter((id) => roomOptions.some((room) => room.value === id))
     if (validIds.length === 0) return
 
     selectedRoomsAppliedRef.current = true
+    clearSelectedRooms()
 
-    if (validIds.length === 1) {
-      setRoomLines([
-        createRoomLine(
-          validIds[0],
-          hint.adults ?? initialAdults,
-          hint.children ?? initialChildren
-        ),
-      ])
-    } else {
-      const selectedRooms = validIds
-        .map((id) => {
-          const option = roomOptions.find((room) => room.value === id)
-          if (!option) return null
-          return {
-            id,
-            includedGuests: option.includedGuests,
-            capacity: option.capacity,
-          }
-        })
-        .filter((room): room is { id: string; includedGuests: number; capacity: number } =>
-          Boolean(room)
-        )
-      const allocation = allocateGuestsToRooms(
-        hint.adults ?? initialAdults,
-        hint.children ?? initialChildren,
-        selectedRooms
-      )
-      setRoomLines(
-        allocation.length > 0
-          ? allocation.map((entry) => createRoomLine(entry.id, entry.guests, 0))
-          : validIds.map((id) => createRoomLine(id, 1, 0))
-      )
-    }
+    const adults = hint?.adults ?? searchDates?.guests ?? initialAdults
+    const children = hint?.children ?? initialChildren
+    const checkIn = hint?.checkIn || searchDates?.checkIn
+    const checkOut = hint?.checkOut || searchDates?.checkOut
 
-    if (hint.checkIn || hint.checkOut) {
+    setRoomLines(createRoomLinesForSelection(validIds, adults, children))
+
+    if (checkIn || checkOut) {
       setFormData((prev) => ({
         ...prev,
-        checkIn: hint.checkIn || prev.checkIn,
-        checkOut: hint.checkOut || prev.checkOut,
+        checkIn: checkIn || prev.checkIn,
+        checkOut: checkOut || prev.checkOut,
       }))
     }
-  }, [roomOptions, initialAdults, initialChildren])
+  }, [
+    roomOptions,
+    urlRoomIds,
+    selectedList,
+    searchDates,
+    initialAdults,
+    initialChildren,
+    clearSelectedRooms,
+  ])
 
   useEffect(() => {
     if (selectedRoomsAppliedRef.current) return
@@ -643,6 +657,7 @@ const Booking = () => {
     : Boolean(formData.checkIn) &&
       Boolean(formData.checkOut) &&
       formData.checkOut > formData.checkIn
+  const hasPreselectedRooms = roomLines.some((line) => Boolean(line.roomType))
 
   return (
     <motion.div>
@@ -775,13 +790,13 @@ const Booking = () => {
                   )}
                 </div>
 
-                {!datesSelected ? (
+                {!datesSelected && !hasPreselectedRooms ? (
                   <div className="p-4 border border-gray-200 rounded-lg bg-sand-50 text-sm text-gray-600">
                     {conferenceOnly
                       ? 'Add at least one event date first.'
                       : 'Select check-in and check-out dates first.'}
                   </div>
-                ) : roomOptions.length === 0 ? (
+                ) : datesSelected && roomOptions.length === 0 ? (
                   <div className="w-full p-4 border border-yellow-300 rounded-lg bg-yellow-50">
                     <p className="text-sm text-yellow-800">
                       No rooms available for the selected dates. Please choose different dates.
@@ -789,6 +804,12 @@ const Booking = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {!datesSelected && hasPreselectedRooms && (
+                      <p className="text-sm text-gray-600">
+                        Your selected rooms are ready. Choose check-in and check-out dates to
+                        confirm availability.
+                      </p>
+                    )}
                     {roomLines.map((line, index) => {
                       const options = getOptionsForLine(line.id)
                       const selectedOption = roomOptions.find((room) => room.value === line.roomType)

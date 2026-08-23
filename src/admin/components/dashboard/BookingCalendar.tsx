@@ -10,10 +10,11 @@ import { Tabs } from '../ui/Tabs'
 import { Modal } from '../ui/Modal'
 import { BookingStatusBadge } from '../ui/StatusBadge'
 import { Badge } from '../ui/Badge'
-import { formatShortDate } from '../../utils/date'
 import { formatBDT } from '../../utils/format'
+import { parseRoomLabel } from '../../utils/roomLabel'
 import type { Booking } from '../../../utils/bookings'
 import { computeBookingFinancials, getBookingRooms } from '../../../utils/bookings'
+import { BookingStaySummary } from '../bookings/BookingStaySummary'
 
 interface BookingCalendarProps {
   bookings: Booking[]
@@ -112,15 +113,11 @@ export const BookingCalendar = ({ bookings }: BookingCalendarProps) => {
               <Badge tone="neutral">{selected.payment?.status ?? 'pending'} payment</Badge>
             </div>
 
+            <div className="rounded-xl border border-stone-100 bg-cream/50 px-3 py-3">
+              <BookingStaySummary booking={selected} />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-stone-500">Check-in</p>
-                <p className="font-medium text-forest-700">{formatShortDate(selected.checkIn)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-stone-500">Check-out</p>
-                <p className="font-medium text-forest-700">{formatShortDate(selected.checkOut)}</p>
-              </div>
               <div>
                 <p className="text-xs text-stone-500">Phone</p>
                 <p className="font-medium text-forest-700">{selected.phone}</p>
@@ -134,15 +131,26 @@ export const BookingCalendar = ({ bookings }: BookingCalendarProps) => {
             <div>
               <p className="text-xs text-stone-500 mb-2">Rooms</p>
               <ul className="space-y-1.5">
-                {getBookingRooms(selected).map((line) => (
+                {getBookingRooms(selected).map((line) => {
+                  const parsed = parseRoomLabel(line.roomName)
+                  return (
                   <li
                     key={`${selected.id}-${line.roomType}`}
                     className="flex items-center justify-between bg-cream/70 px-3 py-2 rounded-xl"
                   >
-                    <span className="font-medium text-forest-700 text-sm">{line.roomName}</span>
-                    <span className="text-xs text-stone-500">{line.totalGuests} guests</span>
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest-700 font-serif text-[11px] font-semibold text-white">
+                        {parsed.number ?? (parsed.bed.toLowerCase().includes('conference') ? 'CR' : '—')}
+                      </span>
+                      <span className="font-medium text-forest-700 text-sm truncate">
+                        {parsed.bed}
+                        {parsed.amenity ? ` · ${parsed.amenity}` : ''}
+                      </span>
+                    </div>
+                    <span className="text-xs text-stone-500 shrink-0 ml-2">{line.totalGuests} guests</span>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             </div>
 

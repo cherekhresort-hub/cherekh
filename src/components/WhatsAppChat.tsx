@@ -78,7 +78,7 @@ const WhatsAppChat = ({
       ) : (
         <button
           onClick={() => setIsOpen(true)}
-          className="bg-[#25D366] text-white w-16 h-16 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center hover:scale-110"
+          className="cursor-pointer bg-[#25D366] text-white w-16 h-16 rounded-full shadow-lg hover:shadow-xl transition-colors duration-300 flex items-center justify-center"
           aria-label="Open WhatsApp chat"
         >
           <FaWhatsapp className="w-8 h-8" />

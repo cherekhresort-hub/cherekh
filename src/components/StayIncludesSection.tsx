@@ -123,7 +123,6 @@ const StayIncludesSection = () => {
                 key={facility.id}
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                whileHover={{ y: -4, boxShadow: '0 16px 32px -6px rgba(0,0,0,0.10)' }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: index * 0.06 }}
                 className="group relative overflow-hidden rounded-xl border border-stone-200/80 bg-cream min-w-0"
@@ -132,7 +131,7 @@ const StayIncludesSection = () => {
                   <img
                     src={facility.images[0]}
                     alt={facility.name}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    className="h-full w-full object-cover"
                     loading="lazy"
                   />
                 </div>

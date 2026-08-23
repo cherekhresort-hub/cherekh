@@ -75,6 +75,28 @@
     scroll-behavior: smooth;
   }
 
+  a[href],
+  a[href] *,
+  button:not(:disabled),
+  button:not(:disabled) *,
+  [role='button']:not([aria-disabled='true']),
+  label[for],
+  summary {
+    cursor: pointer;
+  }
+
+  a[aria-disabled='true'],
+  a[aria-disabled='true'] *,
+  button:disabled,
+  button:disabled * {
+    cursor: not-allowed;
+  }
+
+  input:not([type='submit']):not([type='button']):not([type='reset']):not([type='checkbox']):not([type='radio']):not([type='file']),
+  textarea {
+    cursor: text;
+  }
+
   /* Desktop: scale rem-based typography and spacing down ~10% */
   @media (min-width: 641px) {
     html {
@@ -170,5 +192,39 @@
 .date-input-empty::-webkit-datetime-edit-year-field,
 .date-input-empty::-webkit-date-and-time-value {
   color: transparent;
+}
+
+/*
+ * Normal cursor behavior (arrow by default, hand on links while hovered — even when still).
+ * Placed after Tailwind so it wins over Preflight (buttons default to cursor: default).
+ */
+html {
+  cursor: auto;
+}
+
+a[href]:hover,
+a[href]:hover *,
+button:not(:disabled):hover,
+button:not(:disabled):hover *,
+[role='button']:not([aria-disabled='true']):hover,
+[role='button']:not([aria-disabled='true']):hover *,
+label[for]:hover,
+summary:hover {
+  cursor: pointer !important;
+}
+
+html.is-over-link,
+html.is-over-link * {
+  cursor: pointer !important;
+}
+
+html.is-over-link input:not([type='submit']):not([type='button']):not([type='reset']):not([type='checkbox']):not([type='radio']):not([type='file']),
+html.is-over-link textarea {
+  cursor: text !important;
+}
+
+button:disabled:hover,
+button:disabled:hover * {
+  cursor: not-allowed !important;
 }
 

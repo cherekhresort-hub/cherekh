@@ -119,11 +119,12 @@ const HomeGallery = () => {
 
         {/* Thumbnail strip */}
         {total > 1 && (
-          <div
-            className="mt-3 sm:mt-4 flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory [scrollbar-width:thin]"
-            role="tablist"
-            aria-label="Gallery thumbnails"
-          >
+          <div className="mt-3 sm:mt-4 overflow-x-auto pb-1 [scrollbar-width:thin]">
+            <div
+              className="mx-auto flex w-max min-w-full justify-center gap-2 snap-x snap-mandatory"
+              role="tablist"
+              aria-label="Gallery thumbnails"
+            >
             {homeCoverGallery.map((image, thumbIndex) => {
               const isActive = thumbIndex === index
               return (
@@ -153,6 +154,7 @@ const HomeGallery = () => {
                 </button>
               )
             })}
+            </div>
           </div>
         )}
       </div>

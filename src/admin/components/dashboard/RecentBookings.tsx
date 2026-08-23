@@ -6,10 +6,10 @@ import { BookingStatusBadge } from '../ui/StatusBadge'
 import { SearchInput } from '../ui/SearchInput'
 import { Avatar } from '../ui/Avatar'
 import { EmptyState } from '../ui/EmptyState'
-import { formatShortDate } from '../../utils/date'
 import { formatBDT } from '../../utils/format'
 import type { Booking } from '../../../utils/bookings'
-import { computeBookingFinancials, getBookingRooms } from '../../../utils/bookings'
+import { computeBookingFinancials } from '../../../utils/bookings'
+import { BookingStaySummary } from '../bookings/BookingStaySummary'
 
 interface RecentBookingsProps {
   bookings: Booking[]
@@ -59,16 +59,13 @@ export const RecentBookings = ({ bookings }: RecentBookingsProps) => {
             <thead className="sticky top-0 bg-cream/70 backdrop-blur">
               <tr className="text-left text-xs uppercase tracking-wide text-stone-500">
                 <th className="py-3 px-6 font-medium">Guest</th>
-                <th className="py-3 px-3 font-medium">Room</th>
                 <th className="py-3 px-3 font-medium">Stay</th>
                 <th className="py-3 px-3 font-medium">Status</th>
                 <th className="py-3 px-6 font-medium text-right">Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
-              {recent.map((b) => {
-                const lines = getBookingRooms(b)
-                return (
+              {recent.map((b) => (
                   <tr key={b.id} className="hover:bg-cream/40 transition-colors">
                     <td className="py-3 px-6">
                       <div className="flex items-center gap-3">
@@ -83,16 +80,7 @@ export const RecentBookings = ({ bookings }: RecentBookingsProps) => {
                       </div>
                     </td>
                     <td className="py-3 px-3">
-                      <p className="text-forest-700 font-medium">
-                        {lines.map((l) => l.roomName).join(', ')}
-                      </p>
-                      <p className="text-xs text-stone-500">
-                        {lines.length} room{lines.length > 1 ? 's' : ''} · {b.totalGuests} guests
-                      </p>
-                    </td>
-                    <td className="py-3 px-3">
-                      <p className="text-forest-700">{formatShortDate(b.checkIn)}</p>
-                      <p className="text-xs text-stone-500">to {formatShortDate(b.checkOut)}</p>
+                      <BookingStaySummary booking={b} />
                     </td>
                     <td className="py-3 px-3">
                       <BookingStatusBadge status={b.status} />
@@ -119,8 +107,7 @@ export const RecentBookings = ({ bookings }: RecentBookingsProps) => {
                       })()}
                     </td>
                   </tr>
-                )
-              })}
+              ))}
             </tbody>
           </table>
         )}

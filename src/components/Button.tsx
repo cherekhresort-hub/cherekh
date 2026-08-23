@@ -1,6 +1,5 @@
 import { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
 
 interface ButtonProps {
   children: ReactNode
@@ -11,12 +10,6 @@ interface ButtonProps {
   type?: 'button' | 'submit' | 'reset'
   ariaLabel?: string
   disabled?: boolean
-}
-
-const springMotion = {
-  whileHover: { y: -2, scale: 1.025 },
-  whileTap: { scale: 0.96, y: 0 },
-  transition: { type: 'spring' as const, stiffness: 420, damping: 20 },
 }
 
 const Button = ({
@@ -30,7 +23,7 @@ const Button = ({
   disabled = false,
 }: ButtonProps) => {
   const baseClasses =
-    'px-6 py-2.5 sm:px-8 sm:py-3 rounded-full font-medium transition-colors duration-200 inline-block text-center text-sm sm:text-base [@media(hover:hover)]:hover:shadow-xl'
+    'cursor-pointer px-6 py-2.5 sm:px-8 sm:py-3 rounded-full font-medium transition-colors duration-200 inline-block text-center text-sm sm:text-base'
 
   const variantClasses = {
     primary:
@@ -45,35 +38,36 @@ const Button = ({
 
   if (to) {
     return (
-      <motion.div
-        className="inline-block"
+      <Link
+        to={to}
+        className={classes}
         aria-label={ariaLabel}
-        {...(!disabled ? springMotion : {})}
+        aria-disabled={disabled}
+        tabIndex={disabled ? -1 : 0}
+        onClick={(event) => {
+          if (disabled) {
+            event.preventDefault()
+            return
+          }
+          onClick?.()
+        }}
       >
-        <Link
-          to={to}
-          className={classes}
-          aria-disabled={disabled}
-          tabIndex={disabled ? -1 : 0}
-        >
-          {children}
-        </Link>
-      </motion.div>
+        {children}
+      </Link>
     )
   }
 
   return (
-    <motion.button
+    <button
       type={type}
       onClick={onClick}
       className={classes}
       aria-label={ariaLabel}
       disabled={disabled}
       tabIndex={disabled ? -1 : 0}
-      {...(!disabled ? springMotion : {})}
     >
       {children}
-    </motion.button>
+    </button>
   )
 }
 

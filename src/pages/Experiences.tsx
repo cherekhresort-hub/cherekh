@@ -83,7 +83,6 @@ const Experiences = () => {
                   variants={cardReveal}
                   initial="hidden"
                   whileInView="visible"
-                  whileHover={{ y: -6 }}
                   viewport={{ once: true, margin: '-24px' }}
                   transition={{
                     opacity: { duration: 0.35, delay: Math.min(index * 0.05, 0.2) },
