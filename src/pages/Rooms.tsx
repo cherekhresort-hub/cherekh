@@ -1,16 +1,78 @@
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
 import RoomCard from '../components/RoomCard'
 import Button from '../components/Button'
 import { useRoomCardList } from '../hooks/useRoomCardList'
 import { useRoomSelection } from '../hooks/useRoomSelection'
 import { usePersistSelectedRooms, useBookingHref } from '../hooks/useBookSelectedRooms'
-import { roomCatalog, ROOM_BASE_AMENITIES } from '../data/roomCatalog'
+import { roomCatalog, getCatalogRoomById } from '../data/roomCatalog'
 
-const acRoomCount = roomCatalog.filter((room) =>
-  room.amenities.includes('Air Conditioning')
-).length
+type BedFilter = 'all' | 'double' | 'couple'
+type AcFilter = 'all' | 'ac' | 'non-ac'
+type FloorFilter = 'all' | '1' | '2'
+type SortOrder = 'room' | 'price-asc' | 'price-desc'
+
+const BED_OPTIONS: Array<{ value: BedFilter; label: string }> = [
+  { value: 'all', label: 'All beds' },
+  { value: 'double', label: 'Double bed' },
+  { value: 'couple', label: 'Couple bed' },
+]
+
+const AC_OPTIONS: Array<{ value: AcFilter; label: string }> = [
+  { value: 'all', label: 'Any' },
+  { value: 'ac', label: 'AC' },
+  { value: 'non-ac', label: 'Non-AC' },
+]
+
+const FLOOR_OPTIONS: Array<{ value: FloorFilter; label: string }> = [
+  { value: 'all', label: 'Any floor' },
+  { value: '1', label: 'Ground' },
+  { value: '2', label: 'Second' },
+]
+
+const SORT_OPTIONS: Array<{ value: SortOrder; label: string }> = [
+  { value: 'room', label: 'Room number' },
+  { value: 'price-asc', label: 'Price: low to high' },
+  { value: 'price-desc', label: 'Price: high to low' },
+]
+
+const FilterGroup = <T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: Array<{ value: T; label: string }>
+  value: T
+  onChange: (value: T) => void
+}) => (
+  <div role="group" aria-label={label} className="flex flex-col gap-1.5">
+    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
+      {label}
+    </span>
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((option) => {
+        const active = option.value === value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(option.value)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 sm:text-sm ${
+              active
+                ? 'bg-resort-heading text-white'
+                : 'border border-stone-300 bg-cream text-stone-700 hover:border-resort-cta hover:text-resort-cta'
+            }`}
+          >
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
+  </div>
+)
 
 const SectionHeading = ({
   eyebrow,
@@ -34,6 +96,37 @@ const Rooms = () => {
   const persistSelectedRooms = usePersistSelectedRooms()
   const bookingHref = useBookingHref()
 
+  const [bedFilter, setBedFilter] = useState<BedFilter>('all')
+  const [acFilter, setAcFilter] = useState<AcFilter>('all')
+  const [floorFilter, setFloorFilter] = useState<FloorFilter>('all')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('room')
+
+  const filtersActive = bedFilter !== 'all' || acFilter !== 'all' || floorFilter !== 'all'
+
+  const resetFilters = () => {
+    setBedFilter('all')
+    setAcFilter('all')
+    setFloorFilter('all')
+  }
+
+  const visibleRooms = useMemo(() => {
+    const filtered = rooms.filter((room) => {
+      const catalog = getCatalogRoomById(room.id)
+      if (!catalog) return false
+      if (bedFilter !== 'all' && catalog.bedCategory !== bedFilter) return false
+      const hasAc = catalog.amenities.includes('Air Conditioning')
+      if (acFilter === 'ac' && !hasAc) return false
+      if (acFilter === 'non-ac' && hasAc) return false
+      if (floorFilter !== 'all' && String(catalog.floor) !== floorFilter) return false
+      return true
+    })
+
+    if (sortOrder === 'room') return filtered
+    return [...filtered].sort((a, b) =>
+      sortOrder === 'price-asc' ? a.price - b.price : b.price - a.price
+    )
+  }, [rooms, bedFilter, acFilter, floorFilter, sortOrder])
+
   return (
     <div className="min-h-screen bg-resort-bg">
       <div className="mx-auto max-w-7xl px-4 page-content-inset sm:px-6 lg:px-8">
@@ -55,44 +148,6 @@ const Rooms = () => {
           </p>
         </motion.header>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.05 }}
-          className="mb-10 overflow-hidden rounded-2xl border border-stone-200/80 bg-cream shadow-sm"
-        >
-          <div className="grid gap-4 px-5 py-4 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-6 sm:px-6">
-            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-stone-600">
-              <span>
-                <span className="font-semibold tabular-nums text-resort-heading">{roomCatalog.length}</span>{' '}
-                bookable rooms
-              </span>
-              <span>
-                <span className="font-semibold tabular-nums text-resort-heading">{acRoomCount}</span> with AC
-              </span>
-              <span>Complimentary breakfast included</span>
-            </div>
-            <Link
-              to={bookingHref}
-              onClick={persistSelectedRooms}
-              className="group inline-flex shrink-0 items-center gap-1 text-sm font-medium text-resort-heading hover:text-resort-cta transition-colors"
-            >
-              Check availability{' '}
-              <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-            </Link>
-          </div>
-          <div className="flex flex-wrap gap-1.5 border-t border-stone-100 px-5 py-3 sm:px-6">
-            {ROOM_BASE_AMENITIES.map((amenity) => (
-              <span
-                key={amenity}
-                className="rounded-full bg-resort-bg px-2.5 py-0.5 text-[10px] font-medium text-stone-600 sm:text-xs"
-              >
-                {amenity}
-              </span>
-            ))}
-          </div>
-        </motion.div>
-
         <section aria-labelledby="rooms-heading">
           <SectionHeading
             eyebrow="All rooms"
@@ -100,19 +155,73 @@ const Rooms = () => {
             description={`Browse all ${roomCatalog.length} rooms by number. Select multiple rooms, then book them together.`}
           />
 
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4 lg:gap-5">
-            {rooms.map((room) => (
-              <RoomCard
-                key={room.id}
-                {...room}
-                type="room"
-                compact
-                selectable
-                selected={isSelected(room.id)}
-                onSelectToggle={toggle}
-              />
-            ))}
+          <div className="mb-6 rounded-2xl border border-stone-200/80 bg-cream px-5 py-4 shadow-sm sm:px-6">
+            <div className="flex flex-wrap gap-x-8 gap-y-4">
+              <FilterGroup label="Bed type" options={BED_OPTIONS} value={bedFilter} onChange={setBedFilter} />
+              <FilterGroup label="Air conditioning" options={AC_OPTIONS} value={acFilter} onChange={setAcFilter} />
+              <FilterGroup label="Floor" options={FLOOR_OPTIONS} value={floorFilter} onChange={setFloorFilter} />
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
+                  Sort by
+                </span>
+                <select
+                  value={sortOrder}
+                  onChange={(event) => setSortOrder(event.target.value as SortOrder)}
+                  className="rounded-full border border-stone-300 bg-cream px-3 py-1 text-xs font-medium text-stone-700 focus:border-resort-cta focus:outline-none sm:text-sm"
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-stone-100 pt-3 text-sm text-stone-600">
+              <span aria-live="polite">
+                Showing{' '}
+                <span className="font-semibold tabular-nums text-resort-heading">{visibleRooms.length}</span>{' '}
+                of {rooms.length} rooms
+              </span>
+              {filtersActive ? (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-sm font-medium text-resort-heading underline-offset-2 hover:text-resort-cta hover:underline"
+                >
+                  Clear filters
+                </button>
+              ) : null}
+            </div>
           </div>
+
+          {visibleRooms.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4 lg:gap-5">
+              {visibleRooms.map((room) => (
+                <RoomCard
+                  key={room.id}
+                  {...room}
+                  type="room"
+                  compact
+                  selectable
+                  selected={isSelected(room.id)}
+                  onSelectToggle={toggle}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-stone-300 bg-cream px-5 py-10 text-center">
+              <p className="font-serif text-lg text-resort-heading">No rooms match these filters</p>
+              <p className="mt-1 text-sm text-stone-600">Try a different combination.</p>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="mt-4 rounded-full border border-stone-300 px-4 py-1.5 text-sm font-medium text-resort-heading hover:border-resort-cta hover:text-resort-cta"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
         </section>
 
         <motion.footer

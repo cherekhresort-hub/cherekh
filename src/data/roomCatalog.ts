@@ -90,7 +90,6 @@ export const calculateExtraGuestFee = (
 
 export const ROOM_BASE_AMENITIES = [
   'Complimentary Breakfast',
-  '24 Hour Electricity',
   'En-suite Bathroom',
   'Hot Water',
   'Room Service',

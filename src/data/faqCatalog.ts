@@ -68,7 +68,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'included-amenities',
     question: 'What is included with every room stay?',
     answer:
-      'Every room includes complimentary breakfast, 24-hour electricity, en-suite bathroom, hot water, room service, and a balcony with garden view. Selected rooms add air conditioning. AC is standard on rooms 105, 205, and 206.',
+      'Every room includes complimentary breakfast, en-suite bathroom, hot water, room service, and a balcony with garden view. Selected rooms add air conditioning. AC is standard on rooms 105, 205, and 206.',
   },
   {
     id: 'check-in-times',

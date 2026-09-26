@@ -9,14 +9,12 @@ import {
   Droplets,
   Snowflake,
   Trees,
-  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import { facilityCatalog, ROOM_BASE_AMENITIES, roomCatalog } from '../data/roomCatalog'
 
 const amenityIcons: Record<(typeof ROOM_BASE_AMENITIES)[number], LucideIcon> = {
   'Complimentary Breakfast': Coffee,
-  '24 Hour Electricity': Zap,
   'En-suite Bathroom': Bath,
   'Hot Water': Droplets,
   'Room Service': Bell,
