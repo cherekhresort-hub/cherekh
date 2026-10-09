@@ -20,6 +20,7 @@ import { formatShortDate } from '../../utils/date'
 import { formatBDT } from '../../utils/format'
 import type { Guest, GuestTag } from '../../types'
 import { getBookings, getBookingRooms } from '../../../utils/bookings'
+import { guestIdentityKey } from '../../data/guests'
 import {
   resetGuestOverride,
   setGuestTagOverride,
@@ -68,12 +69,9 @@ export const GuestDrawer = ({ guest, onClose, onChanged }: GuestDrawerProps) => 
   const history = useMemo(() => {
     if (!guest) return []
     const bookings = getBookings()
+    const key = guestIdentityKey(guest)
     return bookings
-      .filter(
-        (b) =>
-          b.email.toLowerCase() === guest.email.toLowerCase() &&
-          b.name.toLowerCase() === guest.name.toLowerCase()
-      )
+      .filter((b) => guestIdentityKey(b) === key)
       .sort((a, b) => b.checkIn.localeCompare(a.checkIn))
   }, [guest])
 
@@ -218,9 +216,13 @@ export const GuestDrawer = ({ guest, onClose, onChanged }: GuestDrawerProps) => 
           <ul className="space-y-2.5">
             <li className="flex items-center gap-2 text-stone-700">
               <Mail className="w-4 h-4 text-stone-400" />
-              <a href={`mailto:${guest.email}`} className="font-medium break-all hover:text-forest-700">
-                {guest.email}
-              </a>
+              {guest.email ? (
+                <a href={`mailto:${guest.email}`} className="font-medium break-all hover:text-forest-700">
+                  {guest.email}
+                </a>
+              ) : (
+                <span className="text-stone-400">No email</span>
+              )}
             </li>
             <li className="flex items-center gap-2 text-stone-700">
               <Phone className="w-4 h-4 text-stone-400" />

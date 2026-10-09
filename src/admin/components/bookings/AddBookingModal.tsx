@@ -287,9 +287,9 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
       setError('Please fill in guest name, phone, and dates.')
       return
     }
-    const email = normalizeEmail(guest.email)
-    if (!email || !isValidEmail(email)) {
-      setError('A valid guest email is required.')
+    const email = guest.email.trim() ? normalizeEmail(guest.email) : ''
+    if (email && !isValidEmail(email)) {
+      setError('Enter a valid guest email, or leave it empty.')
       return
     }
     if (!conferenceOnly) {
@@ -465,7 +465,11 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
               placeholder="+880 …"
             />
           </Field>
-          <Field label="Email" required className="sm:col-span-2">
+          <Field
+            label="Email"
+            hint="Optional - the guest gets a confirmation email if provided"
+            className="sm:col-span-2"
+          >
             <Input
               type="email"
               value={guest.email}

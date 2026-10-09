@@ -428,12 +428,16 @@ const OverviewTab = ({
         <ul className="space-y-2.5">
           <li className="flex items-center gap-2 text-stone-700">
             <Mail className="w-4 h-4 text-stone-400 shrink-0" />
-            <a
-              href={`mailto:${booking.email}`}
-              className="font-medium hover:text-forest-700 truncate"
-            >
-              {booking.email || '-'}
-            </a>
+            {booking.email ? (
+              <a
+                href={`mailto:${booking.email}`}
+                className="font-medium hover:text-forest-700 truncate"
+              >
+                {booking.email}
+              </a>
+            ) : (
+              <span className="text-stone-400">No email</span>
+            )}
           </li>
           <li className="flex items-center gap-2 text-stone-700">
             <Phone className="w-4 h-4 text-stone-400 shrink-0" />

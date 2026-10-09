@@ -114,7 +114,7 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: B
                     <Avatar name={booking.name} size="sm" color="#367E7E" />
                     <div className="min-w-0">
                       <p className="font-medium text-forest-700 truncate">{booking.name}</p>
-                      <p className="text-xs text-stone-500 truncate">{booking.email}</p>
+                      <p className="text-xs text-stone-500 truncate">{booking.email || booking.phone}</p>
                     </div>
                   </div>
                 </td>

@@ -11,8 +11,14 @@ const TAG_BY_STAYS = (stays: number): GuestTag[] => {
   return tags
 }
 
-const buildId = (name: string, email: string): string => {
-  const seed = `${name}-${email}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+/** Email is optional for staff-entered bookings, so fall back to phone to tell guests apart. */
+export const guestIdentityKey = (person: { name: string; email?: string; phone?: string }): string => {
+  const contact = person.email?.trim() || (person.phone ?? '').replace(/\D+/g, '')
+  return `${person.name.trim()}|${contact}`.toLowerCase()
+}
+
+const buildId = (identityKey: string): string => {
+  const seed = identityKey.replace(/[^a-z0-9]+/g, '-')
   return `guest-${seed}`
 }
 
@@ -44,7 +50,7 @@ export const getGuests = (): Guest[] => {
 
   bookings.forEach((booking) => {
     if (!countsTowardRevenue(booking)) return
-    const key = `${booking.name}|${booking.email}`.toLowerCase()
+    const key = guestIdentityKey(booking)
     const fin = computeBookingFinancials(booking)
     const existing = map.get(key)
     if (existing) {
@@ -56,7 +62,7 @@ export const getGuests = (): Guest[] => {
       existing.derivedTags = TAG_BY_STAYS(existing.totalStays)
     } else {
       map.set(key, {
-        id: buildId(booking.name, booking.email),
+        id: buildId(key),
         name: booking.name,
         email: booking.email,
         phone: booking.phone,
