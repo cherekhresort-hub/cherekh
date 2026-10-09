@@ -479,53 +479,100 @@ export const getRemainingRoomUnits = async (
   return Math.max(0, total - direct)
 }
 
+type RoomAvailabilityOptions = {
+  excludeBookingId?: string
+  lines?: RoomLineAvailabilityInput[]
+  conferenceEventDates?: string[]
+}
+
+export interface RoomAvailabilityIssue {
+  roomType: string
+  /** `unknown` = availability could not be loaded. */
+  reason: 'capacity' | 'booked' | 'unknown'
+  conflictingBookingIds: string[]
+}
+
+/** Which requested rooms cannot be booked, and which existing bookings block them. */
+export const getRoomAvailabilityIssues = async (
+  checkIn: string,
+  checkOut: string,
+  roomTypes: string[],
+  options?: RoomAvailabilityOptions
+): Promise<RoomAvailabilityIssue[]> => {
+  const issues: RoomAvailabilityIssue[] = []
+
+  for (const line of options?.lines?.filter((l) => l.roomType) ?? []) {
+    if (!lineFitsCapacity(line)) {
+      issues.push({ roomType: line.roomType, reason: 'capacity', conflictingBookingIds: [] })
+    }
+  }
+
+  const neededByType: Record<string, number> = {}
+  roomTypes.forEach((type) => {
+    neededByType[type] = (neededByType[type] ?? 0) + 1
+  })
+
+  let bookings: Booking[]
+  try {
+    bookings = await getBookingsForAvailability()
+  } catch (e) {
+    if (!(e instanceof AvailabilityLoadError)) throw e
+    return Object.keys(neededByType).map((roomType) => ({
+      roomType,
+      reason: 'unknown' as const,
+      conflictingBookingIds: [],
+    }))
+  }
+
+  const excludeBookingId = options?.excludeBookingId
+  const blocking = bookings.filter(
+    (b) =>
+      (!excludeBookingId || b.id !== excludeBookingId) &&
+      BLOCKING_BOOKING_STATUSES.includes(b.status)
+  )
+
+  for (const [type, needed] of Object.entries(neededByType)) {
+    if (type === CONFERENCE_ROOM_ID) {
+      const dates = options?.conferenceEventDates?.length
+        ? normalizeEventDates(options.conferenceEventDates)
+        : datesInStayRange(checkIn, checkOut)
+      const conflicts = blocking.filter((b) => dates.some((d) => bookingBlocksConferenceDate(b, d)))
+      if (dates.length === 0 || conflicts.length > 0) {
+        issues.push({
+          roomType: type,
+          reason: 'booked',
+          conflictingBookingIds: conflicts.map((b) => b.id),
+        })
+      }
+      continue
+    }
+
+    const remaining = await getRemainingRoomUnits(checkIn, checkOut, type, { excludeBookingId })
+    if (remaining < needed) {
+      const conflicts = getOverlappingBookings(checkIn, checkOut, bookings, excludeBookingId).filter(
+        (b) => getBookingRooms(b).some((line) => line.roomType === type)
+      )
+      issues.push({
+        roomType: type,
+        reason: 'booked',
+        conflictingBookingIds: conflicts.map((b) => b.id),
+      })
+    }
+  }
+
+  return issues
+}
+
 /** True when every requested room line still has inventory and fits capacity. */
 export const areRoomsAvailableForBooking = async (
   checkIn: string,
   checkOut: string,
   roomTypes: string[],
-  options?: {
-    excludeBookingId?: string
-    lines?: RoomLineAvailabilityInput[]
-    conferenceEventDates?: string[]
-  }
+  options?: RoomAvailabilityOptions
 ): Promise<boolean> => {
   if (!checkIn || !checkOut || roomTypes.length === 0) return false
-
-  const filledLines = options?.lines?.filter((l) => l.roomType) ?? []
-  if (filledLines.length > 0) {
-    for (const line of filledLines) {
-      if (!lineFitsCapacity(line)) return false
-    }
-  }
-
-  try {
-    const neededByType: Record<string, number> = {}
-    roomTypes.forEach((type) => {
-      neededByType[type] = (neededByType[type] ?? 0) + 1
-    })
-
-    for (const [type, needed] of Object.entries(neededByType)) {
-      if (type === CONFERENCE_ROOM_ID && options?.conferenceEventDates?.length) {
-        const conferenceFree = await areConferenceEventDatesAvailable(
-          options.conferenceEventDates,
-          { excludeBookingId: options?.excludeBookingId }
-        )
-        if (!conferenceFree) return false
-        continue
-      }
-
-      const remaining = await getRemainingRoomUnits(checkIn, checkOut, type, {
-        excludeBookingId: options?.excludeBookingId,
-      })
-      if (remaining < needed) return false
-    }
-
-    return true
-  } catch (e) {
-    if (e instanceof AvailabilityLoadError) return false
-    throw e
-  }
+  const issues = await getRoomAvailabilityIssues(checkIn, checkOut, roomTypes, options)
+  return issues.length === 0
 }
 
 export const getRoomById = (id: string): Room | null => {

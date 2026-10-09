@@ -37,6 +37,7 @@ import { ExtraChargesSection } from './ExtraChargesSection'
 import { BookingActions } from './BookingActions'
 import { printBookingInvoice } from '../../utils/bookingInvoice'
 import { confirmDelete } from '../../utils/confirmDelete'
+import { explainBookingUnavailable } from '../../utils/roomAvailabilityMessage'
 import {
   addBookingNote,
   computeBookingFinancials,
@@ -130,7 +131,7 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
   const setStatus = async (status: Booking['status'], label: string) => {
     const updated = await updateBookingStatus(booking.id, status)
     if (!updated) {
-      toast.error('Could not update status', 'Rooms are not available for these dates.')
+      toast.error('Could not update status', await explainBookingUnavailable(booking))
       return
     }
     toast.success(`Booking ${label}`, booking.name)
@@ -141,7 +142,7 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
     if (status === booking.status) return
     const updated = await updateBookingStatus(booking.id, status)
     if (!updated) {
-      toast.error('Could not update status', 'Rooms are not available for these dates.')
+      toast.error('Could not update status', await explainBookingUnavailable(booking))
       return
     }
     toast.success('Status updated', status)

@@ -25,7 +25,11 @@ import {
   type DiscountType,
   type PaymentMethod,
 } from '../../../utils/bookings'
-import { areRoomsAvailableForBooking } from '../../../utils/rooms'
+import { getRoomAvailabilityIssues } from '../../../utils/rooms'
+import {
+  describeAvailabilityIssues,
+  explainBookingUnavailable,
+} from '../../utils/roomAvailabilityMessage'
 import { BookingPersistError } from '../../../lib/bookingsStore'
 import { isValidEmail, normalizeEmail } from '../../../utils/validation'
 import {
@@ -329,7 +333,7 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
     }
 
     const roomTypes = bookingRooms.map((r) => r.roomType)
-    const inventoryOk = await areRoomsAvailableForBooking(
+    const availabilityIssues = await getRoomAvailabilityIssues(
       submitBounds.checkIn,
       submitBounds.checkOut,
       roomTypes,
@@ -342,8 +346,8 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
         conferenceEventDates: conferenceOnly ? normalizedEventDates : undefined,
       }
     )
-    if (!inventoryOk) {
-      setError('One or more selected rooms are not available for these dates.')
+    if (availabilityIssues.length > 0) {
+      setError(describeAvailabilityIssues(availabilityIssues))
       return
     }
 
@@ -369,8 +373,8 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
             booking = withStatus
           } else {
             toast.error(
-              'Saved as pending',
-              `Could not mark as ${guest.status} - rooms are no longer available for these dates.`
+              `Saved as pending - could not mark as ${guest.status}`,
+              await explainBookingUnavailable(booking)
             )
           }
         }
