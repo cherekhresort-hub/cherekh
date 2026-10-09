@@ -122,6 +122,7 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
   const [eventDates, setEventDates] = useState<string[]>([])
   const [roomLines, setRoomLines] = useState<RoomBookingLine[]>(() => [createRoomLine('', 2, 0)])
   const [error, setError] = useState<string | null>(null)
+  const [bookedRoomIds, setBookedRoomIds] = useState<Set<string>>(() => new Set())
   const totalManuallyEdited = useRef(false)
 
   useEffect(() => {
@@ -148,6 +149,36 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
         : calculateStayNights(guest.checkIn, guest.checkOut),
     [conferenceOnly, eventDates, guest.checkIn, guest.checkOut]
   )
+
+  useEffect(() => {
+    if (!open || nights <= 0) {
+      setBookedRoomIds(new Set())
+      return
+    }
+    let cancelled = false
+    const normalizedEventDates = normalizeEventDates(eventDates)
+    const bounds =
+      conferenceOnly && normalizedEventDates.length > 0
+        ? deriveConferenceBounds(normalizedEventDates)
+        : { checkIn: guest.checkIn, checkOut: guest.checkOut }
+
+    void Promise.all(
+      bookableRoomCatalog().map(async (room) => {
+        const issues = await getRoomAvailabilityIssues(bounds.checkIn, bounds.checkOut, [room.id], {
+          conferenceEventDates:
+            room.isConference && conferenceOnly ? normalizedEventDates : undefined,
+        })
+        // Load failures are re-checked on submit, so only hide rooms confirmed as booked.
+        return issues.some((issue) => issue.reason === 'booked') ? room.id : null
+      })
+    ).then((ids) => {
+      if (!cancelled) setBookedRoomIds(new Set(ids.filter((id): id is string => id !== null)))
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, nights, conferenceOnly, eventDates, guest.checkIn, guest.checkOut])
 
   const suggestedTotal = useMemo(() => {
     if (bookingRooms.length === 0 || nights <= 0) return 0
@@ -217,12 +248,18 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
     const taken = roomLines
       .filter((line) => line.id !== lineId && line.roomType)
       .map((line) => line.roomType)
-    return bookableRoomCatalog().filter((room) => !taken.includes(room.id))
+    const current = roomLines.find((line) => line.id === lineId)?.roomType
+    return bookableRoomCatalog().filter(
+      (room) =>
+        !taken.includes(room.id) && (room.id === current || !bookedRoomIds.has(room.id))
+    )
   }
+
+  const freeRoomCount = bookableRoomCatalog().filter((room) => !bookedRoomIds.has(room.id)).length
 
   const canAddRoom =
     nights > 0 &&
-    roomLines.length < BOOKABLE_ROOM_COUNT &&
+    roomLines.length < Math.min(BOOKABLE_ROOM_COUNT, freeRoomCount) &&
     roomLines.filter((l) => l.roomType).length < BOOKABLE_ROOM_COUNT
 
   const addRoomLine = () => {
@@ -585,10 +622,13 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
                             updateLine(line.id, { roomType: e.target.value })
                           }
                         >
-                          <option value="">Select a room</option>
+                          <option value="">
+                            {options.length === 0 ? 'No rooms free for these dates' : 'Select a room'}
+                          </option>
                           {options.map((r) => (
                             <option key={r.id} value={r.id}>
                               {r.selectLabel}
+                              {bookedRoomIds.has(r.id) ? ' - booked for these dates' : ''}
                             </option>
                           ))}
                         </Select>
