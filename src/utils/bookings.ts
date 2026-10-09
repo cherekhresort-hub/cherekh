@@ -46,7 +46,12 @@ export interface PaymentTransaction {
   notes?: string
   recordedBy?: string
   recordedAt: string
+  /** Collected when the booking was created (before arrival). */
+  isAdvance?: boolean
 }
+
+export const getAdvanceTransactions = (booking: Booking): PaymentTransaction[] =>
+  (booking.payment?.transactions ?? []).filter((t) => t.isAdvance && t.type === 'payment')
 
 export type DiscountType = 'amount' | 'percent'
 
@@ -346,7 +351,11 @@ const normalizeBookingInput = (
 
 export const getBookings = (): Booking[] => getBookingsCache()
 
-export const saveBooking = async (booking: SaveBookingInput): Promise<Booking> => {
+export const saveBooking = async (
+  booking: SaveBookingInput,
+  options: { sendEmails?: boolean } = {}
+): Promise<Booking> => {
+  const { sendEmails = true } = options
   const normalized = normalizeBookingInput(booking)
   const derivedTotal = calculateBookingTotal(normalized)
 
@@ -367,7 +376,9 @@ export const saveBooking = async (booking: SaveBookingInput): Promise<Booking> =
 
     try {
       await persistBooking(newBooking)
-      void import('../lib/bookingEmails').then((m) => m.sendBookingCreatedEmails(newBooking))
+      if (sendEmails) {
+        void import('../lib/bookingEmails').then((m) => m.sendBookingCreatedEmails(newBooking))
+      }
       void notifyAdminOfManagerAction({
         category: 'booking',
         action: 'booking.created',
@@ -875,6 +886,7 @@ export interface RecordPaymentInput {
   notes?: string
   recordedBy?: string
   recordedAt?: string
+  isAdvance?: boolean
 }
 
 export const recordPaymentTransaction = async (
@@ -897,6 +909,7 @@ export const recordPaymentTransaction = async (
     notes: input.notes?.trim() || undefined,
     recordedBy: input.recordedBy?.trim() || 'Admin',
     recordedAt: input.recordedAt ?? new Date().toISOString(),
+    ...(input.isAdvance ? { isAdvance: true } : {}),
   }
 
   const existingTxs = bookingRef.payment?.transactions ?? []

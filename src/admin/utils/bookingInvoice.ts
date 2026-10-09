@@ -1,7 +1,9 @@
 import {
   computeBookingFinancials,
   FOOD_MEAL_LABELS,
+  getAdvanceTransactions,
   getBookingRooms,
+  PAYMENT_METHOD_LABELS,
   type Booking,
   type Payment,
   type PaymentTransaction,
@@ -41,8 +43,8 @@ const renderTransactions = (txs: PaymentTransaction[]): string => {
             (t) => `
           <tr>
             <td>${escapeHtml(formatDateTime(t.recordedAt))}</td>
-            <td>${escapeHtml(t.type)}</td>
-            <td>${escapeHtml(t.method ?? '')}</td>
+            <td>${escapeHtml(t.isAdvance && t.type === 'payment' ? 'advance' : t.type)}</td>
+            <td>${escapeHtml(t.method ? PAYMENT_METHOD_LABELS[t.method] : '')}</td>
             <td>${escapeHtml(t.reference ?? '')}</td>
             <td class="num ${t.type === 'refund' ? 'neg' : ''}">
               ${t.type === 'refund' ? '-' : ''}${escapeHtml(formatBDT(t.amount))}
@@ -67,6 +69,10 @@ const buildInvoiceHtml = (booking: Booking): string => {
   const durationUnit = isConferenceOnly ? 'event day' : 'night'
   const bookingShort = formatBookingId(booking.id)
   const issuedAt = new Date().toLocaleString()
+  const advanceTotal = getAdvanceTransactions(booking).reduce(
+    (sum, t) => sum + (Number(t.amount) || 0),
+    0
+  )
 
   return `<!doctype html>
 <html>
@@ -261,7 +267,8 @@ const buildInvoiceHtml = (booking: Booking): string => {
         : ''
     }
     <div class="row total"><span>Total Due</span><span>${escapeHtml(formatBDT(fin.total))}</span></div>
-    <div class="row subline"><span>Paid</span><span>${escapeHtml(formatBDT(fin.paid))}</span></div>
+    ${advanceTotal > 0 ? `<div class="row subline"><span>Advance paid</span><span>${escapeHtml(formatBDT(advanceTotal))}</span></div>` : ''}
+    <div class="row subline"><span>${advanceTotal > 0 ? 'Total paid' : 'Paid'}</span><span>${escapeHtml(formatBDT(fin.paid))}</span></div>
     ${fin.refunded > 0 ? `<div class="row subline"><span>Refunded</span><span>- ${escapeHtml(formatBDT(fin.refunded))}</span></div>` : ''}
     <div class="row" style="font-weight: 600;">
       <span>Outstanding</span>

@@ -647,7 +647,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
                       {formatBDT(tx.amount)}
                     </span>
                     <Badge tone={TX_TYPE_TONE[tx.type]} size="sm">
-                      {TX_TYPE_LABEL[tx.type]}
+                      {tx.isAdvance && tx.type === 'payment' ? 'Advance' : TX_TYPE_LABEL[tx.type]}
                     </Badge>
                     {tx.method && (
                       <Badge tone="neutral" size="sm">

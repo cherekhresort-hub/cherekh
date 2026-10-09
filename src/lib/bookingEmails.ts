@@ -1,5 +1,10 @@
 import type { Booking } from '../utils/bookings'
-import { computeBookingFinancials, getBookingRooms } from '../utils/bookings'
+import {
+  computeBookingFinancials,
+  getAdvanceTransactions,
+  getBookingRooms,
+  PAYMENT_METHOD_LABELS,
+} from '../utils/bookings'
 import { formatEventDatesDisplay, getBookingDurationCount, getBookingEventDates, bookingIsConferenceOnly } from '../utils/bookingHelpers'
 import { getResortContact } from '../utils/contactFromSettings'
 import { siteConfig } from '../data/siteConfig'
@@ -53,6 +58,13 @@ export const buildBookingEmailParams = (booking: Booking): Record<string, string
 
   const resortContact = getResortContact()
 
+  const advances = getAdvanceTransactions(booking)
+  const advanceTotal = advances.reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+  const advanceMethods = [
+    ...new Set(advances.map((t) => (t.method ? PAYMENT_METHOD_LABELS[t.method] : '')).filter(Boolean)),
+  ]
+  const advanceReferences = advances.map((t) => t.reference).filter(Boolean)
+
   return {
     guest_name: booking.name || 'Guest',
     guest_email: booking.email || '',
@@ -72,6 +84,13 @@ export const buildBookingEmailParams = (booking: Booking): Record<string, string
     subtotal: formatBDT(fin.subtotal),
     discount: formatBDT(fin.discount),
     total: formatBDT(fin.total),
+    // Empty when there is no advance so `{{#advance_paid}}` sections stay hidden.
+    advance_paid: advanceTotal > 0 ? formatBDT(advanceTotal) : '',
+    advance_method: advanceMethods.join(', '),
+    advance_reference: advanceReferences.join(', '),
+    amount_paid: formatBDT(fin.paid),
+    balance_due: formatBDT(fin.outstanding),
+    payment_status: fin.status,
     status: booking.status,
     special_requests: booking.specialRequests?.trim() || '-',
     resort_name: 'Cherekh Center',

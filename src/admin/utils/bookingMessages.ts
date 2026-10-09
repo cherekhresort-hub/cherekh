@@ -1,6 +1,8 @@
 import {
   computeBookingFinancials,
+  getAdvanceTransactions,
   getBookingRooms,
+  PAYMENT_METHOD_LABELS,
   type Booking,
 } from '../../utils/bookings'
 import { getResortSettings } from '../data/settings'
@@ -33,6 +35,7 @@ export const buildBookingMessages = (booking: Booking): BookingMessageBundle => 
   const settings = getResortSettings()
   const rooms = getBookingRooms(booking)
   const fin = computeBookingFinancials(booking)
+  const advances = getAdvanceTransactions(booking)
   const isConferenceOnly = bookingIsConferenceOnly(booking)
   const nights = getBookingDurationCount(booking)
   const bookingId = formatBookingId(booking.id)
@@ -48,6 +51,12 @@ export const buildBookingMessages = (booking: Booking): BookingMessageBundle => 
     `Rooms: ${roomNames}`,
     `Guests: ${booking.totalGuests}`,
     fin.total > 0 ? `Total: ${formatBDT(fin.total)}` : null,
+    ...advances.map(
+      (t) =>
+        `Advance paid: ${formatBDT(t.amount)}${t.method ? ` via ${PAYMENT_METHOD_LABELS[t.method]}` : ''}${
+          t.reference ? ` (Txn ID ${t.reference})` : ''
+        }`
+    ),
     fin.outstanding > 0 ? `Outstanding: ${formatBDT(fin.outstanding)}` : null,
     `Status: ${booking.status}`,
   ]

@@ -43,6 +43,12 @@ Use these placeholders in **both** templates (same names):
 | `{{subtotal}}` | e.g. `৳12,000` |
 | `{{discount}}` | Discount amount |
 | `{{total}}` | Amount due after discount |
+| `{{advance_paid}}` | Advance collected at booking, e.g. `৳2,000` - empty when there is no advance |
+| `{{advance_method}}` | e.g. `bKash` (empty when no advance) |
+| `{{advance_reference}}` | Transaction ID (empty for cash or no advance) |
+| `{{amount_paid}}` | Total collected so far |
+| `{{balance_due}}` | Amount still to pay |
+| `{{payment_status}}` | `pending`, `partial`, `paid`, or `refunded` |
 | `{{status}}` | `pending`, `confirmed`, etc. |
 | `{{special_requests}}` | Guest notes or ` - ` |
 | `{{resort_name}}` | Cherekh Center |
@@ -110,6 +116,11 @@ Paste into **Content** (HTML mode). Uses inline styles for Gmail/Outlook; forest
                     <p style="margin:0 0 4px;font-size:14px;color:#4f4a44;">Subtotal <span style="float:right;font-weight:600;color:#27241F;">{{subtotal}}</span></p>
                     <p style="margin:0 0 4px;font-size:14px;color:#4f4a44;">Discount <span style="float:right;">{{discount}}</span></p>
                     <p style="margin:12px 0 0;padding-top:12px;border-top:1px solid #d4e5d9;font-size:16px;color:#27241F;">Total <span style="float:right;font-weight:700;color:#1E4D2B;">{{total}}</span></p>
+                    {{#advance_paid}}
+                    <p style="margin:10px 0 4px;font-size:14px;color:#4f4a44;">Advance received <span style="float:right;font-weight:600;color:#1E4D2B;">{{advance_paid}}</span></p>
+                    <p style="margin:0 0 4px;font-size:12px;color:#857F70;">{{advance_method}}{{#advance_reference}} · Txn ID {{advance_reference}}{{/advance_reference}}</p>
+                    <p style="margin:8px 0 0;font-size:15px;color:#27241F;">Balance due <span style="float:right;font-weight:700;color:#1E4D2B;">{{balance_due}}</span></p>
+                    {{/advance_paid}}
                     <p style="margin:10px 0 0;font-size:12px;color:#857F70;">Status: {{status}}</p>
                   </td>
                 </tr>
@@ -244,6 +255,9 @@ Staff alert layout: clear sections, easy to scan on mobile, reply goes to the gu
                 </tr>
               </table>
               <p style="margin:8px 0 0;font-size:12px;color:#857F70;">Subtotal {{subtotal}} · Discount {{discount}}</p>
+              {{#advance_paid}}
+              <p style="margin:8px 0 0;font-size:13px;color:#27241F;"><strong>Advance {{advance_paid}}</strong> via {{advance_method}}{{#advance_reference}} · Txn ID {{advance_reference}}{{/advance_reference}} · Balance due <strong>{{balance_due}}</strong></p>
+              {{/advance_paid}}
             </td>
           </tr>
           <tr>

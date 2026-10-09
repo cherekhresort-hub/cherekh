@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Plus, Tag, Trash2 } from 'lucide-react'
+import { ChevronDown, Plus, Tag, Trash2, Wallet } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Field, Input, Select, Textarea } from '../ui/Input'
@@ -14,6 +14,8 @@ import {
 import {
   computeDiscountAmount,
   getBookingById,
+  PAYMENT_METHOD_LABELS,
+  recordPaymentTransaction,
   saveBooking,
   setBookingDiscount,
   setBookingTotalAmount,
@@ -21,6 +23,7 @@ import {
   type Booking,
   type BookingRoomLine,
   type DiscountType,
+  type PaymentMethod,
 } from '../../../utils/bookings'
 import { areRoomsAvailableForBooking } from '../../../utils/rooms'
 import { BookingPersistError } from '../../../lib/bookingsStore'
@@ -67,6 +70,9 @@ type GuestForm = {
   discountType: DiscountType
   discountValue: number
   discountReason: string
+  advanceAmount: number
+  advanceMethod: PaymentMethod
+  advanceReference: string
 }
 
 const defaultGuestForm = (): GuestForm => {
@@ -84,6 +90,9 @@ const defaultGuestForm = (): GuestForm => {
     discountType: 'amount',
     discountValue: 0,
     discountReason: '',
+    advanceAmount: 0,
+    advanceMethod: 'cash',
+    advanceReference: '',
   }
 }
 
@@ -170,6 +179,8 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
   )
 
   const finalTotal = Math.max(0, guest.totalAmount - discountAmount)
+  const balanceAfterAdvance = Math.max(0, finalTotal - guest.advanceAmount)
+  const advanceNeedsReference = guest.advanceAmount > 0 && guest.advanceMethod !== 'cash'
 
   const updateGuest = <K extends keyof GuestForm>(key: K, value: GuestForm[K]) =>
     setGuest((prev) => ({ ...prev, [key]: value }))
@@ -306,6 +317,16 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
       setError('Percent discount cannot exceed 100.')
       return
     }
+    if (guest.advanceAmount > 0 && finalTotal > 0 && guest.advanceAmount > finalTotal) {
+      setError(`Advance cannot be more than the total due (${formatBDT(finalTotal)}).`)
+      return
+    }
+    if (advanceNeedsReference && !guest.advanceReference.trim()) {
+      setError(
+        `Enter the transaction ID for the ${PAYMENT_METHOD_LABELS[guest.advanceMethod]} advance.`
+      )
+      return
+    }
 
     const roomTypes = bookingRooms.map((r) => r.roomType)
     const inventoryOk = await areRoomsAvailableForBooking(
@@ -327,45 +348,71 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
     }
 
     try {
-      let booking = await saveBooking({
-        checkIn: submitBounds.checkIn,
-        checkOut: submitBounds.checkOut,
-        eventDates: conferenceOnly ? normalizedEventDates : undefined,
-        name: guest.name,
-        email,
-        phone: guest.phone,
-        specialRequests: guest.specialRequests,
-        rooms: bookingRooms,
-      })
+      let booking = await saveBooking(
+        {
+          checkIn: submitBounds.checkIn,
+          checkOut: submitBounds.checkOut,
+          eventDates: conferenceOnly ? normalizedEventDates : undefined,
+          name: guest.name,
+          email,
+          phone: guest.phone,
+          specialRequests: guest.specialRequests,
+          rooms: bookingRooms,
+        },
+        { sendEmails: false }
+      )
 
-      if (guest.status !== 'pending') {
-        const withStatus = await updateBookingStatus(booking.id, guest.status)
-        if (!withStatus) {
-          setError(
-            `Booking saved as pending. Could not mark as ${guest.status} - rooms are no longer available for these dates.`
-          )
-          const pending = getBookingById(booking.id) ?? booking
-          onCreated(pending)
-          onClose()
-          return
+      try {
+        if (guest.status !== 'pending') {
+          const withStatus = await updateBookingStatus(booking.id, guest.status)
+          if (withStatus) {
+            booking = withStatus
+          } else {
+            toast.error(
+              'Saved as pending',
+              `Could not mark as ${guest.status} - rooms are no longer available for these dates.`
+            )
+          }
         }
-        booking = withStatus
-      }
 
-      if (canEditPricing) {
-        const subtotal = guest.totalAmount > 0 ? guest.totalAmount : suggestedTotal
-        if (subtotal > 0) {
-          booking = (await setBookingTotalAmount(booking.id, subtotal)) ?? booking
+        if (canEditPricing) {
+          const subtotal = guest.totalAmount > 0 ? guest.totalAmount : suggestedTotal
+          if (subtotal > 0) {
+            booking = (await setBookingTotalAmount(booking.id, subtotal)) ?? booking
+          }
         }
-      }
 
-      if (guest.discountValue > 0) {
-        booking =
-          (await setBookingDiscount(booking.id, {
-            type: guest.discountType,
-            value: guest.discountValue,
-            reason: guest.discountReason.trim() || undefined,
-          })) ?? booking
+        if (guest.discountValue > 0) {
+          booking =
+            (await setBookingDiscount(booking.id, {
+              type: guest.discountType,
+              value: guest.discountValue,
+              reason: guest.discountReason.trim() || undefined,
+            })) ?? booking
+        }
+
+        if (guest.advanceAmount > 0) {
+          try {
+            booking =
+              (await recordPaymentTransaction(booking.id, {
+                type: 'payment',
+                amount: guest.advanceAmount,
+                method: guest.advanceMethod,
+                reference: guest.advanceMethod === 'cash' ? undefined : guest.advanceReference,
+                notes: 'Advance payment',
+                isAdvance: true,
+              })) ?? booking
+          } catch (e) {
+            console.error(e)
+            toast.error(
+              'Advance not recorded',
+              'The booking was created, but the advance could not be saved. Add it from the booking’s payment section.'
+            )
+          }
+        }
+      } finally {
+        const created = getBookingById(booking.id) ?? booking
+        void import('../../../lib/bookingEmails').then((m) => m.sendBookingCreatedEmails(created))
       }
 
       const latest = getBookingById(booking.id) ?? booking
@@ -469,8 +516,6 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
             >
               <option value="pending">Pending</option>
               <option value="confirmed">Confirmed</option>
-              <option value="checked-out">Checked-out</option>
-              <option value="cancelled">Cancelled</option>
             </Select>
           </Field>
         </div>
@@ -677,6 +722,71 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
                 Discount {formatBDT(discountAmount)} · Total due{' '}
                 <span className={cn('font-medium text-forest-700')}>{formatBDT(finalTotal)}</span>
               </p>
+            )}
+          </div>
+
+          <div className="border-t border-stone-200/70 pt-3 space-y-3">
+            <p className="text-[10px] uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1">
+              <Wallet className="w-3 h-3" /> Advance payment
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="relative">
+                <Input
+                  type="number"
+                  min={0}
+                  max={finalTotal > 0 ? finalTotal : undefined}
+                  step={100}
+                  value={guest.advanceAmount || ''}
+                  onChange={(e) =>
+                    updateGuest('advanceAmount', Math.max(0, Number(e.target.value || 0)))
+                  }
+                  placeholder="Advance amount (optional)"
+                  aria-label="Advance amount (BDT)"
+                  className="pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 pointer-events-none">
+                  ৳
+                </span>
+              </div>
+              <div className="relative">
+                <Select
+                  value={guest.advanceMethod}
+                  onChange={(e) => updateGuest('advanceMethod', e.target.value as PaymentMethod)}
+                  aria-label="Advance payment method"
+                  className="pr-8"
+                >
+                  {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (
+                    <option key={m} value={m}>
+                      {PAYMENT_METHOD_LABELS[m]}
+                    </option>
+                  ))}
+                </Select>
+                <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+            {guest.advanceAmount > 0 && (
+              <>
+                {advanceNeedsReference && (
+                  <Field
+                    label={`${PAYMENT_METHOD_LABELS[guest.advanceMethod]} transaction ID`}
+                    required
+                  >
+                    <Input
+                      value={guest.advanceReference}
+                      onChange={(e) => updateGuest('advanceReference', e.target.value)}
+                      placeholder="e.g. 9A7B3C2D1E"
+                    />
+                  </Field>
+                )}
+                {finalTotal > 0 && (
+                  <p className="text-xs text-stone-500">
+                    Advance {formatBDT(guest.advanceAmount)} · Balance due{' '}
+                    <span className="font-medium text-forest-700">
+                      {formatBDT(balanceAfterAdvance)}
+                    </span>
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
