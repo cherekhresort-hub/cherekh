@@ -49,6 +49,8 @@ const AdminSettings = lazy(() => import('./admin/pages/Settings'))
 const AdminTeamAccess = lazy(() => import('./admin/pages/TeamAccess'))
 const AdminActivity = lazy(() => import('./admin/pages/Activity'))
 const AdminMenu = lazy(() => import('./admin/pages/RestaurantMenu'))
+const AdminExpenses = lazy(() => import('./admin/pages/Expenses'))
+const AdminInvestments = lazy(() => import('./admin/pages/Investments'))
 
 const withSuspense = (element: ReactNode) => (
   <Suspense fallback={<RouteFallback />}>{element}</Suspense>
@@ -76,6 +78,8 @@ function App() {
             <Route path="menu" element={withSuspense(<AdminMenu />)} />
             <Route path="staff" element={withSuspense(<AdminStaff />)} />
             <Route path="inquiries" element={withSuspense(<AdminInquiries />)} />
+            <Route path="expenses" element={withSuspense(<AdminExpenses />)} />
+            <Route path="investments" element={withSuspense(<AdminInvestments />)} />
             <Route path="reports" element={withSuspense(<AdminReports />)} />
             <Route path="activity" element={withSuspense(<AdminActivity />)} />
             <Route path="team-access" element={withSuspense(<AdminTeamAccess />)} />

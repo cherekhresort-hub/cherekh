@@ -11,6 +11,7 @@ export type StaffActivityCategory =
   | 'settings'
   | 'team'
   | 'system'
+  | 'finance'
 
 export type LogStaffActivityInput = {
   category: StaffActivityCategory
@@ -214,6 +215,7 @@ const emptyCategoryCounts = (): Record<StaffActivityCategory, number> => ({
   settings: 0,
   team: 0,
   system: 0,
+  finance: 0,
 })
 
 const emptyRoleCounts = (): Record<StaffRole, number> => ({
@@ -420,6 +422,7 @@ export const categoryLabel = (category: StaffActivityCategory): string => {
   if (category === 'inquiry') return 'Inquiries'
   if (category === 'settings') return 'Settings'
   if (category === 'team') return 'Team access'
+  if (category === 'finance') return 'Finance'
   return 'System'
 }
 

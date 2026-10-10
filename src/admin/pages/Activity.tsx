@@ -47,6 +47,7 @@ const CATEGORY_TABS: { value: ActivityCategoryFilter; label: string }[] = [
   { value: 'guest', label: 'Guests' },
   { value: 'staff', label: 'Staff' },
   { value: 'team', label: 'Team' },
+  { value: 'finance', label: 'Finance' },
   { value: 'settings', label: 'Settings' },
 ]
 
@@ -74,6 +75,7 @@ const categoryTone: Record<StaffActivityCategory, string> = {
   team: 'text-violet-700 bg-violet-50 border-violet-200',
   settings: 'text-stone-600 bg-stone-50 border-stone-200',
   system: 'text-stone-600 bg-stone-50 border-stone-200',
+  finance: 'text-lime-700 bg-lime-50 border-lime-200',
 }
 
 const Activity = () => {

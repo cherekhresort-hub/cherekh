@@ -1,8 +1,8 @@
 import type { Booking } from '../../utils/bookings'
+import { businessToday, eachDay, PERIOD_PRESET_LABELS, presetRange, type PeriodPreset } from '../../lib/finance/dates'
 import { bookingStayOverlapsRange } from './bookingFilters'
-import { toISODate } from './date'
 
-export type ReportPeriodMode = 'all' | 'month' | 'custom'
+export type ReportPeriodMode = 'all' | 'month' | 'custom' | 'preset'
 
 export interface ReportPeriod {
   mode: ReportPeriodMode
@@ -10,9 +10,15 @@ export interface ReportPeriod {
   month: string
   from: string
   to: string
+  /** Used when mode is `preset` */
+  preset?: PeriodPreset
 }
 
-export const currentYearMonth = (date = new Date()): string => {
+const toISODate = (): string => businessToday()
+
+/** Current month in the resort's timezone, or the calendar month of a given local date. */
+export const currentYearMonth = (date?: Date): string => {
+  if (!date) return businessToday().slice(0, 7)
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   return `${year}-${month}`
@@ -55,6 +61,7 @@ export const getReportRange = (
   period: ReportPeriod
 ): { from: string; to: string } | null => {
   if (period.mode === 'all') return null
+  if (period.mode === 'preset') return presetRange(period.preset ?? 'this_month')
   if (period.mode === 'month') {
     if (!period.month) return null
     return monthBounds(period.month)
@@ -91,6 +98,12 @@ export const formatReportRangeLabel = (
   }
   const from = new Date(`${range.from}T12:00:00`)
   const to = new Date(`${range.to}T12:00:00`)
+  if (period.mode === 'preset' && period.preset) {
+    const short = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return range.from === range.to
+      ? `${PERIOD_PRESET_LABELS[period.preset]} (${short(from)})`
+      : `${PERIOD_PRESET_LABELS[period.preset]} (${short(from)} – ${short(to)})`
+  }
   const fromLabel = from.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -144,13 +157,4 @@ export const yearMonths = (year: number): { key: string; label: string }[] =>
     }
   })
 
-export const daysInRange = (from: string, to: string): string[] => {
-  const days: string[] = []
-  const cursor = new Date(`${from}T12:00:00`)
-  const end = new Date(`${to}T12:00:00`)
-  while (cursor <= end) {
-    days.push(toISODate(cursor))
-    cursor.setDate(cursor.getDate() + 1)
-  }
-  return days
-}
+export const daysInRange = (from: string, to: string): string[] => eachDay(from, to)

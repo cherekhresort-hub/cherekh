@@ -1,7 +1,14 @@
 import type { AdminNavItem } from '../data/navigation'
 import type { StaffRole } from '../../lib/roles'
 
-const MANAGER_BLOCKED_PATHS = ['/admin/team-access', '/admin/settings', '/admin/activity'] as const
+// Investment (Main fund) is admin-only; managers keep Expenses. The database
+// enforces the same split.
+const MANAGER_BLOCKED_PATHS = [
+  '/admin/team-access',
+  '/admin/settings',
+  '/admin/activity',
+  '/admin/investments',
+] as const
 
 const BOOKING_OFFICER_PATHS = [
   '/admin',

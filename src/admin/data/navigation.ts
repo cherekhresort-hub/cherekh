@@ -11,6 +11,8 @@ import {
   Shield,
   ScrollText,
   UtensilsCrossed,
+  Receipt,
+  Landmark,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -30,6 +32,8 @@ export const adminNavItems: AdminNavItem[] = [
   { to: '/admin/menu', label: 'Menu', icon: UtensilsCrossed, description: 'Dining prices' },
   { to: '/admin/staff', label: 'Staff', icon: UserCog, description: 'Team roster' },
   { to: '/admin/inquiries', label: 'Inquiries', icon: MessageSquareText, description: 'Contact form' },
+  { to: '/admin/expenses', label: 'Expenses', icon: Receipt, description: 'Purchases & payments' },
+  { to: '/admin/investments', label: 'Investment', icon: Landmark, description: 'Main fund & capital' },
   { to: '/admin/reports', label: 'Reports', icon: BarChart3, description: 'Analytics' },
   { to: '/admin/activity', label: 'Activity', icon: ScrollText, description: 'Audit log' },
   { to: '/admin/team-access', label: 'Team access', icon: Shield, description: 'Login accounts' },

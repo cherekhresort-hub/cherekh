@@ -1,6 +1,8 @@
 import type { StaffActivityEntry } from './staffActivityLog'
 import { isStaffLoginEntry } from './staffActivityLog'
 
+const CAPITAL_ACTIONS = new Set(['owner_contribution', 'capital_withdrawal'])
+
 export const getActivityDestination = (entry: StaffActivityEntry): string | null => {
   if (isStaffLoginEntry(entry)) return null
   switch (entry.category) {
@@ -24,6 +26,11 @@ export const getActivityDestination = (entry: StaffActivityEntry): string | null
         : '/admin/staff'
     case 'team':
       return '/admin/team-access'
+    case 'finance':
+      if (CAPITAL_ACTIONS.has(entry.action)) return '/admin/investments'
+      return entry.entityId
+        ? `/admin/expenses?id=${encodeURIComponent(entry.entityId)}`
+        : '/admin/expenses'
     case 'settings':
     case 'system':
       return '/admin/settings'
@@ -47,6 +54,9 @@ export const getActivityDestinationLabel = (entry: StaffActivityEntry): string =
       return entry.entityId ? 'View staff member' : 'Go to staff'
     case 'team':
       return 'Go to team access'
+    case 'finance':
+      if (CAPITAL_ACTIONS.has(entry.action)) return 'Go to investment'
+      return entry.entityId ? 'Open expense' : 'Go to expenses'
     case 'settings':
     case 'system':
       return 'Go to settings'

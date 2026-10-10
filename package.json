@@ -13,6 +13,7 @@
     "deploy:netlify": "npm run build && npx netlify-cli deploy --prod --dir=dist --functions=netlify/functions",
     "deploy:netlify:draft": "npm run build && npx netlify-cli deploy --dir=dist --functions=netlify/functions",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "test": "vitest run",
     "postinstall": "update-browserslist-db"
   },
   "dependencies": {
@@ -61,7 +62,8 @@
     "typescript": "^5.2.2",
     "update-browserslist-db": "^1.2.3",
     "vite": "^6.4.3",
-    "vite-plugin-pwa": "^1.1.0"
+    "vite-plugin-pwa": "^1.1.0",
+    "vitest": "^3.2.7"
   },
   "overrides": {
     "esbuild": "^0.25.0",

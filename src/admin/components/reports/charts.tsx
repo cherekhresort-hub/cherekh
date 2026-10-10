@@ -3,6 +3,7 @@ import {
   Area,
   BarChart,
   Bar,
+  ComposedChart,
   LineChart,
   Line,
   PieChart,
@@ -115,6 +116,78 @@ export const RevenueBarChart = ({ data }: { data: RevenueDatum[] }) => (
       <Legend wrapperStyle={{ fontSize: 12 }} />
       <Bar dataKey="revenue" fill="#1E4D2B" radius={[8, 8, 0, 0]} name="Revenue" />
       <Bar dataKey="refunds" fill="#DC2626" radius={[8, 8, 0, 0]} name="Refunds" />
+    </BarChart>
+  </ResponsiveContainer>
+)
+
+const compactAmount = (v: number) =>
+  v >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : `${v}`
+
+interface DailyActivityDatum {
+  day: string
+  collected: number
+  earned: number
+  occupancy: number
+}
+export const DailyActivityChart = ({ data }: { data: DailyActivityDatum[] }) => (
+  <ResponsiveContainer width="100%" height={300}>
+    <ComposedChart data={data}>
+      <CartesianGrid stroke="#F1F1ED" strokeDasharray="3 3" vertical={false} />
+      <XAxis dataKey="day" tick={tickStyle} axisLine={axisStyle} tickLine={false} minTickGap={12} />
+      <YAxis
+        yAxisId="amount"
+        tick={tickStyle}
+        axisLine={false}
+        tickLine={false}
+        tickFormatter={compactAmount}
+      />
+      <YAxis
+        yAxisId="occupancy"
+        orientation="right"
+        tick={tickStyle}
+        axisLine={false}
+        tickLine={false}
+        unit="%"
+        domain={[0, 100]}
+      />
+      <Tooltip
+        contentStyle={{ borderRadius: 12, border: '1px solid #E2E1DA' }}
+        formatter={(v, name) =>
+          name === 'Occupancy'
+            ? `${v}%`
+            : new Intl.NumberFormat('en-BD').format(Number(v) || 0)
+        }
+      />
+      <Legend wrapperStyle={{ fontSize: 12 }} />
+      <Bar yAxisId="amount" dataKey="earned" fill="#C8AE72" radius={[6, 6, 0, 0]} name="Room revenue" />
+      <Bar yAxisId="amount" dataKey="collected" fill="#1E4D2B" radius={[6, 6, 0, 0]} name="Collected" />
+      <Line
+        yAxisId="occupancy"
+        type="monotone"
+        dataKey="occupancy"
+        stroke="#367E7E"
+        strokeWidth={2}
+        dot={false}
+        name="Occupancy"
+      />
+    </ComposedChart>
+  </ResponsiveContainer>
+)
+
+interface ExpenseTrendDatum { month: string; incurred: number; paid: number }
+export const ExpenseTrendChart = ({ data }: { data: ExpenseTrendDatum[] }) => (
+  <ResponsiveContainer width="100%" height={260}>
+    <BarChart data={data}>
+      <CartesianGrid stroke="#F1F1ED" strokeDasharray="3 3" vertical={false} />
+      <XAxis dataKey="month" tick={tickStyle} axisLine={axisStyle} tickLine={false} />
+      <YAxis tick={tickStyle} axisLine={false} tickLine={false} tickFormatter={compactAmount} />
+      <Tooltip
+        contentStyle={{ borderRadius: 12, border: '1px solid #E2E1DA' }}
+        formatter={(v) => new Intl.NumberFormat('en-BD').format(Math.round(Number(v) || 0))}
+      />
+      <Legend wrapperStyle={{ fontSize: 12 }} />
+      <Bar dataKey="incurred" fill="#C8AE72" radius={[8, 8, 0, 0]} name="Incurred" />
+      <Bar dataKey="paid" fill="#1E4D2B" radius={[8, 8, 0, 0]} name="Paid" />
     </BarChart>
   </ResponsiveContainer>
 )
