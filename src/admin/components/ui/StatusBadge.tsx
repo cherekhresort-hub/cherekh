@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, XCircle, LogOut, CircleDot, Sparkles, Wrench, Sun, Moon, Coffee } from 'lucide-react'
+import { CheckCircle2, Clock, XCircle, LogOut, CircleDot, Sparkles, Wrench, Sun, Moon, Coffee, Briefcase } from 'lucide-react'
 import type { Booking } from '../../../utils/bookings'
 import type { CleaningStatus, RoomStatus, StaffShift, StaffStatus } from '../../types'
 import { Badge } from './Badge'
@@ -40,6 +40,7 @@ export const ShiftBadge = ({ shift }: { shift: StaffShift }) => {
     morning:   { tone: 'sand',   icon: <Coffee />, label: 'Morning' },
     afternoon: { tone: 'amber',  icon: <Sun />,    label: 'Afternoon' },
     night:     { tone: 'violet', icon: <Moon />,   label: 'Night' },
+    'full-time': { tone: 'forest', icon: <Briefcase />, label: 'Full time' },
     off:       { tone: 'neutral',icon: <Clock />,  label: 'Off' },
   } as const
   const c = config[shift]

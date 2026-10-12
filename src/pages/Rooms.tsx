@@ -5,7 +5,7 @@ import Button from '../components/Button'
 import { useRoomCardList } from '../hooks/useRoomCardList'
 import { useRoomSelection } from '../hooks/useRoomSelection'
 import { usePersistSelectedRooms, useBookingHref } from '../hooks/useBookSelectedRooms'
-import { roomCatalog, getCatalogRoomById } from '../data/roomCatalog'
+import { publicRoomCatalog, getPublicCatalogRoomById } from '../data/roomCatalog'
 
 type BedFilter = 'all' | 'double' | 'couple'
 type AcFilter = 'all' | 'ac' | 'non-ac'
@@ -111,7 +111,7 @@ const Rooms = () => {
 
   const visibleRooms = useMemo(() => {
     const filtered = rooms.filter((room) => {
-      const catalog = getCatalogRoomById(room.id)
+      const catalog = getPublicCatalogRoomById(room.id)
       if (!catalog) return false
       if (bedFilter !== 'all' && catalog.bedCategory !== bedFilter) return false
       const hasAc = catalog.amenities.includes('Air Conditioning')
@@ -152,7 +152,7 @@ const Rooms = () => {
           <SectionHeading
             eyebrow="All rooms"
             title="Choose your room"
-            description={`Browse all ${roomCatalog.length} rooms by number. Select multiple rooms, then book them together.`}
+            description={`Browse all ${publicRoomCatalog.length} rooms by number. Select multiple rooms, then book them together.`}
           />
 
           <div className="mb-6 rounded-2xl border border-stone-200/80 bg-cream px-5 py-4 shadow-sm sm:px-6">

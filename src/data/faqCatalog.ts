@@ -50,7 +50,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'room-types',
     question: 'What types of rooms does Cherekh Center offer?',
     answer:
-      'We have nine numbered guest rooms (103–206) across two floors: ground-floor double and couple rooms (mostly Non-AC) and upper-floor options including AC couple rooms with hill views. Double-bed rooms fit 2 guests included, up to 3 guests maximum; couple rooms suit 2–3 guests. See room photos and details at cherekhcenter.com/rooms.',
+      'We have nine numbered guest rooms (103–206) across two floors: ground-floor double and couple rooms (mostly Non-AC) and upper-floor options including AC couple rooms with hill views. Double-bed rooms fit up to 2 guests; couple rooms suit 2–3 guests. See room photos and details at cherekhcenter.com/rooms.',
   },
   {
     id: 'room-prices',
@@ -62,13 +62,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'extra-guests-children',
     question: 'Are children charged extra? What about additional guests?',
     answer:
-      'Children under 12 are not charged extra-guest fees. Double-bed rooms include breakfast for 2 guests with up to 1 additional paying guest at ৳1,000 per night (3 guests maximum). Couple rooms include breakfast for 2 guests with up to 1 additional paying guest at ৳1,000 per night.',
+      'Double-bed rooms include breakfast for 2 guests and fit 2 guests maximum, including children. Couple rooms include breakfast for 2 guests with up to 1 additional paying guest at ৳1,000 per night; children under 12 are not charged extra-guest fees.',
   },
   {
     id: 'included-amenities',
     question: 'What is included with every room stay?',
     answer:
-      'Every room includes complimentary breakfast, en-suite bathroom, hot water, room service, and a balcony with garden view. Selected rooms add air conditioning. AC is standard on rooms 105, 205, and 206.',
+      'Every room includes complimentary breakfast, en-suite bathroom, hot water, room service, a balcony with garden view, Starlink WiFi, and IPS backup power for power cuts. Selected rooms add air conditioning. AC is standard on rooms 105, 205, and 206.',
   },
   {
     id: 'check-in-times',
@@ -92,7 +92,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'families',
     question: 'Is Cherekh Center suitable for families?',
     answer:
-      'Yes. Our double-bed rooms (103, 104, 201, 202, 203) fit 2 guests included, up to 3 guests maximum (1 extra). Children under 12 stay free of extra-guest charges, and complimentary breakfast is included. We can suggest family-friendly trails and day trips in the Thanchi area.',
+      'Yes. Our double-bed rooms (103, 104, 201, 202, 203) fit up to 2 guests, and couple rooms take up to 1 extra guest, with children under 12 free of extra-guest charges. Complimentary breakfast is included. We can suggest family-friendly trails and day trips in the Thanchi area.',
   },
   {
     id: 'couples',
@@ -128,7 +128,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'wifi-parking',
     question: 'Does Cherekh Center have Wi‑Fi and parking?',
     answer:
-      'Yes. Free Wi‑Fi is available for guests, including in the conference room. Parking is available on site for guests traveling by private car or jeep.',
+      'Yes. Free Starlink Wi‑Fi is available for guests, including in the conference room, and IPS backup power keeps essentials running during power cuts. Parking is available on site for guests traveling by private car or jeep.',
   },
   {
     id: 'how-to-book',

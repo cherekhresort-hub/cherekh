@@ -113,6 +113,7 @@ const Staff = () => {
               { value: 'morning', label: 'Morning', count: counts.morning ?? 0 },
               { value: 'afternoon', label: 'Afternoon', count: counts.afternoon ?? 0 },
               { value: 'night', label: 'Night', count: counts.night ?? 0 },
+              { value: 'full-time', label: 'Full time', count: counts['full-time'] ?? 0 },
               { value: 'off', label: 'Off', count: counts.off ?? 0 },
             ]}
           />

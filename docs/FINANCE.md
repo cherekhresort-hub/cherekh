@@ -18,6 +18,7 @@ The management company leased Cherekh Center from its owners and runs it under t
 | --- | --- | --- | --- |
 | Expenses page (register, suppliers, deposits, reimbursements, assets) | Full | Create, view, record payments/refunds/reimbursements, apply advances | None |
 | Approve / reject / void expenses, write off deposits, edit assets | Yes | No | No |
+| Edit a submitted expense's details (title, supplier, department, project, phase, dates, notes, tags) | Yes | No | No |
 | Finance settings (categories, departments, projects, accounts, transfers, adjustments, reversals, audit log) | Yes | No | No |
 | Investment page (add investment, withdraw, move money, reverse) | Yes | No | No |
 | Reports: Bookings & revenue, Daywise | Yes | Yes | No |
@@ -82,6 +83,14 @@ The page summary shows the total invested, the Main fund balance, cash spent on 
 - Applying an advance settles another bill without moving cash.
 - A write-off becomes an operating expense on the write-off date.
 
+**Staff advances and loans.** Money lent to a staff member (a salary advance or personal loan) is a deposit/advance, not an expense.
+- Record it as an expense, paid by Cherekh Center, with a line in *Refundable Deposits and Advances → Staff advance / loan*. The form asks who received it and saves the staff member on the expense.
+- On the Expenses page, the Deposits tab lists each person's total `lent`, `repaid`, `deducted`, `forgiven` and `still owes = lent − repaid − deducted − forgiven`.
+- **Repaid** is cash or a transfer back from the staff member, received into an account.
+- **Deduct** takes it out of an unpaid bill, usually their salary. Record the salary expense as *not paid yet* first. No cash moves; the salary's outstanding amount goes down by the deduction.
+- **Forgive** is admin-only and becomes an operating expense, like any deposit write-off.
+- Like the rest of category X, a staff advance always needs admin approval. One a manager records stays pending until approved.
+
 **Revenue earned (accrual).** A booking's value after discount, including extras, is spread evenly across its stay nights. Conference-only bookings use their event days; same-day stays use the check-in day. Only *confirmed* and *checked-out* bookings earn revenue.
 
 **Cash received.** Guest payments minus refunds, by payment date, for every booking status.
@@ -105,6 +114,27 @@ Revenue earned (rooms + booking food + other extras)
 The last line is labelled *result before tax*, never net profit. Income tax isn't calculated and restaurant walk-in sales aren't recorded yet. Expenses still pending approval are included and flagged in the notes.
 
 **Statement period.** The financial statements stop at today. For "This month" viewed on the 10th, the profit and loss and cash flow cover the 1st to the 10th, so confirmed nights, depreciation and dated entries after today aren't counted yet. "All time" runs up to today. The position date is the same day.
+
+**Investment summary.** This is the top of Reports → Financial statements. It covers everything from the start up to today and ignores the period filter.
+- **Total investment** = investment added − withdrawn.
+- **Total costs** = operating costs (including deposit write-offs) + interest and bank charges + fixed assets purchased. Deposits and advances are listed separately, because they're refundable and not a cost. "Paid" and "still owed" cover every expense recorded.
+- **Profit or loss** = revenue − operating costs − depreciation − interest and bank charges, before tax. Fixed assets count against profit only through depreciation.
+- **Total remaining** = what the business has − what it owes. This is net assets, the same as net worth below.
+- **Capital account:** net investment ± profit or loss ± other items = closing capital, which always equals the total remaining.
+
+**Financial position.**
+- `has = cash & bank + guest balances to collect + deposits held + fixed assets (book value)`.
+- `owes = guest advances + owed to suppliers + owed to employees`.
+- `net worth = has − owes`. It is not the investment.
+- `net worth = investment + profit / loss to date (all time, before tax) + other items`. The other items are:
+  - opening balances entered on accounts
+  - money kept on cancelled bookings
+  - balance adjustments
+  - assets entered in the register without a recorded purchase
+  - asset register cost minus capital lines on expenses
+  - book value of disposed or written-off assets (shown negative)
+  - unpaid deposit portions (shown negative)
+- Any remainder is shown as *Not explained by the records*. It's usually caused by entries dated after today, payments dated before an account's opening date, or an overpaid expense.
 
 **Cash flow (direct method).**
 - Operating: guest receipts − guest refunds − expense payments for operating and financing-cost lines, including reimbursements.
@@ -151,7 +181,7 @@ The last line is labelled *result before tax*, never net profit. Income tax isn'
 
 ## Applying the migrations
 
-The finance tables come from migrations `042`–`050`. Apply them to the Supabase project after reviewing them:
+The finance tables come from migrations `042`–`051` and `053`. Apply them to the Supabase project after reviewing them:
 
 ```bash
 supabase db push
@@ -171,6 +201,8 @@ Or run each file in order in the Supabase SQL editor:
    - It stops without changing anything, with a message naming the reason, if any agreement, loan row, allocation, funding or lease-rent ledger entry, or investor/investment/allocation/lease document exists.
    - Investor profiles and leases with no money recorded are deleted one row at a time first, so the audit log keeps a copy of each.
    - Run it as one transaction (the SQL editor and `supabase db push` both do).
+10. `051_finance_staff_advances.sql`: adds the *Staff advance / loan* subcategory under X. Idempotent.
+11. `053_finance_admin_only_expense_edit.sql`: only admins can edit a submitted expense's details. Amounts, lines, the transaction date and who paid are never edited in place; void and re-enter instead.
 
 Until they are applied, the Expenses and Investment pages and the finance report tabs show a "Finance data is unavailable" notice. The rest of the admin dashboard is unaffected.
 

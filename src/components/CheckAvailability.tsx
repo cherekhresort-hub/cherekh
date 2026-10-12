@@ -4,7 +4,12 @@ import { motion } from 'framer-motion'
 import { FaCalendarAlt, FaUsers, FaSearch } from 'react-icons/fa'
 import RoomCard from './RoomCard'
 import { getAvailableRooms, getRooms, AvailabilityLoadError } from '../utils/rooms'
-import { roomCatalog, MAX_INCLUDED_GUESTS_PER_ROOM } from '../data/roomCatalog'
+import {
+  roomCatalog,
+  publicRoomCatalog,
+  getPublicCatalogRoomById,
+  MAX_INCLUDED_GUESTS_PER_ROOM,
+} from '../data/roomCatalog'
 import { addDaysToDateString, getTodayDate, toLocalDateString } from '../utils/dates'
 import {
   BOOKING_PARTY_SPLIT_KEY,
@@ -87,7 +92,7 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
 
   const minCheckInDate = getTodayDate()
   const maxDate = getMaxDate()
-  const totalRooms = roomCatalog.length
+  const totalRooms = publicRoomCatalog.length
   const normalizedGuests = (() => {
     const parsed = Number(guests)
     if (Number.isNaN(parsed) || parsed < 1) return 1
@@ -146,7 +151,7 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
     let available: Awaited<ReturnType<typeof getAvailableRooms>>
     try {
       available = (await getAvailableRooms(checkIn, checkOut)).filter(
-        (room) => room.id !== 'conference'
+        (room) => room.id !== 'conference' && getPublicCatalogRoomById(room.id) !== undefined
       )
     } catch (e) {
       setAvailableRooms([])
@@ -175,7 +180,7 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
 
     setAvailableRooms(roomsToShow)
 
-    // Prefer couple-bed rooms for exactly 2 guests, else prefer double-bed rooms for >2
+    // Prefer couple-bed rooms for exactly 2 guests; larger groups fill rooms to their included 2
     const preferredRoomType = (() => {
       if (normalizedGuests === 2) {
         const couple = roomsToShow.find((r) => {
@@ -183,13 +188,6 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
           return catalog?.bedCategory === 'couple' && r.maxGuests >= 2
         })
         return couple?.id
-      }
-      if (normalizedGuests > 2) {
-        const dbl = roomsToShow.find((r) => {
-          const catalog = roomCatalog.find((c) => c.id === r.id)
-          return catalog?.bedCategory === 'double' && r.maxGuests >= 1
-        })
-        return dbl?.id
       }
       return undefined
     })()
@@ -446,8 +444,8 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                   }`}
                 />
                 <p className="mt-1 text-xs text-stone-500">
-                  Up to {MAX_INCLUDED_GUESTS_PER_ROOM} included guests per room · couple rooms 2,
-                  double rooms 3 · larger groups book multiple rooms
+                  Up to {MAX_INCLUDED_GUESTS_PER_ROOM} included guests per room · double rooms 2,
+                  couple rooms 3 (৳1,000 for the 3rd) · larger groups book multiple rooms
                 </p>
               </div>
 

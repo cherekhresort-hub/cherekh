@@ -54,10 +54,12 @@ export const categories: FinCategory[] = (Object.keys(CATEGORY_IDS) as Classific
 interface ExpenseSpec {
   id?: string
   date?: string
-  lines: { classification: Classification; amount: number }[]
+  lines: { classification: Classification; amount: number; categoryId?: string }[]
   discount?: number
   tax?: number
   paidBy?: 'company' | 'employee'
+  staffId?: string
+  staffName?: string
   status?: 'active' | 'void'
   approval?: FinExpense['approvalStatus']
 }
@@ -87,8 +89,8 @@ export const expense = (spec: ExpenseSpec): { expense: FinExpense; lines: FinExp
       additionalCharges: 0,
       total,
       paidByType: spec.paidBy ?? 'company',
-      employeeStaffId: null,
-      employeeName: spec.paidBy === 'employee' ? 'Staff' : null,
+      employeeStaffId: spec.staffId ?? null,
+      employeeName: spec.staffName ?? (spec.paidBy === 'employee' ? 'Staff' : null),
       purchasedBy: null,
       requestedBy: null,
       approvalStatus: spec.approval ?? 'not_required',
@@ -109,7 +111,7 @@ export const expense = (spec: ExpenseSpec): { expense: FinExpense; lines: FinExp
       expenseId: id,
       lineNo: i + 1,
       description: l.classification,
-      categoryId: CATEGORY_IDS[l.classification],
+      categoryId: l.categoryId ?? CATEGORY_IDS[l.classification],
       classification: l.classification,
       quantity: 1,
       unit: null,

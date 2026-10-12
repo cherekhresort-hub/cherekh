@@ -12,7 +12,7 @@
  * - Deposits/advances are balances until refunded, applied or written off.
  * - Investment added / withdrawn and transfers are never revenue or expense.
  */
-import { CAPITAL_KINDS, PNL_FINANCING_CLASSES, PNL_OPERATING_CLASSES, cashEffect, kindSign } from './classification'
+import { CAPITAL_KINDS, PNL_FINANCING_CLASSES, PNL_OPERATING_CLASSES, STAFF_ADVANCE_CATEGORY_ID, cashEffect, kindSign } from './classification'
 import { addDays, addMonths, businessToday, dayInRange, diffDays, monthKey, type DateRange } from './dates'
 import { cashReceived, guestBalancesAsOf, revenueEarned, type RevenueBooking } from './revenue'
 import {
@@ -664,6 +664,54 @@ export const depositPositions = (data: Pick<FinanceData, 'settlements' | 'ledger
   return rows.sort((a, b) => b.outstanding - a.outstanding)
 }
 
+/** Money lent to a staff member (company-paid, with a staff-advance line). */
+export const isStaffAdvance = (f: Pick<ExpenseFigures, 'expense' | 'lines'>): boolean =>
+  f.expense.paidByType === 'company' && f.lines.some((l) => l.categoryId === STAFF_ADVANCE_CATEGORY_ID)
+
+export interface StaffAdvanceBalance {
+  key: string
+  staffId: string | null
+  name: string
+  lent: number
+  repaid: number
+  /** Deducted from a later bill, e.g. salary. */
+  deducted: number
+  writtenOff: number
+  outstanding: number
+  positions: DepositPosition[]
+}
+
+/** Per-person totals of staff advances, from the deposit positions. */
+export const staffAdvanceBalances = (deposits: DepositPosition[], staffNames: Map<string, string>): StaffAdvanceBalance[] => {
+  const map = new Map<string, StaffAdvanceBalance>()
+  deposits.forEach((d) => {
+    if (!isStaffAdvance(d.figures)) return
+    const e = d.figures.expense
+    const key = e.employeeStaffId ?? `name:${(e.employeeName ?? e.payeeName ?? '').toLowerCase()}`
+    const row = map.get(key) ?? {
+      key,
+      staffId: e.employeeStaffId,
+      name: (e.employeeStaffId && staffNames.get(e.employeeStaffId)) || e.employeeName || e.payeeName || 'Staff member',
+      lent: 0,
+      repaid: 0,
+      deducted: 0,
+      writtenOff: 0,
+      outstanding: 0,
+      positions: [],
+    }
+    row.lent += d.base
+    row.repaid += d.refunded
+    row.deducted += d.applied
+    row.writtenOff += d.writtenOff
+    row.outstanding += d.outstanding
+    row.positions.push(d)
+    map.set(key, row)
+  })
+  return [...map.values()]
+    .map((r) => ({ ...r, lent: round2(r.lent), repaid: round2(r.repaid), deducted: round2(r.deducted), writtenOff: round2(r.writtenOff), outstanding: round2(r.outstanding) }))
+    .sort((a, b) => b.outstanding - a.outstanding || a.name.localeCompare(b.name))
+}
+
 // ---------------------------------------------------------------------------
 // Investment (Main fund)
 // ---------------------------------------------------------------------------
@@ -724,6 +772,208 @@ export const capitalSummary = (revenueBookings: RevenueBooking[], data: Pick<Fin
     spent: round2(spent),
     guestReceived: round2(cashReceived(revenueBookings, upTo).net),
     cashOnHand: round2(balances.reduce((s, b) => s + b.balance, 0)),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Financial position reconciliation
+// ---------------------------------------------------------------------------
+
+export interface PositionReconciliation {
+  cash: number
+  receivables: number
+  depositsHeld: number
+  fixedAssets: number
+  /** cash + receivables + deposits held + fixed assets (book value) */
+  has: number
+  guestAdvances: number
+  payables: number
+  staffOwed: number
+  /** guest advances + supplier payables + reimbursements owed */
+  owes: number
+  /** has − owes */
+  netWorth: number
+  investment: number
+  openingBalances: number
+  /** All-time result before tax up to the as-of date. */
+  resultToDate: number
+  cancelledKept: number
+  adjustments: number
+  /** Book value of assets entered in the register without a recorded purchase. */
+  assetsWithoutPurchase: number
+  /** Asset register cost minus capital lines on expenses (negative when purchases aren't registered). */
+  capitalRegisterGap: number
+  /** Remaining book value of disposed / written-off assets (no loss is recorded). */
+  disposedAssets: number
+  /** Unpaid deposit portions: owed to suppliers but not yet counted as held. */
+  unpaidDeposits: number
+  /** netWorth − every explained source; near zero when the records are consistent. */
+  unexplained: number
+}
+
+/**
+ * What the business has, what it owes, and where the difference (net worth)
+ * comes from: investment + opening balances + all-time result + the other items
+ * below. Supplier, staff and deposit balances are current figures.
+ */
+export const positionReconciliation = (
+  revenueBookings: RevenueBooking[],
+  data: FinanceData,
+  index: ExpenseIndex,
+  asOf: string
+): PositionReconciliation => {
+  const upTo: DateRange = { from: '0000-01-01', to: asOf }
+  const balances = accountBalances(revenueBookings, data, asOf)
+  const guest = guestBalancesAsOf(revenueBookings, asOf)
+  const deposits = depositPositions(data, index)
+
+  const reportable = reportableAssets(data.assets, index).filter((a) => a.purchaseDate <= asOf)
+  const held = new Set(assetsHeldAsOf(data.assets, index, asOf).map((a) => a.id))
+  const bookValue = (a: FinAsset) => a.cost - accumulatedDepreciation(a, asOf)
+  let fixedAssets = 0
+  let disposedAssets = 0
+  let assetsWithoutPurchase = 0
+  let registeredCost = 0
+  reportable.forEach((a) => {
+    if (held.has(a.id)) fixedAssets += bookValue(a)
+    else disposedAssets -= bookValue(a)
+    if (a.expenseId) registeredCost += a.cost
+    else assetsWithoutPurchase += a.cost
+  })
+  const capitalOnExpenses = expensesIncurred(data, index, upTo).capex
+
+  let unpaidDeposits = 0
+  index.forEach((f) => {
+    if (!f.recognized || f.expense.paidByType === 'employee' || f.classTotals.deposit_advance <= EPS) return
+    const depositLines = f.lines.filter((l) => l.classification === 'deposit_advance').reduce((s, l) => s + l.lineTotal, 0)
+    const share = f.expense.subtotal > 0 ? depositLines / f.expense.subtotal : 0
+    unpaidDeposits -= f.outstanding * share
+  })
+
+  const cash = balances.reduce((s, b) => s + b.balance, 0)
+  const depositsHeld = deposits.reduce((s, d) => s + d.outstanding, 0)
+  const payables = supplierPayables(data, index).reduce((s, p) => s + p.outstanding, 0)
+  const staffOwed = reimbursementsOwed(new Map(), index).reduce((s, r) => s + r.owed, 0)
+  const has = cash + guest.receivables + depositsHeld + fixedAssets
+  const owes = guest.advances + payables + staffOwed
+  const netWorth = has - owes
+
+  const investment = capitalTotals(data.ledger, upTo).net
+  const openingBalances = balances.reduce((s, b) => s + b.opening, 0)
+  const resultToDate = profitAndLoss(revenueBookings, data, index, upTo, asOf).resultBeforeTax
+  const adjustments = data.ledger
+    .filter((e) => e.kind === 'adjustment' && dayInRange(e.entryDate, upTo))
+    .reduce((s, e) => s + cashEffect(e), 0)
+  const capitalRegisterGap = registeredCost - capitalOnExpenses
+  const explained =
+    investment +
+    openingBalances +
+    resultToDate +
+    guest.cancelledRetained +
+    adjustments +
+    assetsWithoutPurchase +
+    capitalRegisterGap +
+    disposedAssets +
+    unpaidDeposits
+
+  return {
+    cash: round2(cash),
+    receivables: round2(guest.receivables),
+    depositsHeld: round2(depositsHeld),
+    fixedAssets: round2(fixedAssets),
+    has: round2(has),
+    guestAdvances: round2(guest.advances),
+    payables: round2(payables),
+    staffOwed: round2(staffOwed),
+    owes: round2(owes),
+    netWorth: round2(netWorth),
+    investment: round2(investment),
+    openingBalances: round2(openingBalances),
+    resultToDate: round2(resultToDate),
+    cancelledKept: round2(guest.cancelledRetained),
+    adjustments: round2(adjustments),
+    assetsWithoutPurchase: round2(assetsWithoutPurchase),
+    capitalRegisterGap: round2(capitalRegisterGap),
+    disposedAssets: round2(disposedAssets),
+    unpaidDeposits: round2(unpaidDeposits),
+    unexplained: round2(netWorth - explained),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Investment summary (owner's view, since the start)
+// ---------------------------------------------------------------------------
+
+export interface InvestmentSummary {
+  asOf: string
+  added: number
+  withdrawn: number
+  netInvestment: number
+  revenue: { rooms: number; food: number; other: number; total: number }
+  costs: {
+    operatingByCategory: { key: string; amount: number }[]
+    operating: number
+    financing: number
+    capitalPurchases: number
+    /** operating + financing + capital purchases */
+    total: number
+  }
+  /** Refundable, so not a cost; shown for context. */
+  depositsPlaced: number
+  /** All expenses recorded up to the as-of date (incl. deposits): settled vs still owed. */
+  expensesPaid: number
+  expensesOwed: number
+  depreciation: number
+  /** Revenue − operating costs − depreciation − financing costs (before tax). */
+  profit: number
+  /** Net worth less investment and profit; itemized in `position`. */
+  otherItems: number
+  /** Net investment + profit + other items = what remains. */
+  closingCapital: number
+  position: PositionReconciliation
+}
+
+export const investmentSummary = (
+  revenueBookings: RevenueBooking[],
+  data: FinanceData,
+  index: ExpenseIndex,
+  asOf: string
+): InvestmentSummary => {
+  const upTo: DateRange = { from: '0000-01-01', to: asOf }
+  const capital = capitalTotals(data.ledger, upTo)
+  const pnl = profitAndLoss(revenueBookings, data, index, upTo, asOf)
+  const position = positionReconciliation(revenueBookings, data, index, asOf)
+  let expensesPaid = 0
+  let expensesOwed = 0
+  index.forEach((f) => {
+    if (!f.recognized || !dayInRange(f.expense.txnDate, upTo)) return
+    const { spent, committed } = spentAndCommitted(f)
+    expensesPaid += spent
+    expensesOwed += committed
+  })
+  const costsTotal = pnl.operatingExpenses + pnl.financingCosts + pnl.capitalSpend
+  const otherItems = position.netWorth - capital.net - pnl.resultBeforeTax
+  return {
+    asOf,
+    added: capital.added,
+    withdrawn: capital.withdrawn,
+    netInvestment: capital.net,
+    revenue: { ...pnl.revenue, total: round2(pnl.revenue.total) },
+    costs: {
+      operatingByCategory: pnl.operatingByCategory.map((c) => ({ key: c.key, amount: round2(c.amount) })),
+      operating: round2(pnl.operatingExpenses),
+      financing: round2(pnl.financingCosts),
+      capitalPurchases: round2(pnl.capitalSpend),
+      total: round2(costsTotal),
+    },
+    depositsPlaced: round2(pnl.depositsPlaced),
+    expensesPaid: round2(expensesPaid),
+    expensesOwed: round2(expensesOwed),
+    depreciation: round2(pnl.depreciation),
+    profit: round2(pnl.resultBeforeTax),
+    otherItems: round2(otherItems),
+    closingCapital: round2(capital.net + pnl.resultBeforeTax + otherItems),
+    position,
   }
 }
 

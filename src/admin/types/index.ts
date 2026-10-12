@@ -1,7 +1,7 @@
 export type RoomStatus = 'available' | 'occupied' | 'cleaning' | 'maintenance'
 export type CleaningStatus = 'dirty' | 'cleaning' | 'ready'
 export type CleaningPriority = 'low' | 'medium' | 'high'
-export type StaffShift = 'morning' | 'afternoon' | 'night' | 'off'
+export type StaffShift = 'morning' | 'afternoon' | 'night' | 'full-time' | 'off'
 export type StaffStatus = 'on-duty' | 'on-break' | 'off-duty'
 export type GuestTag = 'vip' | 'returning' | 'frequent' | 'new'
 

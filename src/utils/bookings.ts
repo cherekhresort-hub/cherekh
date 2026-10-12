@@ -599,7 +599,7 @@ export const computeBookingFinancials = (booking: Booking): BookingFinancials =>
 
   const outstanding = Math.max(0, total - net)
   let status: Payment['status'] = booking.payment?.status ?? 'pending'
-  if (total === 0 && net === 0) status = 'pending'
+  if (total === 0 && net === 0) status = discount > 0 ? 'paid' : 'pending'
   else if (refunded > 0 && net <= 0) status = 'refunded'
   else if (total > 0 && net >= total) status = 'paid'
   else if (net > 0) status = 'partial'

@@ -283,6 +283,7 @@ export const StaffFormModal = ({ open, member, onClose, onSaved }: StaffFormModa
               <option value="morning">Morning</option>
               <option value="afternoon">Afternoon</option>
               <option value="night">Night</option>
+              <option value="full-time">Full time</option>
               <option value="off">Off</option>
             </Select>
           </Field>

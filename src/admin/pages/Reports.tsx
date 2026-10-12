@@ -449,7 +449,7 @@ const BookingsRevenueReport = ({ bookings, revenueBookings, guestRoomCount, peri
           <ExportButtons options={{ title: 'Bookings & revenue', filenameBase: 'cherekh-bookings-revenue', period: rangeLabel }} sheets={sheets} />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <FinancialStat
             label="Revenue earned"
             value={formatBDT(Math.round(earned.total))}

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { getCatalogRoomById, roomCatalog } from '../data/roomCatalog'
+import { getPublicCatalogRoomById, publicRoomCatalog } from '../data/roomCatalog'
 import { getBlogPostById } from '../data/blogPosts'
 import { getPageMeta } from '../utils/meta'
 import { faqSchemaJsonLd } from '../data/faqCatalog'
@@ -75,7 +75,7 @@ const lodgingSchema = (): Record<string, unknown> => ({
   priceRange: '$$',
   checkinTime: '14:00',
   checkoutTime: '11:00',
-  numberOfRooms: roomCatalog.length,
+  numberOfRooms: publicRoomCatalog.length,
   areaServed: [
     { '@type': 'AdministrativeArea', name: 'Thanchi' },
     { '@type': 'AdministrativeArea', name: 'Bandarban' },
@@ -85,7 +85,8 @@ const lodgingSchema = (): Record<string, unknown> => ({
     'AC and Non-AC rooms',
     'Conference Room',
     'Restaurant',
-    'Free WiFi',
+    'Free Starlink WiFi',
+    'IPS backup power',
     'Parking',
     'Room Service',
   ].map((name) => ({
@@ -133,7 +134,7 @@ const RouteSchema = () => {
 
     const roomMatch = pathname.match(/^\/rooms\/(\d{3})$/)
     if (roomMatch) {
-      const room = getCatalogRoomById(roomMatch[1])
+      const room = getPublicCatalogRoomById(roomMatch[1])
       if (room) {
         graph.push(
           breadcrumbSchema([
@@ -187,7 +188,7 @@ const RouteSchema = () => {
           '@type': 'ItemList',
           '@id': `${siteUrl('/rooms')}#room-list`,
           name: 'Cherekh Center Rooms',
-          itemListElement: roomCatalog.map((room, index) => ({
+          itemListElement: publicRoomCatalog.map((room, index) => ({
             '@type': 'ListItem',
             position: index + 1,
             item: {

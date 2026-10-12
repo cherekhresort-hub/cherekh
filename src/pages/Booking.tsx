@@ -9,9 +9,14 @@ import {
   areRoomsAvailableForBooking,
   AvailabilityLoadError,
   formatCurrency,
+  type Room,
 } from '../utils/rooms'
 import { addDaysToDateString, getTodayDate, toLocalDateString } from '../utils/dates'
-import { CONFERENCE_ROOM_ID, MAX_INCLUDED_GUESTS_PER_ROOM } from '../data/roomCatalog'
+import {
+  CONFERENCE_ROOM_ID,
+  MAX_INCLUDED_GUESTS_PER_ROOM,
+  isRoomBookableByGuests,
+} from '../data/roomCatalog'
 import {
   BOOKING_PARTY_SPLIT_KEY,
   buildRoomLinesForParty,
@@ -59,6 +64,9 @@ import { isValidEmail, normalizeEmail } from '../utils/validation'
 import { useResortContact } from '../contexts/SiteSettingsProvider'
 import { formatTime12h } from '../utils/contactFromSettings'
 
+const toGuestRoomOptions = (rooms: Room[]): RoomOption[] =>
+  rooms.filter((room) => isRoomBookableByGuests(room.id)).map(roomToOption)
+
 type SubmitPhase = 'idle' | 'checking' | 'reserving' | 'success' | 'conflict' | 'error'
 
 const SUBMIT_BUTTON_MESSAGES = {
@@ -73,8 +81,10 @@ const Booking = () => {
   const [searchParams] = useSearchParams()
   const { selectedList, searchDates, clear: clearSelectedRooms } = useRoomSelection()
   const [pendingRoomsHint] = useState(() => peekSelectedRoomsHint())
-  const urlRoomType = searchParams.get('roomType')
-  const urlRoomIds = parseRoomIdsParam(searchParams.get('rooms'))
+  const rawUrlRoomType = searchParams.get('roomType')
+  const urlRoomType =
+    rawUrlRoomType && isRoomBookableByGuests(rawUrlRoomType) ? rawUrlRoomType : null
+  const urlRoomIds = parseRoomIdsParam(searchParams.get('rooms')).filter(isRoomBookableByGuests)
   const urlCheckIn = searchParams.get('checkIn')
   const urlCheckOut = searchParams.get('checkOut')
   const urlGuests = searchParams.get('guests')
@@ -90,12 +100,13 @@ const Booking = () => {
     ? Math.max(0, parseInt(urlChildren, 10) || 0)
     : pendingRoomsHint?.children ?? 0
 
-  const seedRoomIds =
+  const seedRoomIds = (
     urlRoomIds.length > 0
       ? urlRoomIds
       : pendingRoomsHint?.roomIds?.length
         ? pendingRoomsHint.roomIds
         : selectedList
+  ).filter(isRoomBookableByGuests)
 
   const [roomOptions, setRoomOptions] = useState<RoomOption[]>([])
   const [roomLines, setRoomLines] = useState<RoomBookingLine[]>(() =>
@@ -164,7 +175,7 @@ const Booking = () => {
   const [minCheckOutDate, setMinCheckOutDate] = useState('')
 
   useEffect(() => {
-    setRoomOptions(getRooms().map(roomToOption))
+    setRoomOptions(toGuestRoomOptions(getRooms()))
   }, [])
 
   useEffect(() => {
@@ -172,13 +183,15 @@ const Booking = () => {
       if (formData.checkIn && formData.checkOut && formData.checkOut > formData.checkIn) {
         try {
         const availableRooms = await getAvailableRooms(formData.checkIn, formData.checkOut)
-        setRoomOptions(availableRooms.map(roomToOption))
+        setRoomOptions(toGuestRoomOptions(availableRooms))
         setRoomsError('')
 
         setRoomLines((prev) =>
           prev.map((line) => {
             if (!line.roomType) return line
-            const stillAvailable = availableRooms.some((room) => room.id === line.roomType)
+            const stillAvailable =
+              isRoomBookableByGuests(line.roomType) &&
+              availableRooms.some((room) => room.id === line.roomType)
             return stillAvailable ? line : { ...line, roomType: '' }
           })
         )
@@ -188,7 +201,7 @@ const Booking = () => {
           }
         }
       } else {
-        setRoomOptions(getRooms().map(roomToOption))
+        setRoomOptions(toGuestRoomOptions(getRooms()))
         setRoomsError('')
       }
     }
@@ -570,7 +583,7 @@ const Booking = () => {
         if (!stillAvailable) {
           if (!conferenceOnly) {
             const available = await getAvailableRooms(formData.checkIn, formData.checkOut)
-            setRoomOptions(available.map(roomToOption))
+            setRoomOptions(toGuestRoomOptions(available))
           }
           await waitMinSubmitDuration(startedAt)
           setSubmitMessage(
@@ -637,7 +650,7 @@ const Booking = () => {
       } else if (error instanceof BookingInventoryConflictError) {
         if (!conferenceOnly) {
           const available = await getAvailableRooms(formData.checkIn, formData.checkOut)
-          setRoomOptions(available.map(roomToOption))
+          setRoomOptions(toGuestRoomOptions(available))
         }
         setSubmitMessage(error.message)
         setSubmitPhase('conflict')
@@ -862,7 +875,12 @@ const Booking = () => {
                                 <p className="text-sm font-medium text-resort-heading">
                                   {selectedOption.typeSummary}
                                 </p>
-                                {!selectedOption.isConference && (
+                                {!selectedOption.isConference && selectedOption.maxExtraGuests === 0 && (
+                                  <p className="text-sm text-gray-600">
+                                    Max {selectedOption.capacity} guests, including children · No extra guests
+                                  </p>
+                                )}
+                                {!selectedOption.isConference && selectedOption.maxExtraGuests > 0 && (
                                   <p className="text-sm text-gray-600">
                                     {selectedOption.includedGuests} paying guests included · up to{' '}
                                     {selectedOption.maxExtraGuests} extra at{' '}

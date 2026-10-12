@@ -180,14 +180,14 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
     }
   }, [open, nights, conferenceOnly, eventDates, guest.checkIn, guest.checkOut])
 
-  const suggestedTotal = useMemo(() => {
-    if (bookingRooms.length === 0 || nights <= 0) return 0
+  const { suggestedTotal, originalTotal } = useMemo(() => {
+    if (bookingRooms.length === 0 || nights <= 0) return { suggestedTotal: 0, originalTotal: 0 }
     const normalizedEventDates = normalizeEventDates(eventDates)
     const bounds =
       conferenceOnly && normalizedEventDates.length > 0
         ? deriveConferenceBounds(normalizedEventDates)
         : { checkIn: guest.checkIn, checkOut: guest.checkOut }
-    return calculateBookingTotal({
+    const draft = {
       checkIn: bounds.checkIn,
       checkOut: bounds.checkOut,
       eventDates: conferenceOnly ? normalizedEventDates : undefined,
@@ -196,8 +196,13 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
       adults: bookingRooms.reduce((s, r) => s + r.adults, 0),
       children: bookingRooms.reduce((s, r) => s + r.children, 0),
       totalGuests: bookingRooms.reduce((s, r) => s + r.totalGuests, 0),
-    })
+    }
+    return {
+      suggestedTotal: calculateBookingTotal(draft),
+      originalTotal: calculateBookingTotal(draft, { rate: 'list' }),
+    }
   }, [bookingRooms, conferenceOnly, eventDates, guest.checkIn, guest.checkOut, nights])
+  const roomDiscount = Math.max(0, originalTotal - suggestedTotal)
 
   useEffect(() => {
     if (!open || totalManuallyEdited.current || bookingRooms.length === 0 || nights <= 0) return
@@ -685,15 +690,7 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
 
         <div className="rounded-2xl border border-stone-200/80 bg-cream/40 p-4 space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-stone-500 font-medium">Pricing</p>
-              {bookingRooms.length > 0 && nights > 0 && suggestedTotal > 0 && (
-                <p className="text-xs text-stone-500 mt-1">
-                  Rate card: {bookingRooms.length} room{bookingRooms.length === 1 ? '' : 's'} ·{' '}
-                  {formatBookingDurationLabel(nights, conferenceOnly)} · {formatBDT(suggestedTotal)}
-                </p>
-              )}
-            </div>
+            <p className="text-xs uppercase tracking-wide text-stone-500 font-medium">Pricing</p>
             {canEditPricing && suggestedTotal > 0 && guest.totalAmount !== suggestedTotal && (
               <Button type="button" size="sm" variant="outline" onClick={applySuggestedTotal}>
                 Use rate card ({formatBDT(suggestedTotal)})
@@ -701,30 +698,48 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
             )}
           </div>
 
-          {canEditPricing ? (
-            <Field label="Subtotal (BDT)" hint="Sum of all rooms; you can override" required>
-              <Input
-                type="number"
-                min={0}
-                step={100}
-                value={guest.totalAmount || ''}
-                onChange={(e) => {
-                  totalManuallyEdited.current = true
-                  updateGuest('totalAmount', Math.max(0, Number(e.target.value || 0)))
-                }}
-                placeholder={suggestedTotal > 0 ? String(suggestedTotal) : '0'}
-              />
-            </Field>
-          ) : (
-            <Field label="Subtotal (BDT)" hint="From rate card - managers cannot override rent">
-              <Input
-                type="text"
-                readOnly
-                value={suggestedTotal > 0 ? formatBDT(suggestedTotal) : '-'}
-                className="bg-stone-50 text-stone-600"
-              />
-            </Field>
-          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {canEditPricing ? (
+              <Field label="Subtotal (BDT)" hint="Sum of all rooms; you can override" required>
+                <Input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={guest.totalAmount || ''}
+                  onChange={(e) => {
+                    totalManuallyEdited.current = true
+                    updateGuest('totalAmount', Math.max(0, Number(e.target.value || 0)))
+                  }}
+                  placeholder={suggestedTotal > 0 ? String(suggestedTotal) : '0'}
+                />
+              </Field>
+            ) : (
+              <Field label="Subtotal (BDT)" hint="From rate card - managers cannot override rent">
+                <Input
+                  type="text"
+                  readOnly
+                  value={suggestedTotal > 0 ? formatBDT(suggestedTotal) : '-'}
+                  className="bg-stone-50 text-stone-600"
+                />
+              </Field>
+            )}
+            <div className="space-y-1.5">
+              <p className="block text-xs font-medium text-stone-600">Original price</p>
+              <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
+                <p className={cn('font-serif text-lg leading-tight', roomDiscount > 0 ? 'text-stone-400 line-through' : 'text-forest-700')}>
+                  {originalTotal > 0 ? formatBDT(originalTotal) : '-'}
+                </p>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {originalTotal <= 0
+                    ? 'Choose dates and rooms to calculate'
+                    : roomDiscount > 0
+                      ? `Room discount ${formatBDT(roomDiscount)} · ${bookingRooms.length} room${bookingRooms.length === 1 ? '' : 's'} · ${formatBookingDurationLabel(nights, conferenceOnly)}`
+                      : 'Same as the rate card (no room discount set)'}
+                </p>
+              </div>
+              <p className="text-xs text-stone-500">At the original prices set in Rooms</p>
+            </div>
+          </div>
 
           <div className="border-t border-stone-200/70 pt-3 space-y-3">
             <p className="text-[10px] uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1">

@@ -1,4 +1,4 @@
-import { ROOM_NUMBERS } from '../data/roomCatalog'
+import { PUBLIC_ROOM_NUMBERS } from '../data/roomCatalog'
 import { getBlogPostById } from '../data/blogPosts'
 
 /** Paths that must not be indexed (transactional, auth, or soft 404). */
@@ -39,7 +39,7 @@ const STATIC_INDEXABLE_PATHS = new Set([
 
 export const isKnownPublicPath = (pathname: string): boolean => {
   if (STATIC_INDEXABLE_PATHS.has(pathname)) return true
-  if (ROOM_NUMBERS.some((n) => pathname === `/rooms/${n}`)) return true
+  if (PUBLIC_ROOM_NUMBERS.some((n) => pathname === `/rooms/${n}`)) return true
   const blogMatch = pathname.match(/^\/blog\/([^/]+)$/)
   if (blogMatch && getBlogPostById(blogMatch[1])) return true
   return false

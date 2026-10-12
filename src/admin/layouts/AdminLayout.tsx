@@ -53,7 +53,7 @@ export const AdminLayout = () => {
       <BookingsBootstrap />
       <div className="min-h-screen bg-admin-gradient text-stone-800 flex">
         <Sidebar activityUnreadCount={activityUnreadCount} />
-        <div className="flex-1 min-w-0 pb-28 lg:pb-0">
+        <div className="flex-1 min-w-0 pb-36 lg:pb-0">
           <Outlet />
         </div>
         <MobileNav activityUnreadCount={activityUnreadCount} />

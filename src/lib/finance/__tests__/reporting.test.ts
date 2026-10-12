@@ -10,13 +10,18 @@ import {
   cashFlow,
   depositPositions,
   expensesIncurred,
+  investmentSummary,
+  isStaffAdvance,
+  positionReconciliation,
   profitAndLoss,
   reimbursementsOwed,
   reversedEntryIds,
+  staffAdvanceBalances,
   statementPeriod,
   supplierPayables,
   withdrawableCapital,
 } from '../reporting'
+import { STAFF_ADVANCE_CATEGORY_ID } from '../classification'
 import { MAIN_FUND_ACCOUNT_ID } from '../types'
 import { account, asset, booking, entry, expense, financeData, reversal } from './fixtures'
 
@@ -261,6 +266,106 @@ describe('deposits and advances', () => {
     expect(pnl.depositsPlaced).toBe(10000)
     // Only the deposit payment moved cash; applying it to the bill did not.
     expect(cashFlow([], data, index, MARCH).netChange).toBe(-10000)
+  })
+
+  it('staff advances are grouped per person with repayments, salary deductions and write-offs', () => {
+    const staffLine = (amount: number) => [{ classification: 'deposit_advance' as const, amount, categoryId: STAFF_ADVANCE_CATEGORY_ID }]
+    const a1 = expense({ id: 'adv1', staffId: 'st-1', staffName: 'Old name', lines: staffLine(5000) })
+    const a2 = expense({ id: 'adv2', staffId: 'st-1', lines: staffLine(3000) })
+    const a3 = expense({ id: 'adv3', staffName: 'Casual worker', lines: staffLine(1000) })
+    const supplierDeposit = expense({ id: 'sdep', lines: [{ classification: 'deposit_advance', amount: 2000 }] })
+    const salary = expense({ id: 'sal', lines: [{ classification: 'operating_expense', amount: 15000 }] })
+    const pay = (expenseId: string, amount: number) => entry({ kind: 'expense_payment', amount, expenseId })
+    const settle = (id: string, expenseId: string, amount: number, kind: 'refund_received' | 'applied' | 'written_off', appliedExpenseId: string | null = null) => ({
+      id, expenseId, settlementDate: '2026-03-25', amount, kind, ledgerEntryId: null, appliedExpenseId, notes: null, createdBy: null, createdAt: '',
+    })
+    const data = financeData({
+      built: [a1, a2, a3, supplierDeposit, salary],
+      ledger: [pay('adv1', 5000), pay('adv2', 3000), pay('adv3', 1000), pay('sdep', 2000)],
+      settlements: [
+        settle('r1', 'adv1', 1000, 'refund_received'),
+        settle('d1', 'adv1', 2500, 'applied', 'sal'),
+        settle('w1', 'adv3', 1000, 'written_off'),
+      ],
+    })
+    const index = buildExpenseFigures(data)
+    const deposits = depositPositions(data, index)
+    const rows = staffAdvanceBalances(deposits, new Map([['st-1', 'Rahim']]))
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toMatchObject({ staffId: 'st-1', name: 'Rahim', lent: 8000, repaid: 1000, deducted: 2500, writtenOff: 0, outstanding: 4500 })
+    expect(rows[0].positions).toHaveLength(2)
+    expect(rows[1]).toMatchObject({ staffId: null, name: 'Casual worker', lent: 1000, writtenOff: 1000, outstanding: 0 })
+    expect(isStaffAdvance(index.get('sdep')!)).toBe(false)
+    expect(index.get('sal')!.outstanding).toBe(12500)
+  })
+})
+
+describe('financial position reconciliation', () => {
+  it('net worth = investment + opening balances + result to date + the listed items, with nothing unexplained', () => {
+    const opex = expense({ id: 'op', lines: [{ classification: 'operating_expense', amount: 1000 }] })
+    const capReg = expense({ id: 'cap1', lines: [{ classification: 'capital_asset', amount: 120000 }] })
+    const capUnreg = expense({ id: 'cap2', lines: [{ classification: 'capital_asset', amount: 5000 }] })
+    const dep = expense({ id: 'dep', lines: [{ classification: 'deposit_advance', amount: 10000 }] })
+    const emp = expense({ id: 'emp', paidBy: 'employee', lines: [{ classification: 'operating_expense', amount: 1200 }] })
+    const depRefund = entry({ kind: 'deposit_refund', amount: 1000, expenseId: 'dep', date: '2026-03-25' })
+    const data = financeData({
+      accounts: [account('acc-cash', ['cash'], 10000), account('acc-bank', ['bank-transfer'])],
+      built: [opex, capReg, capUnreg, dep, emp],
+      ledger: [
+        entry({ kind: 'owner_contribution', amount: 500000, accountId: 'acc-bank', date: '2026-03-01' }),
+        entry({ kind: 'capital_withdrawal', amount: 20000, accountId: 'acc-bank', date: '2026-03-02' }),
+        entry({ kind: 'expense_payment', amount: 600, expenseId: 'op' }),
+        entry({ kind: 'expense_payment', amount: 120000, expenseId: 'cap1', accountId: 'acc-bank' }),
+        entry({ kind: 'expense_payment', amount: 5000, expenseId: 'cap2' }),
+        entry({ kind: 'expense_payment', amount: 6000, expenseId: 'dep' }),
+        entry({ kind: 'reimbursement', amount: 700, expenseId: 'emp' }),
+        entry({ kind: 'adjustment', amount: 300, direction: 'in' }),
+        depRefund,
+      ],
+      settlements: [
+        { id: 'sr', expenseId: 'dep', settlementDate: '2026-03-25', amount: 1000, kind: 'refund_received', ledgerEntryId: depRefund.id, appliedExpenseId: null, notes: null, createdBy: null, createdAt: '' },
+      ],
+      assets: [
+        { ...asset(120000, '2026-03-10', 12), expenseId: 'cap1' },
+        asset(50000, '2026-01-01', null),
+        { ...asset(10000, '2026-01-01', 10), status: 'disposed', disposalDate: '2026-03-20' },
+      ],
+    })
+    const bookings = [
+      booking({ nights: ['2026-03-05', '2026-03-06'], total: 6000, cash: [{ amount: 4000, isRefund: false, day: '2026-03-05', method: 'cash' }] }),
+      booking({ nights: ['2026-04-10'], total: 3000, cash: [{ amount: 1000, isRefund: false, day: '2026-03-20', method: 'bank-transfer' }] }),
+      booking({ nights: ['2026-03-15'], status: 'cancelled', total: 2000, cash: [{ amount: 500, isRefund: false, day: '2026-03-10', method: 'cash' }] }),
+    ]
+    const r = positionReconciliation(bookings, data, buildExpenseFigures(data), TODAY)
+    expect(r).toMatchObject({
+      receivables: 2000,
+      guestAdvances: 1000,
+      payables: 400 + 4000,
+      staffOwed: 500,
+      investment: 480000,
+      openingBalances: 10000,
+      cancelledKept: 500,
+      adjustments: 300,
+      assetsWithoutPurchase: 60000,
+      capitalRegisterGap: -5000,
+      unpaidDeposits: -4000,
+    })
+    expect(r.depositsHeld).toBe(5000)
+    expect(r.disposedAssets).toBeLessThan(0)
+    expect(r.netWorth).toBeCloseTo(r.has - r.owes, 2)
+    expect(Math.abs(r.unexplained)).toBeLessThan(0.02)
+
+    const s = investmentSummary(bookings, data, buildExpenseFigures(data), TODAY)
+    expect(s.netInvestment).toBe(480000)
+    expect(s.revenue.total).toBe(6000)
+    expect(s.costs).toMatchObject({ operating: 2200, financing: 0, capitalPurchases: 125000, total: 127200 })
+    expect(s.depositsPlaced).toBe(10000)
+    // Every expense recorded (137,200) is either settled or still owed.
+    expect(s.expensesPaid).toBe(132300)
+    expect(s.expensesOwed).toBe(4900)
+    expect(s.profit).toBeCloseTo(s.revenue.total - s.costs.operating - s.depreciation - s.costs.financing, 1)
+    expect(s.closingCapital).toBeCloseTo(r.netWorth, 1)
+    expect(s.netInvestment + s.profit + s.otherItems).toBeCloseTo(r.netWorth, 1)
   })
 })
 

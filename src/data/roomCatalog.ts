@@ -1,4 +1,4 @@
-export const ROOM_NUMBERS = ['103', '104', '105', '201', '202', '203', '204', '205', '206'] as const
+export const ROOM_NUMBERS = ['102', '103', '104', '105', '201', '202', '203', '204', '205', '206'] as const
 
 export type RoomNumber = (typeof ROOM_NUMBERS)[number]
 export type RoomBedCategory = 'double' | 'couple'
@@ -35,6 +35,8 @@ export interface RoomCatalogEntry {
   images: string[]
   floor: number
   youtubeVideoId?: string
+  /** False while a room has no photos yet: bookable from admin only, hidden from public pages. */
+  listedOnWebsite: boolean
 }
 
 const ROOM_PHOTO_COUNTS: Record<string, number> = {
@@ -50,7 +52,7 @@ const ROOM_PHOTO_COUNTS: Record<string, number> = {
 }
 
 export const getRoomPhotoPaths = (roomNumber: string): string[] => {
-  const count = ROOM_PHOTO_COUNTS[roomNumber] ?? 1
+  const count = ROOM_PHOTO_COUNTS[roomNumber] ?? 0
   return Array.from(
     { length: count },
     (_, index) => `/cherekhImages/RoomPhotos/${roomNumber}_${index + 1}.jpg`
@@ -94,9 +96,11 @@ export const ROOM_BASE_AMENITIES = [
   'Hot Water',
   'Room Service',
   'Balcony with Garden View',
+  'Starlink WiFi',
+  'IPS Backup Power',
 ] as const
 
-const ROOM_YOUTUBE_VIDEOS: Record<RoomNumber, string> = {
+const ROOM_YOUTUBE_VIDEOS: Partial<Record<RoomNumber, string>> = {
   '103': 'EHEqBZeOjvM',
   '104': 'LSFj4HfGVNI',
   '105': '6bP0UJkITgk',
@@ -116,14 +120,24 @@ const roomSpecs: Array<{
   price: number
   features: string[]
   extraAmenities?: string[]
+  listedOnWebsite?: boolean
 }> = [
+  {
+    roomNumber: '102',
+    label: 'Couple Bed Non AC',
+    bedType: 'Couple Bed',
+    bedCategory: 'couple',
+    price: 4000,
+    features: ['Non-AC', 'Couple Bed', 'Up to 3 Guests'],
+    listedOnWebsite: false,
+  },
   {
     roomNumber: '103',
     label: 'Double Bed Non AC',
     bedType: 'Double Bed',
     bedCategory: 'double',
     price: 3000,
-    features: ['Non-AC', 'Double Bed', 'Up to 3 Guests'],
+    features: ['Non-AC', 'Double Bed', 'Up to 2 Guests'],
   },
   {
     roomNumber: '104',
@@ -131,7 +145,7 @@ const roomSpecs: Array<{
     bedType: 'Double Bed',
     bedCategory: 'double',
     price: 3000,
-    features: ['Non-AC', 'Double Bed', 'Up to 3 Guests'],
+    features: ['Non-AC', 'Double Bed', 'Up to 2 Guests'],
   },
   {
     roomNumber: '105',
@@ -139,7 +153,7 @@ const roomSpecs: Array<{
     bedType: 'Couple Bed',
     bedCategory: 'couple',
     price: 3000,
-    features: ['AC', 'Couple Bed', 'Up to 2 Guests'],
+    features: ['AC', 'Couple Bed', 'Up to 3 Guests'],
     extraAmenities: ['Air Conditioning'],
   },
   {
@@ -148,7 +162,7 @@ const roomSpecs: Array<{
     bedType: 'Double Bed',
     bedCategory: 'double',
     price: 3000,
-    features: ['Non-AC', 'Double Bed', 'Up to 3 Guests'],
+    features: ['Non-AC', 'Double Bed', 'Up to 2 Guests'],
   },
   {
     roomNumber: '202',
@@ -156,7 +170,7 @@ const roomSpecs: Array<{
     bedType: 'Double Bed',
     bedCategory: 'double',
     price: 3000,
-    features: ['Non-AC', 'Double Bed', 'Up to 3 Guests'],
+    features: ['Non-AC', 'Double Bed', 'Up to 2 Guests'],
   },
   {
     roomNumber: '203',
@@ -164,7 +178,7 @@ const roomSpecs: Array<{
     bedType: 'Double Bed',
     bedCategory: 'double',
     price: 3000,
-    features: ['Non-AC', 'Double Bed', 'Up to 3 Guests'],
+    features: ['Non-AC', 'Double Bed', 'Up to 2 Guests'],
   },
   {
     roomNumber: '204',
@@ -172,7 +186,7 @@ const roomSpecs: Array<{
     bedType: 'Couple Bed',
     bedCategory: 'couple',
     price: 2500,
-    features: ['Non-AC', 'Couple Bed', 'Up to 2 Guests'],
+    features: ['Non-AC', 'Couple Bed', 'Up to 3 Guests'],
   },
   {
     roomNumber: '205',
@@ -180,7 +194,7 @@ const roomSpecs: Array<{
     bedType: 'Couple Bed',
     bedCategory: 'couple',
     price: 3500,
-    features: ['AC', 'Couple Bed', 'Up to 2 Guests'],
+    features: ['AC', 'Couple Bed', 'Up to 3 Guests'],
     extraAmenities: ['Air Conditioning'],
   },
   {
@@ -189,7 +203,7 @@ const roomSpecs: Array<{
     bedType: 'Couple Bed',
     bedCategory: 'couple',
     price: 4000,
-    features: ['AC', 'Couple Bed', 'Hill View', 'Up to 2 Guests'],
+    features: ['AC', 'Couple Bed', 'Hill View', 'Up to 3 Guests'],
     extraAmenities: ['Air Conditioning', 'Premium Hill View'],
   },
 ]
@@ -198,7 +212,7 @@ const getGuestPolicy = (bedCategory: RoomBedCategory) => {
   if (bedCategory === 'double') {
     return {
       includedGuests: 2,
-      maxExtraGuests: 1,
+      maxExtraGuests: 0,
     }
   }
 
@@ -212,8 +226,8 @@ const buildDescription = (roomNumber: string, label: string, floor: number, bedC
   const floorLabel = floor === 1 ? 'ground floor' : 'second floor'
   const guestNote =
     bedCategory === 'double'
-      ? 'Includes complimentary breakfast for up to 2 guests, with up to 1 additional paying guest at ৳1,000 per night. Children under 12 stay free. Maximum occupancy is 3 guests.'
-      : 'Includes complimentary breakfast for up to 2 guests, with up to 1 additional paying guest at ৳1,000 per night. Children under 12 stay free.'
+      ? 'Includes complimentary breakfast for 2 guests. Maximum occupancy is 2 guests, including children.'
+      : 'Includes complimentary breakfast for up to 2 guests, with up to 1 additional paying guest at ৳1,000 per night. Children under 12 stay free. Maximum occupancy is 3 guests.'
 
   return `Room ${roomNumber} is a comfortable ${label.toLowerCase()} on the ${floorLabel} at Cherekh Center. ${guestNote} Enjoy peaceful hill-station surroundings, natural light, and a relaxing stay in Thanchi, Bandarban.`
 }
@@ -242,11 +256,28 @@ export const roomCatalog: RoomCatalogEntry[] = roomSpecs.map((spec) => {
     size: '30 sqm',
     images: getRoomPhotoPaths(spec.roomNumber),
     youtubeVideoId: ROOM_YOUTUBE_VIDEOS[spec.roomNumber],
+    listedOnWebsite: spec.listedOnWebsite ?? true,
   }
 })
 
+/** Rooms shown on the public website (room list, room pages, guest booking, SEO). */
+export const publicRoomCatalog: RoomCatalogEntry[] = roomCatalog.filter(
+  (room) => room.listedOnWebsite
+)
+
+export const PUBLIC_ROOM_NUMBERS: string[] = publicRoomCatalog.map((room) => room.roomNumber)
+
 export const getCatalogRoomById = (id: string): RoomCatalogEntry | undefined =>
   roomCatalog.find((room) => room.id === id)
+
+export const getPublicCatalogRoomById = (id: string): RoomCatalogEntry | undefined =>
+  publicRoomCatalog.find((room) => room.id === id)
+
+/** Admin-only rooms are hidden from guests; the conference room and facilities stay public. */
+export const isRoomBookableByGuests = (id: string): boolean => {
+  const room = getCatalogRoomById(id)
+  return room ? room.listedOnWebsite : true
+}
 
 export const CONFERENCE_ROOM_ID = 'conference' as const
 export const CONFERENCE_CAPACITY = 100
@@ -329,6 +360,7 @@ export const getRoomSelectLabel = (
 ): string => `Room ${room.roomNumber} - ${getRoomTypeSummary(room)}`
 
 export const getGuestPolicyLabel = (room: Pick<RoomCatalogEntry, 'bedCategory' | 'includedGuests' | 'maxExtraGuests' | 'extraGuestPrice'>): string => {
+  if (room.maxExtraGuests === 0) return `Up to ${room.includedGuests} guests, including children · no extra guests`
   const extraFee = `${room.extraGuestPrice.toLocaleString('en-BD')} BDT/adult/night`
   return `${room.includedGuests} paying guests included · up to ${room.maxExtraGuests} extra at ${extraFee} · children under ${CHILD_FREE_MAX_AGE} free`
 }

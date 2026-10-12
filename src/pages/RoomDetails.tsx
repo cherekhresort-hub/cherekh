@@ -7,7 +7,7 @@ import { getRoomById, formatCurrency, getAvailableRooms } from '../utils/rooms'
 import { loadRoomRates, ROOM_RATES_CHANGED_EVENT } from '../lib/roomRatesDb'
 import {
   facilityCatalog,
-  getCatalogRoomById,
+  getPublicCatalogRoomById,
   getGuestPolicyLabel,
   calculateExtraGuestCountForParty,
 } from '../data/roomCatalog'
@@ -179,7 +179,7 @@ const RoomDetails = () => {
     }
   }
 
-  const catalogRoom = id ? getCatalogRoomById(id) : undefined
+  const catalogRoom = id ? getPublicCatalogRoomById(id) : undefined
   const facility =
   id && FACILITY_IDS.includes(id)
       ? facilityCatalog[id as keyof typeof facilityCatalog]

@@ -24,6 +24,9 @@ export const PNL_FINANCING_CLASSES: Classification[] = ['financing_cost']
 
 export const CAPITAL_KINDS: LedgerKind[] = ['owner_contribution', 'capital_withdrawal']
 
+/** Subcategory of X (Refundable Deposits and Advances) for money lent to staff; seeded by migration 051. */
+export const STAFF_ADVANCE_CATEGORY_ID = 'cat-x-staff-advance-loan'
+
 export const LEDGER_KIND_LABELS: Record<LedgerKind, string> = {
   expense_payment: 'Expense payment',
   expense_refund: 'Supplier refund',

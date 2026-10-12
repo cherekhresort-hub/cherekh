@@ -9,7 +9,7 @@ import { useAuth } from '../../../contexts/AuthProvider'
 import { useStaffData } from '../../hooks/useStaffData'
 import { CategoryOptions, FinanceNotice, MoneyFieldsForm } from './shared'
 import { emptyMoneyFields, errorMessage, money, parseAmount, type MoneyFields } from './financeHelpers'
-import { CLASSIFICATION_HELP, CLASSIFICATION_LABELS, DOC_TYPE_LABELS, PHASE_LABELS } from '../../../lib/finance/classification'
+import { CLASSIFICATION_HELP, CLASSIFICATION_LABELS, DOC_TYPE_LABELS, PHASE_LABELS, STAFF_ADVANCE_CATEGORY_ID } from '../../../lib/finance/classification'
 import { createExpense, saveSupplier, uploadAttachment, type ExpenseLineInput } from '../../../lib/finance/financeDb'
 import { businessToday } from '../../../lib/finance/dates'
 import { logStaffActivity } from '../../../lib/staffActivityLog'
@@ -85,6 +85,8 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
   const [paidBy, setPaidBy] = useState<'company' | 'employee'>('company')
   const [employeeStaffId, setEmployeeStaffId] = useState('')
   const [employeeName, setEmployeeName] = useState('')
+  const [borrowerStaffId, setBorrowerStaffId] = useState('')
+  const [borrowerName, setBorrowerName] = useState('')
   const [purchasedBy, setPurchasedBy] = useState('')
   const [requestedBy, setRequestedBy] = useState('')
   const [tags, setTags] = useState('')
@@ -116,6 +118,8 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
     setPaidBy('company')
     setEmployeeStaffId('')
     setEmployeeName('')
+    setBorrowerStaffId('')
+    setBorrowerName('')
     setPurchasedBy('')
     setRequestedBy('')
     setTags('')
@@ -157,6 +161,8 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
   })
 
   const hasDeposit = effectiveLines.some((l) => lineClass(l) === 'deposit_advance')
+  const hasStaffAdvance = effectiveLines.some((l) => l.categoryId === STAFF_ADVANCE_CATEGORY_ID)
+  const borrowerDisplayName = borrowerName.trim() || staff.find((s) => s.id === borrowerStaffId)?.name || ''
   const hasCapital = effectiveLines.some((l) => lineClass(l) === 'capital_asset')
 
   const updateLine = (key: string, patch: Partial<LineDraft>) =>
@@ -174,6 +180,8 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
     }
     if (total <= 0) return 'The total must be greater than zero.'
     if (needsDescription && !description.trim()) return 'A description is required for "Other / Uncategorized".'
+    if (hasStaffAdvance && paidBy !== 'company') return 'Money lent to staff must be paid by Cherekh Center.'
+    if (hasStaffAdvance && !borrowerDisplayName) return 'Choose the staff member who received the advance or loan.'
     if (paidBy === 'employee' && !employeeStaffId && !employeeName.trim()) return 'Choose the employee who paid.'
     if (supplierId === '__new' && !newSupplierName.trim()) return 'Enter the new supplier name.'
     if (paidBy === 'company' && paymentChoice !== 'none') {
@@ -213,7 +221,7 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
         invoiceDate: invoiceDate || null,
         dueDate: dueDate || null,
         supplierId: resolvedSupplierId,
-        payeeName: payeeName.trim() || undefined,
+        payeeName: payeeName.trim() || (hasStaffAdvance && !resolvedSupplierId ? borrowerDisplayName : undefined) || undefined,
         departmentId: departmentId || null,
         projectId: projectId || null,
         phase,
@@ -222,11 +230,13 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
         tax: adjustments.tax,
         additionalCharges: adjustments.charges,
         paidByType: paidBy,
-        employeeStaffId: paidBy === 'employee' ? employeeStaffId || null : null,
+        employeeStaffId: paidBy === 'employee' ? employeeStaffId || null : hasStaffAdvance ? borrowerStaffId || null : null,
         employeeName:
           paidBy === 'employee'
             ? employeeName.trim() || staff.find((s) => s.id === employeeStaffId)?.name || undefined
-            : undefined,
+            : hasStaffAdvance
+              ? borrowerDisplayName
+              : undefined,
         purchasedBy: purchasedBy.trim() || undefined,
         requestedBy: requestedBy.trim() || undefined,
         tags: tags
@@ -500,10 +510,34 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
             It is saved immediately and flagged as pending until an admin approves it.
           </FinanceNotice>
         )}
-        {hasDeposit && (
-          <FinanceNotice title="Deposit / advance" tone="sky">
-            Refundable deposits and advances are tracked as balances, not expenses. Record refunds or apply them to later bills from the Deposits tab.
-          </FinanceNotice>
+        {hasStaffAdvance ? (
+          <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3">
+            <p className="text-sm text-stone-700">
+              <strong>Staff advance / loan.</strong> This is money the staff member owes back, not an expense. Record repayments, deductions from their salary, or forgiving it from the
+              Deposits tab.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Lent to" required>
+                <Select value={borrowerStaffId} onChange={(e) => setBorrowerStaffId(e.target.value)}>
+                  <option value="">Choose staff member…</option>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="…or name (if not on the roster)">
+                <Input value={borrowerName} onChange={(e) => setBorrowerName(e.target.value)} />
+              </Field>
+            </div>
+          </div>
+        ) : (
+          hasDeposit && (
+            <FinanceNotice title="Deposit / advance" tone="sky">
+              Refundable deposits and advances are tracked as balances, not expenses. Record refunds or apply them to later bills from the Deposits tab.
+            </FinanceNotice>
+          )
         )}
         {hasCapital && mode === 'quick' && (
           <FinanceNotice title="Capital asset" tone="sky">

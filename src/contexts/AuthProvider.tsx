@@ -46,6 +46,26 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+const AUTH_STEP_TIMEOUT_MS = 10_000
+
+const withTimeout = <T,>(promise: Promise<T>, label: string): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(
+      () => reject(new Error(`${label} timed out`)),
+      AUTH_STEP_TIMEOUT_MS
+    )
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        window.clearTimeout(timer)
+        reject(error instanceof Error ? error : new Error(String(error)))
+      }
+    )
+  })
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const usesSupabase = isSupabaseConfigured()
   const legacyAuthEnabled = isLegacyAuthEnabled()
@@ -109,18 +129,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return
       }
 
-      const { data } = await supabase.auth.getSession()
+      try {
+        const { data } = await withTimeout(supabase.auth.getSession(), 'Session check')
+        if (cancelled) return
+        setSession(data.session)
+        await withTimeout(resolveRoleForSession(data.session), 'Role lookup')
+      } catch (error) {
+        console.error('[Auth] startup:', error)
+        if (!cancelled) {
+          setSession(null)
+          applyRole(null)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
       if (cancelled) return
-
-      setSession(data.session)
-      await resolveRoleForSession(data.session)
-      setLoading(false)
 
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange((_event, nextSession) => {
         setSession(nextSession)
-        void resolveRoleForSession(nextSession).then(() => setLoading(false))
+        // Supabase calls made directly inside this callback can deadlock the auth lock.
+        window.setTimeout(() => {
+          void withTimeout(resolveRoleForSession(nextSession), 'Role lookup')
+            .catch((error: unknown) => console.error('[Auth] role refresh:', error))
+            .finally(() => setLoading(false))
+        }, 0)
       })
       unsubscribe = () => subscription.unsubscribe()
     })()

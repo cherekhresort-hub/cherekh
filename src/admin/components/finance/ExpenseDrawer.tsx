@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Ban, CheckCircle2, HandCoins, RotateCcw, Undo2, Wallet, XCircle } from 'lucide-react'
+import { Ban, CheckCircle2, HandCoins, Pencil, RotateCcw, Undo2, Wallet, XCircle } from 'lucide-react'
 import { Drawer } from '../ui/Drawer'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
@@ -31,12 +31,13 @@ import {
   reverseLedgerEntry,
   setExpenseApproval,
   settleDeposit,
+  updateExpenseDetails,
   voidExpense,
 } from '../../../lib/finance/financeDb'
 import { businessToday } from '../../../lib/finance/dates'
-import { reversedEntryIds, type DepositPosition, type ExpenseFigures } from '../../../lib/finance/reporting'
+import { isStaffAdvance, reversedEntryIds, type DepositPosition, type ExpenseFigures } from '../../../lib/finance/reporting'
 import { logStaffActivity } from '../../../lib/staffActivityLog'
-import type { FinanceData, FinLedgerEntry } from '../../../lib/finance/types'
+import type { FinanceData, FinExpense, FinLedgerEntry } from '../../../lib/finance/types'
 import { cn } from '../../utils/cn'
 
 type Action =
@@ -60,6 +61,7 @@ interface ExpenseDrawerProps {
 export const ExpenseDrawer = ({ figures, data, lookups, deposits, onClose }: ExpenseDrawerProps) => {
   const { isAdmin } = useAuth()
   const [action, setAction] = useState<Action | null>(null)
+  const [editing, setEditing] = useState(false)
   const f = figures
   const e = f?.expense
 
@@ -129,6 +131,11 @@ export const ExpenseDrawer = ({ figures, data, lookups, deposits, onClose }: Exp
                   Supplier refund
                 </Button>
               )}
+              {isAdmin && (
+                <Button size="sm" variant="outline" leftIcon={<Pencil className="w-4 h-4" />} onClick={() => setEditing(true)}>
+                  Edit details
+                </Button>
+              )}
               {isAdmin && e.approvalStatus === 'pending' && (
                 <>
                   <Button size="sm" variant="secondary" leftIcon={<CheckCircle2 className="w-4 h-4" />} onClick={() => setAction({ type: 'approve' })}>
@@ -176,6 +183,7 @@ export const ExpenseDrawer = ({ figures, data, lookups, deposits, onClose }: Exp
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <Row label="Transaction date" value={formatDay(e.txnDate)} />
             <Row label="Supplier / recipient" value={supplierName} />
+            {isStaffAdvance(f) && <Row label="Lent to (staff advance / loan)" value={e.employeeName || e.payeeName || '—'} />}
             {e.invoiceDate && <Row label="Invoice date" value={formatDay(e.invoiceDate)} />}
             {e.dueDate && <Row label="Due date" value={formatDay(e.dueDate)} />}
             <Row label="Department" value={(e.departmentId && lookups.department.get(e.departmentId)) || '—'} />
@@ -339,7 +347,164 @@ export const ExpenseDrawer = ({ figures, data, lookups, deposits, onClose }: Exp
         availableAdvances={availableAdvances}
         onClose={() => setAction(null)}
       />
+      {editing && isAdmin && <EditExpenseModal expense={e} data={data} onClose={() => setEditing(false)} />}
     </>
+  )
+}
+
+const EditExpenseModal = ({ expense: e, data, onClose }: { expense: FinExpense; data: FinanceData; onClose: () => void }) => {
+  const toast = useToast()
+  const [form, setForm] = useState({
+    title: e.title,
+    supplierId: e.supplierId ?? '',
+    payeeName: e.payeeName ?? '',
+    departmentId: e.departmentId ?? '',
+    projectId: e.projectId ?? '',
+    phase: e.phase,
+    invoiceDate: e.invoiceDate ?? '',
+    dueDate: e.dueDate ?? '',
+    purchasedBy: e.purchasedBy ?? '',
+    requestedBy: e.requestedBy ?? '',
+    tags: e.tags.join(', '),
+    description: e.description ?? '',
+    notes: e.notes ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((prev) => ({ ...prev, [key]: value }))
+
+  const save = async () => {
+    if (!form.title.trim()) return setError('Enter an expense title.')
+    setError(null)
+    setSaving(true)
+    try {
+      await updateExpenseDetails(e.id, {
+        title: form.title.trim(),
+        supplierId: form.supplierId,
+        payeeName: form.payeeName,
+        departmentId: form.departmentId,
+        projectId: form.projectId,
+        phase: form.phase,
+        invoiceDate: form.invoiceDate,
+        dueDate: form.dueDate,
+        purchasedBy: form.purchasedBy,
+        requestedBy: form.requestedBy,
+        tags: form.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean),
+        description: form.description,
+        notes: form.notes,
+      })
+      void logStaffActivity({ category: 'finance', action: 'expense_edited', title: `${e.code} details edited`, message: form.title.trim(), entityId: e.id, metadata: { code: e.code } })
+      toast.success('Expense updated')
+      onClose()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="lg"
+      title={`Edit ${e.code}`}
+      description="Admin only. Every change is kept in the audit log."
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={() => void save()} loading={saving}>
+            Save changes
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {error && <FinanceNotice title={error} tone="red" />}
+        <p className="text-xs text-stone-500">
+          Amounts, items, the transaction date and who paid can’t be changed here, so payments and reports stay consistent. If those are wrong, void this expense and record it again.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Expense title" required className="sm:col-span-2">
+            <Input value={form.title} onChange={(ev) => set('title', ev.target.value)} />
+          </Field>
+          <Field label="Supplier / paid to">
+            <Select value={form.supplierId} onChange={(ev) => set('supplierId', ev.target.value)}>
+              <option value="">— None / not a regular supplier —</option>
+              {data.suppliers
+                .filter((s) => s.active || s.id === e.supplierId)
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+          <Field label="Recipient name" hint="If not a listed supplier">
+            <Input value={form.payeeName} onChange={(ev) => set('payeeName', ev.target.value)} />
+          </Field>
+          <Field label="Department">
+            <Select value={form.departmentId} onChange={(ev) => set('departmentId', ev.target.value)}>
+              <option value="">— Not set —</option>
+              {data.departments
+                .filter((d) => d.active || d.id === e.departmentId)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+          <Field label="Project">
+            <Select value={form.projectId} onChange={(ev) => set('projectId', ev.target.value)}>
+              <option value="">— None —</option>
+              {data.projects
+                .filter((p) => p.status !== 'cancelled' || p.id === e.projectId)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+          <Field label="Phase">
+            <Select value={form.phase} onChange={(ev) => set('phase', ev.target.value as FinExpense['phase'])}>
+              {Object.entries(PHASE_LABELS).map(([v, label]) => (
+                <option key={v} value={v}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Tags" hint="Comma separated">
+            <Input value={form.tags} onChange={(ev) => set('tags', ev.target.value)} />
+          </Field>
+          <Field label="Invoice date">
+            <Input type="date" value={form.invoiceDate} onChange={(ev) => set('invoiceDate', ev.target.value)} />
+          </Field>
+          <Field label="Due date">
+            <Input type="date" value={form.dueDate} onChange={(ev) => set('dueDate', ev.target.value)} />
+          </Field>
+          <Field label="Purchased by">
+            <Input value={form.purchasedBy} onChange={(ev) => set('purchasedBy', ev.target.value)} />
+          </Field>
+          <Field label="Requested by">
+            <Input value={form.requestedBy} onChange={(ev) => set('requestedBy', ev.target.value)} />
+          </Field>
+          <Field label="Description" className="sm:col-span-2">
+            <Textarea rows={2} value={form.description} onChange={(ev) => set('description', ev.target.value)} />
+          </Field>
+          <Field label="Notes" className="sm:col-span-2">
+            <Textarea rows={2} value={form.notes} onChange={(ev) => set('notes', ev.target.value)} />
+          </Field>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

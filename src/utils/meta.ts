@@ -1,5 +1,5 @@
 import { siteUrl } from '../data/siteConfig'
-import { getCatalogRoomById } from '../data/roomCatalog'
+import { getPublicCatalogRoomById } from '../data/roomCatalog'
 import { getBlogPostById } from '../data/blogPosts'
 import { getRobotsDirective } from './seoRoutes'
 
@@ -191,7 +191,7 @@ export const pageMeta: Record<string, PageMeta> = {
 }
 
 const buildRoomMeta = (roomNumber: string): PageMeta => {
-  const room = getCatalogRoomById(roomNumber)
+  const room = getPublicCatalogRoomById(roomNumber)
   if (!room) {
     return {
       title: `Room ${roomNumber} - Cherekh Center Thanchi`,

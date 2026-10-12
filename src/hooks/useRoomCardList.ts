@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { roomCatalog } from '../data/roomCatalog'
+import { publicRoomCatalog } from '../data/roomCatalog'
 import { loadRoomRates, ROOM_RATES_CHANGED_EVENT } from '../lib/roomRatesDb'
 import { getRooms } from '../utils/rooms'
 
@@ -18,7 +18,7 @@ export interface RoomCardData {
 
 export const buildRoomCardList = (): RoomCardData[] => {
   const storedRooms = getRooms()
-  return roomCatalog.map((room) => {
+  return publicRoomCatalog.map((room) => {
     const stored = storedRooms.find((entry) => entry.id === room.id)
     const price = stored?.price ?? room.price
     return {

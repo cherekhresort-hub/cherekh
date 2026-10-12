@@ -302,6 +302,9 @@ export const formatBookingDurationLabel = (
  * source of truth for prices, included guests, and extra-guest fees. Pure
  * function - does not read or mutate localStorage, so it can run on the server,
  * in `saveBooking`, or to derive a suggested total in the admin UI.
+ *
+ * `rate: 'list'` prices each room at its original (pre-discount) rate from the
+ * Rooms section instead, falling back to the discounted rate when none is set.
  */
 export const calculateBookingTotal = (
   booking: Pick<
@@ -314,7 +317,8 @@ export const calculateBookingTotal = (
     | 'adults'
     | 'children'
     | 'totalGuests'
-  >
+  >,
+  { rate = 'sale' }: { rate?: 'sale' | 'list' } = {}
 ): number => {
   const nights = calculateStayNights(booking.checkIn, booking.checkOut)
   const conferenceDays =
@@ -345,7 +349,8 @@ export const calculateBookingTotal = (
     if (!ref) return sum
 
     const stored = getRooms().find((room) => room.id === line.roomType)
-    const nightlyPrice = stored?.price ?? 0
+    const salePrice = stored?.price ?? 0
+    const nightlyPrice = rate === 'list' ? Math.max(salePrice, stored?.listPrice ?? 0) : salePrice
 
     if (ref.isConference) {
       const days = conferenceDays > 0 ? conferenceDays : nights

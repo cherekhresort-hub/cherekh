@@ -3,15 +3,17 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   Bath,
+  BatteryCharging,
   BedDouble,
   Bell,
   Coffee,
   Droplets,
   Snowflake,
   Trees,
+  Wifi,
   type LucideIcon,
 } from 'lucide-react'
-import { facilityCatalog, ROOM_BASE_AMENITIES, roomCatalog } from '../data/roomCatalog'
+import { facilityCatalog, ROOM_BASE_AMENITIES, publicRoomCatalog } from '../data/roomCatalog'
 
 const amenityIcons: Record<(typeof ROOM_BASE_AMENITIES)[number], LucideIcon> = {
   'Complimentary Breakfast': Coffee,
@@ -19,11 +21,13 @@ const amenityIcons: Record<(typeof ROOM_BASE_AMENITIES)[number], LucideIcon> = {
   'Hot Water': Droplets,
   'Room Service': Bell,
   'Balcony with Garden View': Trees,
+  'Starlink WiFi': Wifi,
+  'IPS Backup Power': BatteryCharging,
 }
 
-const doubleBedCount = roomCatalog.filter((room) => room.bedCategory === 'double').length
-const coupleBedCount = roomCatalog.filter((room) => room.bedCategory === 'couple').length
-const acRoomCount = roomCatalog.filter((room) => room.amenities.includes('Air Conditioning')).length
+const doubleBedCount = publicRoomCatalog.filter((room) => room.bedCategory === 'double').length
+const coupleBedCount = publicRoomCatalog.filter((room) => room.bedCategory === 'couple').length
+const acRoomCount = publicRoomCatalog.filter((room) => room.amenities.includes('Air Conditioning')).length
 
 const facilities = Object.values(facilityCatalog)
 
@@ -44,8 +48,9 @@ const StayIncludesSection = () => {
             <SectionLabel>Your stay includes</SectionLabel>
             <SectionTitle>Rooms, comforts &amp; on-site facilities</SectionTitle>
             <p className="mt-2 text-sm text-stone-600 max-w-2xl">
-              Nine rooms across two floors with breakfast, en-suite bath, hot water, and garden-view
-              balconies. Plus restaurant dining, 24/7 reception, conference space, and lounge areas.
+              Nine rooms across two floors with breakfast, en-suite bath, hot water, garden-view
+              balconies, Starlink WiFi, and IPS backup power. Plus restaurant dining, 24/7 reception,
+              conference space, and lounge areas.
             </p>
           </div>
           <Link
@@ -100,11 +105,11 @@ const StayIncludesSection = () => {
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sand-50 px-3 py-1 text-xs text-stone-700 border border-stone-200/80">
                   <BedDouble className="w-3 h-3 text-resort-heading/70" />
-                  {doubleBedCount} double-bed · 2 guests · max 3
+                  {doubleBedCount} double-bed · up to 2 guests
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sand-50 px-3 py-1 text-xs text-stone-700 border border-stone-200/80">
                   <BedDouble className="w-3 h-3 text-resort-heading/70" />
-                  {coupleBedCount} couple-bed · up to 2 guests
+                  {coupleBedCount} couple-bed · up to 3 guests
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sand-50 px-3 py-1 text-xs text-stone-700 border border-stone-200/80">
                   <Snowflake className="w-3 h-3 text-resort-heading/70" />
