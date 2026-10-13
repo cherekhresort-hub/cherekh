@@ -11,6 +11,8 @@ VITE_SUPABASE_ANON_KEY=<your anon public key>
 
 **Never** put the service role key or `sb_secret_*` keys in `VITE_*` variables or in git.
 
+The browser does not call `*.supabase.co` directly (some mobile carriers block it). Auth, database and storage requests go to `/sb/*` on the site's own domain: the build writes a Netlify proxy rule into `dist/_redirects` from `VITE_SUPABASE_URL`, and `npm run dev` proxies `/sb` the same way. Realtime (WebSockets) still connects to Supabase directly. Set `VITE_SUPABASE_PROXY=off` to disable the proxy.
+
 ## 2. Run the database migrations
 
 1. Open [Supabase Dashboard](https://supabase.com/dashboard) → your project → **SQL Editor**

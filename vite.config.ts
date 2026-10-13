@@ -1,10 +1,26 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { netlifyFunctionsDevPlugin } from './scripts/viteNetlifyFunctionsPlugin'
 
+const supabaseProxy = (mode: string) => {
+  const target = loadEnv(mode, process.cwd(), 'VITE_').VITE_SUPABASE_URL?.trim()
+  if (!target) return undefined
+  return {
+    // Mirrors the Netlify /sb/* rewrite written by scripts/prerender-meta.mjs
+    '/sb': {
+      target,
+      changeOrigin: true,
+      ws: true,
+      rewrite: (p: string) => p.replace(/^\/sb/, ''),
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  server: { proxy: supabaseProxy(mode) },
+  preview: { proxy: supabaseProxy(mode) },
   plugins: [
     react(),
     netlifyFunctionsDevPlugin(mode),
@@ -37,10 +53,14 @@ export default defineConfig(({ mode }) => ({
         globIgnores: ['**/cherekhImages/**', '**/CherekhLogoFinal.svg'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
         // Don't serve the SPA shell for API routes or static crawler/LLM files
-        navigateFallbackDenylist: [/\.txt$/, /\.xml$/, /^\/api\//],
+        navigateFallbackDenylist: [/\.txt$/, /\.xml$/, /^\/api\//, /^\/sb\//],
         runtimeCaching: [
           {
             urlPattern: /^\/api\//,
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/sb/'),
             handler: 'NetworkOnly',
           },
         ],

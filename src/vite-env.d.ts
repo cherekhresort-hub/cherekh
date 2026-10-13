@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string
   readonly VITE_SUPABASE_ANON_KEY?: string
+  /** 'off' = browser talks to *.supabase.co directly instead of the /sb proxy */
+  readonly VITE_SUPABASE_PROXY?: string
   readonly VITE_DISABLE_RATE_LIMIT?: string
   readonly VITE_EMAILJS_USER_ID?: string
   /** @deprecated use VITE_EMAILJS_USER_ID */
