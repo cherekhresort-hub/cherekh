@@ -17,6 +17,7 @@ import { ensureBookingDetail, ensureBookingDetails, reloadBookingDetail } from '
 import type { Booking } from '../../utils/bookings'
 import { roomCatalog, facilityCatalog } from '../../data/roomCatalog'
 import { bookingHasRoomType } from '../../utils/bookings'
+import { businessToday } from '../../lib/finance/dates'
 import {
   applyBookingFilters,
   defaultBookingFilters,
@@ -24,12 +25,32 @@ import {
 } from '../utils/bookingFilters'
 
 type StatusFilter = 'all' | Booking['status']
-type SortKey = keyof Booking | 'totalGuests'
+type SortKey = keyof Booking | 'totalGuests' | 'schedule'
+type SortDir = 'asc' | 'desc'
 
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50] as const
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number]
 
-const compareBookings = (a: Booking, b: Booking, key: SortKey, dir: 'asc' | 'desc'): number => {
+const SORT_PRESETS = {
+  schedule: { label: 'Upcoming stays first', key: 'schedule', dir: 'asc' },
+  'stay-desc': { label: 'Stay date: latest first', key: 'checkIn', dir: 'desc' },
+  'stay-asc': { label: 'Stay date: earliest first', key: 'checkIn', dir: 'asc' },
+  'created-desc': { label: 'Recently booked', key: 'createdAt', dir: 'desc' },
+} as const satisfies Record<string, { label: string; key: SortKey; dir: SortDir }>
+
+type SortPreset = keyof typeof SORT_PRESETS
+
+/** Stays not yet over come first (soonest check-in first), then past stays (most recent first). */
+const compareBySchedule = (a: Booking, b: Booking, today: string): number => {
+  const aPast = (a.checkOut || a.checkIn) < today
+  const bPast = (b.checkOut || b.checkIn) < today
+  if (aPast !== bPast) return aPast ? 1 : -1
+  return aPast ? b.checkIn.localeCompare(a.checkIn) : a.checkIn.localeCompare(b.checkIn)
+}
+
+const compareBookings = (a: Booking, b: Booking, key: SortKey, dir: SortDir, today: string): number => {
+  if (key === 'schedule') return compareBySchedule(a, b, today)
+
   const av = (a as Booking & { totalGuests: number })[key]
   const bv = (b as Booking & { totalGuests: number })[key]
 
@@ -56,8 +77,8 @@ const Bookings = () => {
   const [status, setStatus] = useState<StatusFilter>('all')
   const [roomFilter, setRoomFilter] = useState<string>('all')
   const [bookingFilters, setBookingFilters] = useState<BookingFilterState>(defaultBookingFilters)
-  const [sortKey, setSortKey] = useState<SortKey>('createdAt')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [sortKey, setSortKey] = useState<SortKey>('schedule')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [pageSize, setPageSize] = useState<PageSize>(10)
   const [visibleCount, setVisibleCount] = useState(10)
   const [selected, setSelected] = useState<Booking | null>(null)
@@ -97,13 +118,24 @@ const Bookings = () => {
         [b.name, b.email, b.phone, b.id, b.roomName].join(' ').toLowerCase().includes(q)
       )
     }
+    const today = businessToday()
     const sorted = [...list].sort((a, b) => {
-      const primary = compareBookings(a, b, sortKey, sortDir)
+      const primary = compareBookings(a, b, sortKey, sortDir, today)
       if (primary !== 0) return primary
-      return compareBookings(a, b, 'createdAt', 'desc')
+      return compareBookings(a, b, 'createdAt', 'desc', today)
     })
     return sorted
   }, [bookings, status, roomFilter, bookingFilters, search, sortKey, sortDir])
+
+  const sortPreset =
+    (Object.keys(SORT_PRESETS) as SortPreset[]).find(
+      (id) => SORT_PRESETS[id].key === sortKey && SORT_PRESETS[id].dir === sortDir
+    ) ?? 'custom'
+
+  const applySortPreset = (id: SortPreset) => {
+    setSortKey(SORT_PRESETS[id].key)
+    setSortDir(SORT_PRESETS[id].dir)
+  }
 
   const visibleBookings = useMemo(
     () => filtered.slice(0, visibleCount),
@@ -215,14 +247,30 @@ const Bookings = () => {
               ]}
             />
           </div>
-          <div className="w-full sm:w-56">
-            <Select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)}>
-              <option value="all">All rooms</option>
-              <option value="conference">{facilityCatalog.conference.name}</option>
-              {roomCatalog.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </Select>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <div className="w-full sm:w-56">
+              <Select
+                aria-label="Sort bookings"
+                value={sortPreset}
+                onChange={(e) => applySortPreset(e.target.value as SortPreset)}
+              >
+                {(Object.keys(SORT_PRESETS) as SortPreset[]).map((id) => (
+                  <option key={id} value={id}>{SORT_PRESETS[id].label}</option>
+                ))}
+                {sortPreset === 'custom' && (
+                  <option value="custom" disabled>Sorted by column</option>
+                )}
+              </Select>
+            </div>
+            <div className="w-full sm:w-56">
+              <Select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)}>
+                <option value="all">All rooms</option>
+                <option value="conference">{facilityCatalog.conference.name}</option>
+                {roomCatalog.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </Select>
+            </div>
           </div>
         </div>
 

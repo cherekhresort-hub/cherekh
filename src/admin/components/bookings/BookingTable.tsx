@@ -24,7 +24,8 @@ import { cn } from '../../utils/cn'
 
 interface BookingTableProps {
   bookings: Booking[]
-  sortKey: keyof Booking | 'totalGuests'
+  /** `schedule` = upcoming stays first, then past stays (shown on the Stay column). */
+  sortKey: keyof Booking | 'totalGuests' | 'schedule'
   sortDir: 'asc' | 'desc'
   onSort: (key: keyof Booking | 'totalGuests') => void
   onSelect: (booking: Booking) => void
@@ -50,6 +51,7 @@ const columns: Column[] = [
 
 export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: BookingTableProps) => {
   const toast = useToast()
+  const activeSortColumn = sortKey === 'schedule' ? 'checkIn' : sortKey
 
   const stop = (e: React.MouseEvent) => e.stopPropagation()
 
@@ -83,9 +85,13 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: B
                   >
                     {col.label}
                     <ArrowUpDown
-                      className={cn('w-3 h-3 opacity-60', sortKey === col.key && 'opacity-100 text-forest-700')}
+                      className={cn('w-3 h-3 opacity-60', activeSortColumn === col.key && 'opacity-100 text-forest-700')}
                     />
-                    {sortKey === col.key && <span className="text-[10px]">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                    {activeSortColumn === col.key && (
+                      <span className="text-[10px] normal-case">
+                        {sortKey === 'schedule' ? 'upcoming first' : sortDir === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
                   </button>
                 ) : (
                   col.label
