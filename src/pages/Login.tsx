@@ -51,11 +51,7 @@ const Login = () => {
       })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : ''
-      if (message.includes('Rate limit exceeded')) {
-        setError(message)
-      } else {
-        setError('Login failed. Please try again.')
-      }
+      setError(message ? `Login failed: ${message}` : 'Login failed. Please try again.')
       setLoading(false)
     }
   }

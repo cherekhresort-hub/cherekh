@@ -10,13 +10,14 @@ import {
 import type { Session, User } from '@supabase/supabase-js'
 import { setActiveStaffRole } from '../lib/permissions'
 import {
-  fetchStaffRoleByEmail,
+  lookupStaffRoleByEmail,
   roleCanDelete,
   roleCanEditPricing,
   roleCanManageTeam,
   roleIsAdmin,
   roleLabel,
   type StaffRole,
+  type StaffRoleLookup,
 } from '../lib/roles'
 import { isSupabaseConfigured, isAuthRoute } from '../lib/supabaseConfig'
 import { getSupabase } from '../lib/supabase'
@@ -92,8 +93,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return
       }
 
-      const resolved = await fetchStaffRoleByEmail(email)
-      applyRole(resolved)
+      // A failed lookup keeps the current role; only a confirmed "no role" clears it.
+      const lookup = await lookupStaffRoleByEmail(email)
+      if (!lookup.ok) throw new Error(`Role lookup failed: ${lookup.error}`)
+      applyRole(lookup.role)
     },
     [usesSupabase, legacyAuth, applyRole]
   )
@@ -173,24 +176,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const supabase = getSupabase()
         if (!supabase) return { error: 'Supabase is not configured.' }
 
-        const { error } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        })
-        if (error) return { error: error.message }
+        let signInError: string | undefined
+        try {
+          const { error } = await withTimeout(
+            supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
+            'Sign-in'
+          )
+          signInError = error?.message
+        } catch {
+          return { error: 'Could not reach the login server. Check your connection and try again.' }
+        }
+        if (signInError) return { error: signInError }
 
         // Role lookup requires an authenticated session (RLS on user_roles).
-        const allowedRole = await fetchStaffRoleByEmail(normalizedEmail)
-        if (!allowedRole) {
-          await supabase.auth.signOut()
+        // Sign-outs here are local: a failed check on this device must not end sessions on others.
+        let lookup: StaffRoleLookup
+        try {
+          lookup = await withTimeout(lookupStaffRoleByEmail(normalizedEmail), 'Role lookup')
+        } catch (error) {
+          lookup = { ok: false, error: error instanceof Error ? error.message : String(error) }
+        }
+        if (!lookup.ok) {
+          await supabase.auth.signOut({ scope: 'local' })
+          return {
+            error: 'Signed in, but could not check your staff access. Check your connection and try again.',
+          }
+        }
+        if (!lookup.role) {
+          await supabase.auth.signOut({ scope: 'local' })
           return {
             error:
               'This email is not authorized for the admin panel. Contact an administrator.',
           }
         }
 
-        applyRole(allowedRole)
-        void logStaffLogin(normalizedEmail, allowedRole)
+        applyRole(lookup.role)
+        void logStaffLogin(normalizedEmail, lookup.role)
         return {}
       }
 
@@ -214,7 +235,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = useCallback(async () => {
     if (usesSupabase) {
       const supabase = getSupabase()
-      if (supabase) await supabase.auth.signOut()
+      if (supabase) await supabase.auth.signOut({ scope: 'local' })
       setSession(null)
       applyRole(null)
       return

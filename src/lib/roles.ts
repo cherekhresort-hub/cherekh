@@ -6,11 +6,16 @@ const STAFF_ROLES: StaffRole[] = ['admin', 'manager', 'booking_officer']
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase()
 
-export const fetchStaffRoleByEmail = async (email: string): Promise<StaffRole | null> => {
-  if (!isSupabaseConfigured()) return 'admin'
+export type StaffRoleLookup =
+  | { ok: true; role: StaffRole | null }
+  | { ok: false; error: string }
+
+/** `ok: false` means the lookup itself failed (network, timeout), not that the email has no role. */
+export const lookupStaffRoleByEmail = async (email: string): Promise<StaffRoleLookup> => {
+  if (!isSupabaseConfigured()) return { ok: true, role: 'admin' }
 
   const supabase = getSupabase()
-  if (!supabase) return null
+  if (!supabase) return { ok: false, error: 'Supabase is not configured.' }
 
   const { data, error } = await supabase
     .from('user_roles')
@@ -20,12 +25,17 @@ export const fetchStaffRoleByEmail = async (email: string): Promise<StaffRole | 
 
   if (error) {
     console.error('[Supabase] fetch role:', error.message)
-    return null
+    return { ok: false, error: error.message }
   }
 
   const role = data?.role
-  if (role && STAFF_ROLES.includes(role as StaffRole)) return role as StaffRole
-  return null
+  if (role && STAFF_ROLES.includes(role as StaffRole)) return { ok: true, role: role as StaffRole }
+  return { ok: true, role: null }
+}
+
+export const fetchStaffRoleByEmail = async (email: string): Promise<StaffRole | null> => {
+  const result = await lookupStaffRoleByEmail(email)
+  return result.ok ? result.role : null
 }
 
 export const roleCanDelete = (role: StaffRole | null): boolean => role === 'admin'
