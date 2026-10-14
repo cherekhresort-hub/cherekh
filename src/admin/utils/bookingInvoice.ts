@@ -10,6 +10,7 @@ import {
 } from '../../utils/bookings'
 import { formatShortDate, formatDateTime } from './date'
 import { formatBookingId } from '../../utils/bookingId'
+import { formatServiceDate, sortExtrasForInvoice } from '../../utils/foodBill'
 import { formatBDT } from './format'
 import {
   bookingIsConferenceOnly,
@@ -222,13 +223,14 @@ const buildInvoiceHtml = (booking: Booking): string => {
       ? `<h2>Extra charges</h2>
          <table>
            <thead>
-             <tr><th>Item</th><th>Type</th><th>Room</th><th class="num">Amount</th></tr>
+             <tr><th>Date</th><th>Item</th><th>Type</th><th>Room</th><th class="num">Amount</th></tr>
            </thead>
            <tbody>
-             ${(booking.extras ?? [])
+             ${sortExtrasForInvoice(booking.extras ?? [])
                .map(
                  (extra) => `
              <tr>
+               <td>${escapeHtml(extra.serviceDate ? formatServiceDate(extra.serviceDate) : '')}</td>
                <td>${escapeHtml(extra.name)}${extra.quantity > 1 ? ` × ${escapeHtml(extra.quantity)}` : ''}</td>
                <td>${
                  extra.category === 'food'

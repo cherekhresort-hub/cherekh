@@ -156,6 +156,8 @@ export interface ExtraCharge {
   roomName?: string
   menuItemId?: string
   meal?: FoodMeal
+  /** Stay day the meal was served (YYYY-MM-DD). Missing on food lines recorded before per-day billing. */
+  serviceDate?: string
   recordedAt: string
   recordedBy?: string
 }
@@ -791,6 +793,7 @@ export type ExtraChargeInput = {
   roomName?: string
   menuItemId?: string
   meal?: FoodMeal
+  serviceDate?: string
   recordedBy?: string
 }
 
@@ -819,6 +822,10 @@ export const addBookingExtras = async (
       roomName: input.roomName?.trim() || undefined,
       menuItemId: input.menuItemId,
       meal: input.category === 'food' ? input.meal : undefined,
+      serviceDate:
+        input.category === 'food' && /^\d{4}-\d{2}-\d{2}$/.test(input.serviceDate ?? '')
+          ? input.serviceDate
+          : undefined,
       recordedAt: new Date().toISOString(),
       recordedBy: input.recordedBy?.trim() || 'Staff',
     })
@@ -837,11 +844,18 @@ export const addBookingExtras = async (
     extras[0]?.meal && extras.every((extra) => extra.meal === extras[0].meal)
       ? FOOD_MEAL_LABELS[extras[0].meal]
       : undefined
+  const serviceDates = [...new Set(extras.map((extra) => extra.serviceDate).filter(Boolean))].sort()
+  const datesLabel =
+    serviceDates.length === 0
+      ? ''
+      : serviceDates.length <= 3
+        ? ` · ${serviceDates.join(', ')}`
+        : ` · ${serviceDates.length} days`
   void notifyAdminOfManagerAction({
     category: 'booking',
     action: 'booking.extra_added',
     title: foodCount === extras.length ? 'Food billed to room' : 'Extra charge added',
-    message: `${bookingRef.name}: ${extras.length} item${extras.length === 1 ? '' : 's'} · ${extras.reduce((sum, extra) => sum + extra.amount, 0)} BDT${mealLabel ? ` · ${mealLabel}` : ''}`,
+    message: `${bookingRef.name}: ${extras.length} item${extras.length === 1 ? '' : 's'} · ${extras.reduce((sum, extra) => sum + extra.amount, 0)} BDT${mealLabel ? ` · ${mealLabel}` : ''}${datesLabel}`,
     entityId: id,
   })
   return next
