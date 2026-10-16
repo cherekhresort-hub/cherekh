@@ -241,13 +241,19 @@ const persistBookingRemote = async (booking: Booking): Promise<void> => {
   throw new BookingPersistError()
 }
 
-export const persistBooking = async (booking: Booking): Promise<void> => {
+export const persistBooking = async (
+  booking: Booking,
+  options: {
+    /** Set when the last payment line was deliberately removed; otherwise an empty ledger is treated as a partial payload and restored. */
+    allowEmptyTransactions?: boolean
+  } = {}
+): Promise<void> => {
   const index = bookingsCache.findIndex((b) => b.id === booking.id)
   const cacheBefore = [...bookingsCache]
   const previousAtIndex = index === -1 ? null : bookingsCache[index]
 
   let toSave = booking
-  if (!toSave.payment?.transactions?.length) {
+  if (!options.allowEmptyTransactions && !toSave.payment?.transactions?.length) {
     const cachedTxs = previousAtIndex?.payment?.transactions
     if (cachedTxs?.length) {
       toSave = {

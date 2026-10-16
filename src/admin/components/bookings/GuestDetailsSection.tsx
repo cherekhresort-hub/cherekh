@@ -83,10 +83,12 @@ export const GuestDetailsSection = ({ booking, onSaved }: GuestDetailsSectionPro
     () => getBookingGuestInfo(booking).emergencyContact ?? emptyEmergency()
   )
   const [openGuest, setOpenGuest] = useState<number>(0)
+  const [phone, setPhone] = useState(booking.phone ?? '')
 
   useEffect(() => {
     setGuests(buildSlots(booking))
     setEmergency(getBookingGuestInfo(booking).emergencyContact ?? emptyEmergency())
+    setPhone(booking.phone ?? '')
     setEditing(false)
     setOpenGuest(0)
   }, [booking])
@@ -102,10 +104,30 @@ export const GuestDetailsSection = ({ booking, onSaved }: GuestDetailsSectionPro
 
   const handleSave = async () => {
     const guestsToSave = guests.slice(0, slotCount)
-    await updateBookingGuestInfo(booking.id, {
-      guests: guestsToSave,
-      emergencyContact: emergency,
-    })
+    if (!guestsToSave[0]?.name?.trim()) {
+      setOpenGuest(0)
+      toast.error(conferenceOnly ? 'Enter the event host name' : 'Enter the primary guest name')
+      return
+    }
+    if (!phone.trim()) {
+      setOpenGuest(0)
+      toast.error('Enter a phone number')
+      return
+    }
+    try {
+      const updated = await updateBookingGuestInfo(booking.id, {
+        guests: guestsToSave,
+        emergencyContact: emergency,
+        phone,
+      })
+      if (!updated) {
+        toast.error('Could not save guest details')
+        return
+      }
+    } catch {
+      toast.error('Could not save guest details', 'The change was not saved. Check your connection and try again.')
+      return
+    }
     toast.success(
       conferenceOnly ? 'Event host details saved' : 'Guest details saved',
       conferenceOnly
@@ -119,6 +141,7 @@ export const GuestDetailsSection = ({ booking, onSaved }: GuestDetailsSectionPro
   const handleCancel = () => {
     setGuests(buildSlots(booking))
     setEmergency(getBookingGuestInfo(booking).emergencyContact ?? emptyEmergency())
+    setPhone(booking.phone ?? '')
     setEditing(false)
   }
 
@@ -221,13 +244,24 @@ export const GuestDetailsSection = ({ booking, onSaved }: GuestDetailsSectionPro
                       >
                         <div className="px-4 pb-4 space-y-3 border-t border-stone-100">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
-                            <Field label="Full name">
+                            <Field label="Full name" hint={idx === 0 ? 'Also used as the booking name' : undefined}>
                               <Input
                                 value={guest.name ?? ''}
                                 onChange={(e) => updateGuest(idx, 'name', e.target.value)}
                                 placeholder="As shown on ID"
                               />
                             </Field>
+                            {idx === 0 && (
+                              <Field label="Phone" hint="Booking contact number">
+                                <Input
+                                  type="tel"
+                                  value={phone}
+                                  onChange={(e) => setPhone(e.target.value)}
+                                  placeholder="01XXXXXXXXX"
+                                  autoComplete="tel"
+                                />
+                              </Field>
+                            )}
                             <Field label="Nationality">
                               <Input
                                 value={guest.nationality ?? ''}

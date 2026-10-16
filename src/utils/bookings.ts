@@ -970,24 +970,32 @@ export const deletePaymentTransaction = async (
   transactionId: string
 ): Promise<Booking | null> => {
   if (!canDeleteRecords()) return null
-  const bookings = getBookings()
-  const index = bookings.findIndex((b) => b.id === bookingId)
-  if (index === -1) return null
+  const existing = getBookings().find((b) => b.id === bookingId)
+  if (!existing) return null
+  const bookingRef = (await ensureBookingDetail(bookingId)) ?? existing
 
-  const remaining = (bookings[index].payment?.transactions ?? []).filter(
-    (t) => t.id !== transactionId
-  )
+  const current = inferredLedgerFromPaymentStatus(bookingRef)
+  const removed = current.find((t) => t.id === transactionId)
+  if (!removed) return bookingRef
+  const remaining = current.filter((t) => t.id !== transactionId)
   const next: Booking = recomputePaymentStatus({
-    ...bookings[index],
-    payment: { ...bookings[index].payment, transactions: remaining },
+    ...bookingRef,
+    payment: {
+      ...bookingRef.payment,
+      transactions: remaining,
+      // With no lines left, a stale paid status / list total would re-infer the deleted payment.
+      ...(remaining.length === 0
+        ? { status: 'pending' as const, paidAt: undefined, listNetPaid: undefined, listTxCount: undefined, listLastTransaction: undefined }
+        : {}),
+    },
     updatedAt: new Date().toISOString(),
   })
-  await persistBooking(next)
+  await persistBooking(next, { allowEmptyTransactions: remaining.length === 0 })
   void notifyAdminOfManagerAction({
     category: 'booking',
     action: 'booking.payment_deleted',
     title: 'Payment entry removed',
-    message: `${bookings[index].name}: payment transaction deleted`,
+    message: `${bookingRef.name}: ${removed.type} ${removed.amount} BDT deleted`,
     entityId: bookingId,
   })
   return next
@@ -1037,29 +1045,38 @@ export interface BookingGuestInfoUpdate {
   guests?: GuestRecord[]
   emergencyContact?: EmergencyContact
   adminNotes?: string
+  phone?: string
 }
 
 export const updateBookingGuestInfo = async (
   id: string,
   update: BookingGuestInfoUpdate
 ): Promise<Booking | null> => {
-  const bookings = getBookings()
-  const index = bookings.findIndex((b) => b.id === id)
-  if (index === -1) return null
+  const existing = getBookings().find((b) => b.id === id)
+  if (!existing) return null
+  const base = (await ensureBookingDetail(id)) ?? existing
 
+  const primaryName = update.guests?.[0]?.name?.trim()
+  const phone = update.phone?.trim()
   const updated: Booking = {
-    ...bookings[index],
+    ...base,
     ...(update.guests !== undefined && { guests: update.guests }),
     ...(update.emergencyContact !== undefined && { emergencyContact: update.emergencyContact }),
     ...(update.adminNotes !== undefined && { adminNotes: update.adminNotes }),
+    ...(primaryName && { name: primaryName }),
+    ...(phone && { phone }),
     updatedAt: new Date().toISOString(),
   }
   await persistBooking(updated)
+  const changed = [
+    base.name !== updated.name ? `name ${base.name} → ${updated.name}` : null,
+    base.phone !== updated.phone ? `phone ${base.phone || '-'} → ${updated.phone}` : null,
+  ].filter(Boolean)
   void notifyAdminOfManagerAction({
     category: 'booking',
     action: 'booking.guest_info',
     title: 'Guest details updated',
-    message: `${updated.name} - guest IDs, emergency contact, or admin notes changed`,
+    message: `${updated.name} - ${changed.length > 0 ? `${changed.join(', ')}; ` : ''}guest IDs, emergency contact, or admin notes saved`,
     entityId: id,
   })
   return updated

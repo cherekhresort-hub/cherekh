@@ -44,26 +44,41 @@ export const buildBookingMessages = (booking: Booking): BookingMessageBundle => 
     ? `Event dates: ${formatEventDatesDisplay(getBookingEventDates(booking))} (${nights} event day${nights === 1 ? '' : 's'})`
     : `Stay: ${formatShortDate(booking.checkIn)} → ${formatShortDate(booking.checkOut)} (${nights} night${nights === 1 ? '' : 's'})`
 
-  const summary = [
-    `${settings.resortName} - Booking #${bookingId}`,
-    `Guest: ${booking.name}`,
-    stayLine,
-    `Rooms: ${roomNames}`,
-    `Guests: ${booking.totalGuests}`,
-    fin.total > 0 ? `Total: ${formatBDT(fin.total)}` : null,
-    ...advances.map(
-      (t) =>
-        `Advance paid: ${formatBDT(t.amount)}${t.method ? ` via ${PAYMENT_METHOD_LABELS[t.method]}` : ''}${
-          t.reference ? ` (Txn ID ${t.reference})` : ''
-        }`
-    ),
-    fin.outstanding > 0 ? `Outstanding: ${formatBDT(fin.outstanding)}` : null,
-    `Status: ${booking.status}`,
-  ]
-    .filter(Boolean)
-    .join('\n')
+  const phone = booking.phone?.trim()
+  const discountReason = booking.payment?.discount?.reason?.trim()
+  const priceLines =
+    fin.discount > 0
+      ? [
+          `Room rent: ${formatBDT(fin.roomRent)}`,
+          `Discount: -${formatBDT(fin.discount)}${discountReason ? ` (${discountReason})` : ''}`,
+          fin.extrasTotal > 0 ? `Food & other bills: ${formatBDT(fin.extrasTotal)}` : null,
+          `Total after discount: ${formatBDT(fin.total)}`,
+        ]
+      : [fin.total > 0 ? `Total: ${formatBDT(fin.total)}` : null]
 
-  const whatsappBody = `Hello ${booking.name},\n\nHere are your booking details with ${settings.resortName}:\n\n${summary}\n\nLet us know if you need anything before your stay!`
+  const buildLines = (includePhone: boolean) =>
+    [
+      `${settings.resortName} - Booking #${bookingId}`,
+      `Guest: ${booking.name}`,
+      includePhone && phone ? `Phone: ${phone}` : null,
+      stayLine,
+      `Rooms: ${roomNames}`,
+      `Guests: ${booking.totalGuests}`,
+      ...priceLines,
+      ...advances.map(
+        (t) =>
+          `Advance paid: ${formatBDT(t.amount)}${t.method ? ` via ${PAYMENT_METHOD_LABELS[t.method]}` : ''}${
+            t.reference ? ` (Txn ID ${t.reference})` : ''
+          }`
+      ),
+      fin.outstanding > 0 ? `Outstanding: ${formatBDT(fin.outstanding)}` : null,
+      `Status: ${booking.status}`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+  const summary = buildLines(true)
+  const whatsappBody = `Hello ${booking.name},\n\nHere are your booking details with ${settings.resortName}:\n\n${buildLines(false)}\n\nLet us know if you need anything before your stay!`
 
   return { whatsappBody, summary }
 }

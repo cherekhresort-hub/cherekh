@@ -23,7 +23,6 @@ import {
   ArrowRight,
   UtensilsCrossed,
 } from 'lucide-react'
-import { FaPrint } from 'react-icons/fa'
 import { Drawer } from '../ui/Drawer'
 import { BookingStatusBadge } from '../ui/StatusBadge'
 import { Button } from '../ui/Button'
@@ -35,7 +34,6 @@ import { GuestDetailsSection } from './GuestDetailsSection'
 import { PaymentSection } from './PaymentSection'
 import { ExtraChargesSection } from './ExtraChargesSection'
 import { BookingActions } from './BookingActions'
-import { printBookingInvoice } from '../../utils/bookingInvoice'
 import { confirmDelete } from '../../utils/confirmDelete'
 import { explainBookingUnavailable } from '../../utils/roomAvailabilityMessage'
 import {
@@ -182,11 +180,6 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
     (g) => g.idNumber || g.idType !== 'nid'
   ).length
 
-  const handlePrint = () => {
-    const ok = printBookingInvoice(booking)
-    if (!ok) toast.error('Pop-up blocked', 'Allow pop-ups for this site to print invoices.')
-  }
-
   const header = (
     <div className="bg-gradient-to-br from-forest-700 via-forest-700 to-teal-700 text-white px-6 pt-6 pb-5">
       <div className="flex items-start gap-4">
@@ -213,14 +206,6 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
               .join('  ·  ')}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handlePrint}
-          title="Print invoice on letterhead pad"
-          className="shrink-0 h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white inline-flex items-center justify-center transition-colors"
-        >
-          <FaPrint className="w-4 h-4" />
-        </button>
       </div>
 
       <div className="grid grid-cols-4 gap-2 mt-5">

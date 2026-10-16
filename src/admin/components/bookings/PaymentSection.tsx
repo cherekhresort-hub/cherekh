@@ -235,7 +235,16 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
       title: 'Remove transaction?',
       text: 'Remove this payment transaction? This cannot be undone.',
     }))) return
-    await deletePaymentTransaction(booking.id, txId)
+    try {
+      const updated = await deletePaymentTransaction(booking.id, txId)
+      if (!updated || (updated.payment?.transactions ?? []).some((tx) => tx.id === txId)) {
+        toast.error('Could not remove transaction')
+        return
+      }
+    } catch {
+      toast.error('Could not remove transaction', 'The change was not saved. Check your connection and try again.')
+      return
+    }
     toast.success('Transaction removed')
     onChanged()
   }
