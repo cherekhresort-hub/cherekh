@@ -13,7 +13,13 @@ import { AddBookingModal } from '../components/bookings/AddBookingModal'
 import { useBookingsData } from '../hooks/useBookingsData'
 import { useToast } from '../components/ui/Toast'
 import { exportBookingsToExcel } from '../../utils/exportExcel'
-import { ensureBookingDetail, ensureBookingDetails, reloadBookingDetail } from '../../lib/bookingsStore'
+import {
+  ensureBookingDetail,
+  ensureBookingDetails,
+  getBookingsCache,
+  isBookingDetailLoaded,
+  reloadBookingDetail,
+} from '../../lib/bookingsStore'
 import type { Booking } from '../../utils/bookings'
 import { roomCatalog, facilityCatalog } from '../../data/roomCatalog'
 import { bookingHasRoomType } from '../../utils/bookings'
@@ -94,7 +100,12 @@ const Bookings = () => {
       setSelected(null)
       return
     }
-    if (fresh !== selected) setSelected(fresh)
+    // List rows are stubs without extras, guests, notes or ledger; never swap a loaded detail for one.
+    const detailed = isBookingDetailLoaded(selected.id)
+      ? getBookingsCache().find((b) => b.id === selected.id)
+      : undefined
+    const next = detailed ?? fresh
+    if (next !== selected) setSelected(next)
   }, [bookings, selected])
 
   useEffect(() => {
