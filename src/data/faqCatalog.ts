@@ -38,7 +38,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'location',
     question: 'Where is Cherekh Center located?',
     answer:
-      'Cherekh Center is in Thanchi, Bandarban, Bangladesh (postal code 4650). The property sits in the hills with garden views and access to nearby rivers, trekking routes, and cultural sites. Find us on Google Maps at https://maps.app.goo.gl/NsotNbMtt8tRfpkL7 or call ahead for local directions.',
+      'Cherekh Center is in Thanchi, Bandarban, Bangladesh (postal code 4650). The property sits in the hills with garden views and access to nearby rivers, trekking routes, and cultural sites. Find us on Google Maps at https://maps.app.goo.gl/4mootYhEFtM2TQUJ7 or call ahead for local directions.',
   },
   {
     id: 'how-to-reach',

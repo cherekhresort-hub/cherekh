@@ -179,7 +179,7 @@ const RoomCard = ({
             .map((feature, index) => (
             <span
               key={index}
-              className={`px-2 py-0.5 sm:px-3 sm:py-1 bg-resort-bg text-gray-700 rounded-full text-xs sm:text-sm ${
+              className={`px-2 py-0.5 sm:px-3 sm:py-1 bg-stone-100 text-gray-700 rounded-full text-xs sm:text-sm ${
                 compact ? 'hidden sm:inline-flex' : ''
               }`}
             >

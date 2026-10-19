@@ -39,7 +39,6 @@
     @apply pt-4 pb-12 sm:pt-5 sm:pb-16;
   }
 
-  /* Warm beige surfaces - sections inherit page bg; cards sit slightly lighter */
   .bg-section {
     @apply bg-resort-bg;
   }
@@ -49,7 +48,7 @@
   }
 
   .bg-surface-muted {
-    @apply bg-sand-100/60;
+    @apply bg-stone-50;
   }
 }
 

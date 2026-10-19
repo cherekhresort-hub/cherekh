@@ -46,12 +46,19 @@ const SORT_PRESETS = {
 
 type SortPreset = keyof typeof SORT_PRESETS
 
-/** Stays not yet over come first (soonest check-in first), then past stays (most recent first). */
+/** 0 = upcoming or in-house, 1 = past or checked-out, 2 = cancelled. */
+const scheduleTier = (booking: Booking, today: string): number => {
+  if (booking.status === 'cancelled') return 2
+  if (booking.status === 'checked-out' || (booking.checkOut || booking.checkIn) < today) return 1
+  return 0
+}
+
+/** Upcoming stays first (soonest check-in first), then past or checked-out stays, then cancelled (both most recent first). */
 const compareBySchedule = (a: Booking, b: Booking, today: string): number => {
-  const aPast = (a.checkOut || a.checkIn) < today
-  const bPast = (b.checkOut || b.checkIn) < today
-  if (aPast !== bPast) return aPast ? 1 : -1
-  return aPast ? b.checkIn.localeCompare(a.checkIn) : a.checkIn.localeCompare(b.checkIn)
+  const aTier = scheduleTier(a, today)
+  const bTier = scheduleTier(b, today)
+  if (aTier !== bTier) return aTier - bTier
+  return aTier === 0 ? a.checkIn.localeCompare(b.checkIn) : b.checkIn.localeCompare(a.checkIn)
 }
 
 const compareBookings = (a: Booking, b: Booking, key: SortKey, dir: SortDir, today: string): number => {

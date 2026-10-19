@@ -168,7 +168,7 @@ const LegalDocumentLayout = ({ document }: LegalDocumentLayoutProps) => {
                 <h2 className="text-xl sm:text-2xl font-serif text-resort-heading">{section.title}</h2>
                 <SectionBody section={section} />
                 {section.id.includes('contact') ? (
-                  <div className="mt-5 rounded-xl bg-resort-bg border border-stone-200/80 p-4 sm:p-5 text-sm text-stone-700 space-y-1">
+                  <div className="mt-5 rounded-xl bg-stone-50 border border-stone-200/80 p-4 sm:p-5 text-sm text-stone-700 space-y-1">
                     <p>
                       <strong>Resort:</strong> {resortContact.resortName}
                     </p>

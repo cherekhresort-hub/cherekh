@@ -135,7 +135,7 @@ const Blog = () => {
                   />
                 </div>
                 <div className="p-6">
-                  <span className="inline-block px-3 py-1 bg-resort-bg text-resort-heading rounded-full text-xs font-medium mb-3 capitalize">
+                  <span className="inline-block px-3 py-1 bg-stone-100 text-resort-heading rounded-full text-xs font-medium mb-3 capitalize">
                     {post.category}
                   </span>
                   <h3 className="text-xl font-serif text-resort-heading mb-3 line-clamp-2">

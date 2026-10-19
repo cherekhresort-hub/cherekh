@@ -15,7 +15,7 @@ export const resortSocialSameAs = [
 /** Profiles and listings search engines use to match this property. */
 export const resortEntitySameAs = [
   ...resortSocialSameAs,
-  'https://maps.app.goo.gl/NsotNbMtt8tRfpkL7',
+  'https://maps.app.goo.gl/4mootYhEFtM2TQUJ7',
 ] as const
 
 const RESORT_LAT = 21.8166336
@@ -26,7 +26,7 @@ export const resortLocation = {
   latitude: RESORT_LAT,
   longitude: RESORT_LNG,
   addressLines: ['Cherekh Center', 'Thanchi, Bandarban', 'Bangladesh'] as const,
-  mapsPlaceUrl: 'https://maps.app.goo.gl/NsotNbMtt8tRfpkL7',
+  mapsPlaceUrl: 'https://maps.app.goo.gl/4mootYhEFtM2TQUJ7',
   mapsEmbedUrl: `https://www.google.com/maps?q=${RESORT_LAT},${RESORT_LNG}&hl=en&z=16&output=embed`,
   mapsDirectionsUrl: `https://www.google.com/maps/dir/?api=1&destination=${RESORT_LAT},${RESORT_LNG}&travelmode=driving`,
 } as const

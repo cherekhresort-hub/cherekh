@@ -77,7 +77,7 @@ const ExperienceCard = ({
     </div>
     <div className="flex flex-1 flex-col p-2.5 sm:p-4">
       <div className="mb-1.5 flex flex-wrap items-center gap-1 sm:mb-2 sm:gap-1.5">
-        <span className="rounded-full bg-resort-bg px-1.5 py-0.5 text-[8px] font-medium text-resort-heading sm:px-2 sm:text-[10px]">
+        <span className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[8px] font-medium text-resort-heading sm:px-2 sm:text-[10px]">
           {experience.difficulty}
         </span>
         <span className="text-[8px] text-stone-500 sm:text-[10px]">{experience.duration}</span>

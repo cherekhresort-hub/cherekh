@@ -239,7 +239,7 @@ const ReviewsSection = () => {
           <button
             type="button"
             onClick={goPrev}
-            className="absolute left-0 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-cream text-resort-heading shadow-sm transition-all hover:bg-resort-bg sm:opacity-0 sm:group-hover:opacity-100"
+            className="absolute left-0 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-cream text-resort-heading shadow-sm transition-all hover:bg-stone-100 sm:opacity-0 sm:group-hover:opacity-100"
             aria-label="Previous reviews"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -247,7 +247,7 @@ const ReviewsSection = () => {
           <button
             type="button"
             onClick={goNext}
-            className="absolute right-0 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-cream text-resort-heading shadow-sm transition-all hover:bg-resort-bg sm:opacity-0 sm:group-hover:opacity-100"
+            className="absolute right-0 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-cream text-resort-heading shadow-sm transition-all hover:bg-stone-100 sm:opacity-0 sm:group-hover:opacity-100"
             aria-label="Next reviews"
           >
             <ChevronRight className="h-4 w-4" />

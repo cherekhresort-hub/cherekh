@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        'resort-bg': '#F5F1E9',
+        'resort-bg': '#FFFFFF',
         'resort-heading': '#1E4D2B',
         'resort-cta': '#B76F64',
         forest: {
@@ -35,8 +35,8 @@ export default {
           900: '#112A2A',
         },
         sand: {
-          50:  '#FBF8F1',
-          100: '#F5EFE0',
+          50:  '#FFFFFF',
+          100: '#F4F4F2',
           200: '#EADFC2',
           300: '#DCC99A',
           400: '#C8AE72',
@@ -58,7 +58,7 @@ export default {
           800: '#3A3633',
           900: '#27241F',
         },
-        cream: '#FBF8F1',
+        cream: '#FFFFFF',
       },
       fontFamily: {
         'serif': ['Playfair Display', 'Georgia', 'serif'],
@@ -75,7 +75,7 @@ export default {
         '3xl': '1.75rem',
       },
       backgroundImage: {
-        'admin-gradient': 'linear-gradient(180deg, #FBF8F1 0%, #F5EFE0 100%)',
+        'admin-gradient': 'linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 100%)',
       },
       keyframes: {
         'accordion-down': {

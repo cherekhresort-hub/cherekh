@@ -42,28 +42,28 @@ const NotFound = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Link
                 to="/rooms"
-                className="p-4 bg-resort-bg rounded-lg hover:bg-resort-heading hover:text-white transition-colors"
+                className="p-4 bg-stone-100 rounded-lg hover:bg-resort-heading hover:text-white transition-colors"
               >
                 <FaSearch className="w-5 h-5 mx-auto mb-2" />
                 <p className="font-medium">Rooms & Suites</p>
               </Link>
               <Link
                 to="/conference-room"
-                className="p-4 bg-resort-bg rounded-lg hover:bg-resort-heading hover:text-white transition-colors"
+                className="p-4 bg-stone-100 rounded-lg hover:bg-resort-heading hover:text-white transition-colors"
               >
                 <FaSearch className="w-5 h-5 mx-auto mb-2" />
                 <p className="font-medium">Conference Room</p>
               </Link>
               <Link
                 to="/dining"
-                className="p-4 bg-resort-bg rounded-lg hover:bg-resort-heading hover:text-white transition-colors"
+                className="p-4 bg-stone-100 rounded-lg hover:bg-resort-heading hover:text-white transition-colors"
               >
                 <FaSearch className="w-5 h-5 mx-auto mb-2" />
                 <p className="font-medium">Dining</p>
               </Link>
               <Link
                 to="/contact"
-                className="p-4 bg-resort-bg rounded-lg hover:bg-resort-heading hover:text-white transition-colors"
+                className="p-4 bg-stone-100 rounded-lg hover:bg-resort-heading hover:text-white transition-colors"
               >
                 <FaSearch className="w-5 h-5 mx-auto mb-2" />
                 <p className="font-medium">Contact Us</p>

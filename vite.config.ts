@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => ({
         short_name: 'Cherekh Center',
         description: 'Experience peace in the hills of Thanchi, Bandarban',
         theme_color: '#1E4D2B',
-        background_color: '#F5F1E9',
+        background_color: '#FFFFFF',
         display: 'standalone',
         icons: [
           {

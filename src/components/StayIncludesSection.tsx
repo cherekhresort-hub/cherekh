@@ -149,7 +149,7 @@ const StayIncludesSection = () => {
                     {facility.features.slice(0, 3).map((feature) => (
                       <li
                         key={feature}
-                        className="rounded-md bg-resort-bg px-2 py-0.5 text-[10px] text-stone-600"
+                        className="rounded-md bg-stone-100 px-2 py-0.5 text-[10px] text-stone-600"
                       >
                         {feature}
                       </li>
