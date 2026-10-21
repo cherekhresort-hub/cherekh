@@ -74,7 +74,7 @@ export const buildResortContact = (settings?: ResortSettings | null): ResortCont
     resortName: cached?.resortName || 'Cherekh Center',
     tagline: cached?.tagline || '',
     address: cached?.address || 'Cherekh Center, Thanchi, Bandarban, Bangladesh.',
-    checkInTime: cached?.checkInTime || '14:00',
+    checkInTime: cached?.checkInTime || '12:00',
     checkOutTime: cached?.checkOutTime || '11:00',
   }
 }

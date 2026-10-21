@@ -96,6 +96,12 @@ const baseFields = (booking: Booking): Record<string, ExportCell> => ({
   'Booking ID': formatBookingId(booking.id),
   'Booking Date': formatBookingDate(booking.createdAt),
   'Booking Time': formatBookingTime(booking.createdAt),
+  'Booked By':
+    booking.bookedBy?.type === 'staff'
+      ? booking.bookedBy.email
+      : booking.bookedBy?.type === 'website'
+        ? 'Website'
+        : '',
   'Guest Name': booking.name || '',
   Email: booking.email || '',
   Phone: booking.phone || '',

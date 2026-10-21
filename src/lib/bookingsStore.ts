@@ -156,6 +156,7 @@ const mergeListStubOntoDetail = (existing: Booking, stub: Booking): Booking => (
   },
   extras: existing.extras,
   listExtrasTotal: stub.listExtrasTotal,
+  bookedBy: existing.bookedBy ?? stub.bookedBy,
   createdAt: stub.createdAt,
   updatedAt: stub.updatedAt,
 })
@@ -269,6 +270,9 @@ export const persistBooking = async (
         }
       }
     }
+  }
+  if (!toSave.bookedBy && previousAtIndex?.bookedBy) {
+    toSave = { ...toSave, bookedBy: previousAtIndex.bookedBy }
   }
   toSave = toPersistedBooking(toSave)
 

@@ -10,7 +10,13 @@ import {
   getPublicCatalogRoomById,
   MAX_INCLUDED_GUESTS_PER_ROOM,
 } from '../data/roomCatalog'
-import { addDaysToDateString, getTodayDate, toLocalDateString } from '../utils/dates'
+import { ArrowRight, CalendarDays, Users, X } from 'lucide-react'
+import {
+  addDaysToDateString,
+  formatDisplayDate,
+  getTodayDate,
+  toLocalDateString,
+} from '../utils/dates'
 import {
   BOOKING_PARTY_SPLIT_KEY,
   allocateGuestsToRooms,
@@ -19,8 +25,6 @@ import {
 } from '../utils/bookingParty'
 import { useRoomSelection } from '../hooks/useRoomSelection'
 import { saveSelectedRoomsHint, buildBookingUrl } from '../utils/roomSelection'
-import CountBadge from './CountBadge'
-
 const DEFAULT_GUEST_COUNT = 2
 const MAX_GUEST_COUNT = 100
 
@@ -64,7 +68,11 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
   const [availableRooms, setAvailableRooms] = useState<AvailableRoomCard[]>([])
   const [hasSearched, setHasSearched] = useState(false)
   const [availabilityError, setAvailabilityError] = useState('')
+  const [autoSelectedIds, setAutoSelectedIds] = useState<string[]>([])
+  const [resultsVersion, setResultsVersion] = useState(0)
   const lastSearchRef = useRef({ checkIn: '', checkOut: '', guests: 0 })
+  const resultsRef = useRef<HTMLDivElement>(null)
+  const scrollToResultsRef = useRef(false)
 
   const resetForm = useCallback(() => {
     setCheckIn('')
@@ -75,6 +83,7 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
     setAvailableRooms([])
     setHasSearched(false)
     setAvailabilityError('')
+    setAutoSelectedIds([])
     lastSearchRef.current = { checkIn: '', checkOut: '', guests: 0 }
     clearAll()
   }, [clearAll])
@@ -109,6 +118,28 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
     return allocateGuestsToRooms(normalizedGuests, 0, selectedRooms)
   }, [availableRooms, normalizedGuests, selectedList])
 
+  // Auto-picked rooms lead the grid; order is fixed per search so cards don't jump on toggle.
+  const orderedRooms = useMemo(() => {
+    if (autoSelectedIds.length === 0) return availableRooms
+    const rank = (id: string) => {
+      const index = autoSelectedIds.indexOf(id)
+      return index === -1 ? Number.POSITIVE_INFINITY : index
+    }
+    return [...availableRooms].sort((a, b) => rank(a.id) - rank(b.id))
+  }, [availableRooms, autoSelectedIds])
+
+  const selectedRooms = useMemo(
+    () => orderedRooms.filter((room) => selectedList.includes(room.id)),
+    [orderedRooms, selectedList]
+  )
+
+  const nights = datesValid
+    ? Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86_400_000)
+    : 0
+  const stayDateLabel = datesValid
+    ? `${formatDisplayDate(checkIn, 'en-GB', { day: 'numeric', month: 'short' })} – ${formatDisplayDate(checkOut, 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : ''
+
   const guestsByRoomId = useMemo(
     () => Object.fromEntries(guestAssignments.map((entry) => [entry.id, entry.guests])),
     [guestAssignments]
@@ -136,6 +167,7 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
     ) {
       setHasSearched(false)
       setAvailableRooms([])
+      setAutoSelectedIds([])
       clear()
     }
   }, [checkIn, checkOut, normalizedGuests, hasSearched, clear])
@@ -158,39 +190,31 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
       if (e instanceof AvailabilityLoadError) {
         setAvailabilityError('Could not check availability right now. Please try again in a moment.')
       }
+      setResultsVersion((v) => v + 1)
       return
     }
 
-    const roomsToShow = available.map((room) => {
-      const catalog = roomCatalog.find((entry) => entry.id === room.id)!
-      const stored = storedRooms.find((entry) => entry.id === room.id)
-      return {
-        id: catalog.id,
-        roomNumber: catalog.roomNumber,
-        name: catalog.name,
-        image: catalog.images[0],
-        bedType: catalog.bedType,
-        features: catalog.features,
-        price: stored?.price ?? catalog.price,
-        listPrice: stored?.listPrice ?? Math.round((stored?.price ?? catalog.price) / 0.7),
-        guests: catalog.includedGuests,
-        maxGuests: catalog.capacity,
-      }
-    })
+    const roomsToShow = available
+      .map((room) => {
+        const catalog = roomCatalog.find((entry) => entry.id === room.id)!
+        const stored = storedRooms.find((entry) => entry.id === room.id)
+        return {
+          id: catalog.id,
+          roomNumber: catalog.roomNumber,
+          name: catalog.name,
+          image: catalog.images[0],
+          bedType: catalog.bedType,
+          features: catalog.features,
+          price: stored?.price ?? catalog.price,
+          listPrice: stored?.listPrice ?? Math.round((stored?.price ?? catalog.price) / 0.7),
+          guests: catalog.includedGuests,
+          maxGuests: catalog.capacity,
+        }
+      })
+      // Most expensive first: the party picker fills rooms in list order (stable sort keeps catalog order on ties).
+      .sort((a, b) => b.price - a.price)
 
     setAvailableRooms(roomsToShow)
-
-    // Prefer couple-bed rooms for exactly 2 guests; larger groups fill rooms to their included 2
-    const preferredRoomType = (() => {
-      if (normalizedGuests === 2) {
-        const couple = roomsToShow.find((r) => {
-          const catalog = roomCatalog.find((c) => c.id === r.id)
-          return catalog?.bedCategory === 'couple' && r.maxGuests >= 2
-        })
-        return couple?.id
-      }
-      return undefined
-    })()
 
     const autoSelected = pickRoomIdsForParty(
       normalizedGuests,
@@ -199,10 +223,11 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
         id: room.id,
         includedGuests: room.guests,
         capacity: room.maxGuests,
-      })),
-      preferredRoomType
+      }))
     )
     selectRooms(autoSelected)
+    setAutoSelectedIds(autoSelected)
+    setResultsVersion((v) => v + 1)
     lastSearchRef.current = { checkIn, checkOut, guests: normalizedGuests }
     setSearchDates({ checkIn, checkOut, guests: normalizedGuests })
   }, [checkIn, checkOut, normalizedGuests, selectRooms, setSearchDates])
@@ -237,9 +262,22 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
     }
 
     setErrors({ checkIn: '', checkOut: '' })
+    // Record before hasSearched flips, or the invalidation effect treats this search as stale.
+    lastSearchRef.current = { checkIn, checkOut, guests: normalizedGuests }
+    scrollToResultsRef.current = true
     setHasSearched(true)
     void loadAvailableRooms()
   }
+
+  useEffect(() => {
+    if (!scrollToResultsRef.current || resultsVersion === 0) return
+    scrollToResultsRef.current = false
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    resultsRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      block: 'start',
+    })
+  }, [resultsVersion])
 
   const handleBookNow = () => {
     const search = { checkIn, checkOut, guests: normalizedGuests }
@@ -465,17 +503,18 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
           </form>
 
           <p className={`mt-3 text-stone-500 ${compact ? 'text-[11px]' : 'text-center text-xs'}`}>
-            Select check-in and check-out first · Check-in 2:00 PM · Check-out 11:00 AM · Breakfast
+            Select check-in and check-out first · Check-in 12:00 PM · Check-out 11:00 AM · Breakfast
             included
           </p>
         </motion.div>
 
         {hasSearched && datesValid && (
           <motion.div
+            ref={resultsRef}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="mt-8 sm:mt-10"
+            className="mt-8 sm:mt-10 scroll-mt-32"
           >
             {availabilityError ? (
               <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
@@ -557,7 +596,7 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-                  {availableRooms.map((room) => (
+                  {orderedRooms.map((room) => (
                     <RoomCard
                       key={room.id}
                       {...room}
@@ -571,32 +610,82 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                   ))}
                 </div>
 
-                <div className="text-center mt-8 space-y-3">
-                  {selectedCount > 0 && (
-                    <p className="inline-flex items-center gap-2 text-sm text-stone-600">
-                      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e41e3f] px-1.5 text-xs font-bold tabular-nums text-white shadow-sm">
-                        {selectedCount}
-                      </span>
-                      {selectedCount === 1 ? 'room selected' : 'rooms selected'}
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleBookNow}
-                    className="relative inline-flex px-8 py-3 bg-resort-cta text-white rounded-full hover:bg-resort-cta/90 transition-colors font-medium shadow-md"
-                  >
-                    Book Now
-                    {selectedCount > 0 && <CountBadge count={selectedCount} />}
-                  </button>
-                  {selectedCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={clear}
-                      className="block mx-auto text-sm text-stone-500 hover:text-stone-700"
-                    >
-                      Clear selection
-                    </button>
-                  )}
+                <div className="mt-8 rounded-2xl border border-stone-200 bg-white shadow-sm">
+                  <div className="flex flex-col gap-5 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6">
+                    <div className="min-w-0">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-stone-500">
+                        Your stay
+                      </p>
+                      <p className="mt-1 font-serif text-lg sm:text-xl text-resort-heading">
+                        {selectedCount > 0
+                          ? `${selectedCount} ${selectedCount === 1 ? 'room' : 'rooms'} selected`
+                          : 'No room selected yet'}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-stone-600">
+                        <span className="inline-flex items-center gap-1.5">
+                          <CalendarDays className="h-4 w-4 text-resort-cta" aria-hidden />
+                          {stayDateLabel} · {nights} {nights === 1 ? 'night' : 'nights'}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <Users className="h-4 w-4 text-resort-cta" aria-hidden />
+                          {normalizedGuests} {normalizedGuests === 1 ? 'guest' : 'guests'}
+                        </span>
+                      </div>
+                      {selectedRooms.length > 0 ? (
+                        <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Selected rooms">
+                          {selectedRooms.map((room) => (
+                            <li
+                              key={room.id}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 py-1 pl-3 pr-1 text-xs font-medium text-emerald-900"
+                            >
+                              {room.name}
+                              {guestsByRoomId[room.id] ? (
+                                <span className="text-emerald-700/80">
+                                  · {guestsByRoomId[room.id]}{' '}
+                                  {guestsByRoomId[room.id] === 1 ? 'guest' : 'guests'}
+                                </span>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => toggle(room.id)}
+                                className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-emerald-700 hover:bg-emerald-100 hover:text-emerald-900"
+                                aria-label={`Remove ${room.name}`}
+                              >
+                                <X className="h-3 w-3" aria-hidden />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-3 text-sm text-stone-500">
+                          Tap a room above to add it to your stay.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-2 sm:shrink-0 sm:items-end">
+                      <button
+                        type="button"
+                        onClick={handleBookNow}
+                        className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-resort-cta px-7 py-3 font-medium text-white shadow-md transition-colors hover:bg-resort-cta/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-resort-cta focus-visible:ring-offset-2 sm:w-auto"
+                      >
+                        Book Now
+                        <ArrowRight
+                          className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                          aria-hidden
+                        />
+                      </button>
+                      {selectedCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={clear}
+                          className="text-sm text-stone-500 underline-offset-2 hover:text-stone-800 hover:underline"
+                        >
+                          Clear selection
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </>
             ) : (

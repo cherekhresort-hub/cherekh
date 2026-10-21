@@ -74,7 +74,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'check-in-times',
     question: 'What are check-in and check-out times?',
     answer:
-      'Standard check-in is from 2:00 PM (14:00) and check-out is by 11:00 AM. If you expect a late arrival, mention it when booking or contact us - we will do our best to accommodate.',
+      'Standard check-in is from 12:00 PM (noon) and check-out is by 11:00 AM. If you expect a late arrival, mention it when booking or contact us - we will do our best to accommodate.',
   },
   {
     id: 'dining',

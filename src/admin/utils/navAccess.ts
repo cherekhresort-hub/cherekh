@@ -10,13 +10,7 @@ const MANAGER_BLOCKED_PATHS = [
   '/admin/investments',
 ] as const
 
-const BOOKING_OFFICER_PATHS = [
-  '/admin',
-  '/admin/bookings',
-  '/admin/rooms',
-  '/admin/guests',
-  '/admin/inquiries',
-] as const
+const BOOKING_OFFICER_PATHS = ['/admin', '/admin/bookings', '/admin/rooms'] as const
 
 const BOOKING_OFFICER_PATH_SET = new Set<string>(BOOKING_OFFICER_PATHS)
 

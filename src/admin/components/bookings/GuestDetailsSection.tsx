@@ -71,9 +71,10 @@ const isEmergencyFilled = (e: EmergencyContact): boolean =>
 interface GuestDetailsSectionProps {
   booking: Booking
   onSaved: () => void
+  readOnly?: boolean
 }
 
-export const GuestDetailsSection = ({ booking, onSaved }: GuestDetailsSectionProps) => {
+export const GuestDetailsSection = ({ booking, onSaved, readOnly = false }: GuestDetailsSectionProps) => {
   const toast = useToast()
   const conferenceOnly = bookingIsConferenceOnly(booking)
   const slotCount = getGuestDetailSlotCount(booking)
@@ -161,7 +162,7 @@ export const GuestDetailsSection = ({ booking, onSaved }: GuestDetailsSectionPro
               : `${filledCount} of ${guests.length} guest${guests.length === 1 ? '' : 's'} recorded`}
           </p>
         </div>
-        {!editing ? (
+        {readOnly ? null : !editing ? (
           <Button
             size="sm"
             variant="outline"

@@ -21,9 +21,10 @@ import { ChargeList, FoodBillList } from './FoodBillList'
 interface ExtraChargesSectionProps {
   booking: Booking
   onChanged: () => void
+  readOnly?: boolean
 }
 
-export const ExtraChargesSection = ({ booking, onChanged }: ExtraChargesSectionProps) => {
+export const ExtraChargesSection = ({ booking, onChanged, readOnly = false }: ExtraChargesSectionProps) => {
   const toast = useToast()
   const { user } = useAuth()
   const rooms = getBookingRooms(booking)
@@ -86,8 +87,9 @@ export const ExtraChargesSection = ({ booking, onChanged }: ExtraChargesSectionP
   return (
     <div className="space-y-4">
       <p className="text-sm text-stone-600">
-        Food and other charges are added to this booking's total due. Discount still applies to room
-        rent only.
+        {readOnly
+          ? 'Food and other charges on this booking. Only admins and managers can add or remove bills.'
+          : "Food and other charges are added to this booking's total due. Discount still applies to room rent only."}
       </p>
 
       <Card padded={false} className="p-5 space-y-4">
@@ -96,19 +98,21 @@ export const ExtraChargesSection = ({ booking, onChanged }: ExtraChargesSectionP
             <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
               <UtensilsCrossed className="w-3.5 h-3.5" /> Food bill
             </h3>
-            <p className="text-xs text-stone-500 mt-0.5">
-              Pick a date, a meal{multiRoom ? ' and a room' : ''}, then tick items. Repeat for other days or
-              meals, then add them together.
-            </p>
+            {!readOnly && (
+              <p className="text-xs text-stone-500 mt-0.5">
+                Pick a date, a meal{multiRoom ? ' and a room' : ''}, then tick items. Repeat for other days or
+                meals, then add them together.
+              </p>
+            )}
           </div>
           {foodTotal > 0 && (
             <p className="font-serif text-lg text-forest-700 tabular-nums">{formatBDT(foodTotal)}</p>
           )}
         </div>
 
-        <FoodBillComposer booking={booking} rooms={rooms} onAdded={onChanged} />
+        {!readOnly && <FoodBillComposer booking={booking} rooms={rooms} onAdded={onChanged} />}
 
-        <FoodBillList extras={food} multiRoom={multiRoom} onRemove={remove} />
+        <FoodBillList extras={food} multiRoom={multiRoom} onRemove={readOnly ? undefined : remove} />
       </Card>
 
       <Card padded={false} className="p-5 space-y-3">
@@ -123,6 +127,7 @@ export const ExtraChargesSection = ({ booking, onChanged }: ExtraChargesSectionP
             <p className="font-serif text-lg text-forest-700 tabular-nums">{formatBDT(otherTotal)}</p>
           )}
         </div>
+        {!readOnly && (
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_7rem_auto] gap-2">
           {multiRoom && (
             <Select
@@ -156,10 +161,11 @@ export const ExtraChargesSection = ({ booking, onChanged }: ExtraChargesSectionP
             Add
           </Button>
         </div>
+        )}
         {other.length === 0 ? (
           <p className="text-xs text-stone-500">No other charges yet.</p>
         ) : (
-          <ChargeList extras={other} onRemove={remove} />
+          <ChargeList extras={other} onRemove={readOnly ? undefined : remove} />
         )}
       </Card>
     </div>

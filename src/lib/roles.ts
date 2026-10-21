@@ -1,4 +1,5 @@
 import { getSupabase, isSupabaseConfigured } from './supabase'
+import type { Booking } from '../utils/bookings'
 
 export type StaffRole = 'admin' | 'manager' | 'booking_officer'
 
@@ -46,6 +47,21 @@ export const roleIsAdmin = (role: StaffRole | null): boolean => role === 'admin'
 
 export const roleCanManageTeam = (role: StaffRole | null): boolean => role === 'admin'
 
+/** Booking officers may only change bookings they created; the database enforces the same rule. */
+export const roleCanModifyBooking = (
+  role: StaffRole | null,
+  email: string | null | undefined,
+  booking: Pick<Booking, 'bookedBy'>
+): boolean => {
+  if (role === 'admin' || role === 'manager') return true
+  if (role !== 'booking_officer' || !email) return false
+  const creator = booking.bookedBy
+  return creator?.type === 'staff' && creator.email.toLowerCase() === email.trim().toLowerCase()
+}
+
+export const roleCanManageBills = (role: StaffRole | null): boolean =>
+  role === 'admin' || role === 'manager'
+
 export const roleLabel = (role: StaffRole | null): string => {
   if (role === 'admin') return 'Admin'
   if (role === 'manager') return 'Manager'
@@ -56,7 +72,7 @@ export const roleLabel = (role: StaffRole | null): string => {
 export const roleDescription = (role: StaffRole): string => {
   if (role === 'admin') return 'Full access including team management and deletions'
   if (role === 'manager') return 'All sections except team access, settings, and booking deletions'
-  return 'Dashboard, bookings, rooms, guests, and inquiries only'
+  return 'Dashboard, bookings and rooms only; edits only own bookings, no bills'
 }
 
 export const STAFF_ROLE_OPTIONS: { value: StaffRole; label: string }[] = [

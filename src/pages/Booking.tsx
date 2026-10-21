@@ -1142,8 +1142,10 @@ const Booking = () => {
 
               <div className="bg-sand-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-700">
-                  <span className="font-medium">Check-in:</span> 2:00 PM |{' '}
-                  <span className="font-medium">Check-out:</span> 11:00 AM
+                  <span className="font-medium">Check-in:</span>{' '}
+                  {formatTime12h(resortContact.checkInTime)} |{' '}
+                  <span className="font-medium">Check-out:</span>{' '}
+                  {formatTime12h(resortContact.checkOutTime)}
                 </p>
               </div>
 

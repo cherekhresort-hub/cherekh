@@ -301,6 +301,36 @@ export const fetchStaffActivityLog = async (
     .slice(0, limit)
 }
 
+/** Staff who created bookings, from "New booking" log entries (admins only; RLS returns nothing for others). */
+export const fetchBookingCreatorsFromActivity = async (): Promise<
+  Map<string, { email: string; role: StaffRole }>
+> => {
+  const creators = new Map<string, { email: string; role: StaffRole }>()
+  const add = (entityId: string | null | undefined, email: string, role: StaffRole) => {
+    if (entityId && email && !creators.has(entityId)) creators.set(entityId, { email, role })
+  }
+
+  const supabase = isSupabaseConfigured() ? getSupabase() : null
+  if (!supabase) {
+    readLocal()
+      .filter((entry) => entry.action === 'booking.created')
+      .forEach((entry) => add(entry.entityId, entry.actorEmail, entry.actorRole))
+    return creators
+  }
+
+  const { data, error } = await supabase
+    .from('staff_activity_log')
+    .select('entity_id, actor_email, actor_role, created_at')
+    .eq('action', 'booking.created')
+    .order('created_at', { ascending: true })
+    .limit(5000)
+  if (error) return creators
+  for (const row of data ?? []) {
+    add(row.entity_id as string | null, row.actor_email as string, row.actor_role as StaffRole)
+  }
+  return creators
+}
+
 const fetchActivityReadIds = async (): Promise<Set<string>> => {
   const localIds = readLocalReadIds()
 

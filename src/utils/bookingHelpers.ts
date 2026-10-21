@@ -11,9 +11,9 @@ import { getRooms, type Room } from './rooms'
 import type { Booking } from './bookings'
 
 export const ARRIVAL_TIME_OPTIONS = [
-  { value: 'before-12', label: 'Before 12:00 PM' },
-  { value: '12-14', label: '12:00 PM – 2:00 PM' },
-  { value: '14-16', label: '2:00 PM – 4:00 PM (standard check-in)' },
+  { value: 'before-12', label: 'Before 12:00 PM (early arrival)' },
+  { value: '12-14', label: '12:00 PM – 2:00 PM (standard check-in)' },
+  { value: '14-16', label: '2:00 PM – 4:00 PM' },
   { value: '16-18', label: '4:00 PM – 6:00 PM' },
   { value: '18-20', label: '6:00 PM – 8:00 PM' },
   { value: 'after-20', label: 'After 8:00 PM' },

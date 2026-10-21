@@ -6,7 +6,7 @@ import { formatBDT } from '../../utils/format'
 interface FoodBillListProps {
   extras: ExtraCharge[]
   multiRoom: boolean
-  onRemove: (extra: ExtraCharge) => void
+  onRemove?: (extra: ExtraCharge) => void
 }
 
 export const FoodBillList = ({ extras, multiRoom, onRemove }: FoodBillListProps) => {
@@ -65,7 +65,7 @@ export const ChargeList = ({
   title?: string
   extras: ExtraCharge[]
   hideRoom?: boolean
-  onRemove: (extra: ExtraCharge) => void
+  onRemove?: (extra: ExtraCharge) => void
 }) => (
   <div className="space-y-1.5">
     {title && <p className="text-[10px] uppercase tracking-wide text-stone-400">{title}</p>}
@@ -84,14 +84,16 @@ export const ChargeList = ({
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="font-medium tabular-nums text-forest-700">{formatBDT(extraLineTotal(extra))}</span>
-            <button
-              type="button"
-              onClick={() => onRemove(extra)}
-              className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-              aria-label={`Remove ${extra.name}`}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            {onRemove && (
+              <button
+                type="button"
+                onClick={() => onRemove(extra)}
+                className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                aria-label={`Remove ${extra.name}`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </li>
       ))}

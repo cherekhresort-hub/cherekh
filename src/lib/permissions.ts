@@ -1,5 +1,11 @@
 import type { StaffRole } from './roles'
-import { roleCanDelete, roleCanEditPricing, roleCanManageTeam, roleIsAdmin } from './roles'
+import {
+  roleCanDelete,
+  roleCanEditPricing,
+  roleCanManageBills,
+  roleCanManageTeam,
+  roleIsAdmin,
+} from './roles'
 
 let activeRole: StaffRole | null = null
 
@@ -20,3 +26,5 @@ export const canManageTeam = (): boolean => roleCanManageTeam(activeRole)
 export const isManagerUser = (): boolean => activeRole === 'manager'
 
 export const isBookingOfficerUser = (): boolean => activeRole === 'booking_officer'
+
+export const canManageBills = (): boolean => roleCanManageBills(activeRole)

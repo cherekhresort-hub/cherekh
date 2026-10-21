@@ -12,6 +12,8 @@ import { BookingDrawer } from '../components/bookings/BookingDrawer'
 import { AddBookingModal } from '../components/bookings/AddBookingModal'
 import { useBookingsData } from '../hooks/useBookingsData'
 import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../../contexts/AuthProvider'
+import { useBookingCreatorLookup } from '../utils/bookingCreator'
 import { exportBookingsToExcel } from '../../utils/exportExcel'
 import {
   ensureBookingDetail,
@@ -82,7 +84,9 @@ const compareBookings = (a: Booking, b: Booking, key: SortKey, dir: SortDir, tod
 
 const Bookings = () => {
   const toast = useToast()
+  const { isAdmin } = useAuth()
   const { bookings, refresh } = useBookingsData()
+  const creatorFor = useBookingCreatorLookup(isAdmin)
   const [searchParams, setSearchParams] = useSearchParams()
   const deepLinkHandled = useRef<string | null>(null)
 
@@ -306,6 +310,7 @@ const Bookings = () => {
             sortDir={sortDir}
             onSort={toggleSort}
             onSelect={openBooking}
+            creatorFor={creatorFor}
           />
           {filtered.length > 0 && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-stone-100 bg-cream/30">
@@ -357,6 +362,7 @@ const Bookings = () => {
         onClose={() => setSelected(null)}
         onChanged={handleBookingChanged}
         onRetryLoad={retryBookingDetail}
+        bookedBy={selected ? creatorFor(selected) : undefined}
       />
 
       <AddBookingModal

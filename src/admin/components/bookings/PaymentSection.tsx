@@ -43,6 +43,7 @@ import { confirmDelete } from '../../utils/confirmDelete'
 interface PaymentSectionProps {
   booking: Booking
   onChanged: () => void
+  readOnly?: boolean
 }
 
 const PAYMENT_STATUS_TONES: Record<string, 'forest' | 'amber' | 'red' | 'neutral'> = {
@@ -64,7 +65,7 @@ const TX_TYPE_TONE: Record<PaymentTransactionType, 'forest' | 'red' | 'sky'> = {
   adjustment: 'sky',
 }
 
-export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
+export const PaymentSection = ({ booking, onChanged, readOnly = false }: PaymentSectionProps) => {
   const { canDelete, canEditPricing } = useAuth()
   const toast = useToast()
   const fin = useMemo(() => computeBookingFinancials(booking), [booking])
@@ -123,6 +124,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
   }, [fin.status, type])
 
   useEffect(() => {
+    if (readOnly) return
     if ((booking.payment?.transactions ?? []).length > 0) return
     if (fin.paid <= 0 && fin.refunded <= 0) return
     if (backfillAttempted.current === booking.id) return
@@ -130,7 +132,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
     void backfillMissingPaymentTransactions(booking.id).then((updated) => {
       if ((updated?.payment?.transactions?.length ?? 0) > 0) onChanged()
     })
-  }, [booking.id, booking.payment?.transactions, fin.paid, fin.refunded, onChanged])
+  }, [booking.id, booking.payment?.transactions, fin.paid, fin.refunded, onChanged, readOnly])
 
   const saveTotal = async () => {
     if (!canEditPricing) {
@@ -311,7 +313,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
               <p className="font-serif text-lg text-stone-700">{formatBDT(fin.subtotal)}</p>
             )}
           </div>
-          {!editingTotal && canEditPricing && (
+          {!editingTotal && canEditPricing && !readOnly && (
             <Button
               size="sm"
               variant="outline"
@@ -323,7 +325,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
           )}
         </div>
 
-        {showSuggestion && canEditPricing && (
+        {showSuggestion && canEditPricing && !readOnly && (
           <div className="flex items-center justify-between gap-2 rounded-xl bg-forest-50 border border-forest-100 px-3 py-2">
             <p className="text-xs text-forest-700">
               Suggested subtotal from rate card:{' '}
@@ -355,7 +357,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
             <p className="text-[10px] uppercase tracking-wide text-stone-500 inline-flex items-center gap-1">
               <Tag className="w-3 h-3" /> Discount
             </p>
-            {!editingDiscount && (
+            {!editingDiscount && !readOnly && (
               <div className="flex items-center gap-1.5">
                 {booking.payment?.discount && canDelete && (
                   <Button
@@ -523,7 +525,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
           <Receipt className="w-3 h-3" /> Transactions
           <span className="text-stone-400 normal-case font-normal">({transactions.length})</span>
         </h4>
-        {paymentComplete ? (
+        {readOnly ? null : paymentComplete ? (
           <Button
             size="sm"
             variant={open ? 'outline' : 'ghost'}
@@ -673,7 +675,7 @@ export const PaymentSection = ({ booking, onChanged }: PaymentSectionProps) => {
                     <p className="text-xs text-stone-600 mt-1 whitespace-pre-wrap">{tx.notes}</p>
                   )}
                 </div>
-                {canDelete && (
+                {canDelete && !readOnly && (
                   <button
                     type="button"
                     onClick={() => removeTx(tx.id)}

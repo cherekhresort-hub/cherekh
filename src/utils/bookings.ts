@@ -15,7 +15,8 @@ import { checkoutPastConfirmedBookingsRemote, updateBookingStatusRemote } from '
 import { invalidateAvailabilityCache } from '../lib/availabilityCache'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import { notifyAdminOfManagerAction } from '../lib/adminNotifications'
-import { canDeleteRecords, canEditPricing } from '../lib/permissions'
+import { canDeleteRecords, canEditPricing, canManageBills, getActiveStaffRole } from '../lib/permissions'
+import type { StaffRole } from '../lib/roles'
 
 export { ensureBookingsHydrated }
 
@@ -201,9 +202,15 @@ export interface Booking {
   extras?: ExtraCharge[]
   /** List-row extra charges total when full extras are not loaded. Never persist. */
   listExtrasTotal?: number
+  /** Who created the booking. Absent on bookings made before this was recorded. */
+  bookedBy?: BookingCreator
   createdAt: string
   updatedAt: string
 }
+
+export type BookingCreator =
+  | { type: 'staff'; email: string; role?: StaffRole }
+  | { type: 'website' }
 
 /** Cancelled bookings are excluded from revenue and financial reports. */
 export const countsTowardRevenue = (booking: Pick<Booking, 'status'>): boolean =>
@@ -353,6 +360,14 @@ const normalizeBookingInput = (
 
 export const getBookings = (): Booking[] => getBookingsCache()
 
+const resolveBookingCreator = async (): Promise<BookingCreator> => {
+  const role = getActiveStaffRole()
+  if (!role || !isSupabaseConfigured()) return { type: 'website' }
+  const session = (await getSupabase()?.auth.getSession())?.data.session
+  const email = session?.user?.email
+  return email ? { type: 'staff', email, role } : { type: 'website' }
+}
+
 export const saveBooking = async (
   booking: SaveBookingInput,
   options: { sendEmails?: boolean } = {}
@@ -360,6 +375,7 @@ export const saveBooking = async (
   const { sendEmails = true } = options
   const normalized = normalizeBookingInput(booking)
   const derivedTotal = calculateBookingTotal(normalized)
+  const bookedBy = await resolveBookingCreator()
 
   for (let attempt = 0; attempt < 25; attempt++) {
     const createdAt = resolveBookingCreatedAt(normalized.checkIn, normalized.eventDates)
@@ -372,6 +388,7 @@ export const saveBooking = async (
         amount: derivedTotal,
         status: 'pending',
       },
+      bookedBy,
       createdAt,
       updatedAt: createdAt,
     }
@@ -801,6 +818,7 @@ export const addBookingExtras = async (
   id: string,
   inputs: ExtraChargeInput[]
 ): Promise<Booking | null> => {
+  if (!canManageBills()) return null
   const existing = getBookings().find((b) => b.id === id)
   if (!existing) return null
   const bookingRef = (await ensureBookingDetail(id)) ?? existing
@@ -870,6 +888,7 @@ export const removeBookingExtra = async (
   bookingId: string,
   extraId: string
 ): Promise<Booking | null> => {
+  if (!canManageBills()) return null
   const existing = getBookings().find((b) => b.id === bookingId)
   if (!existing) return null
   const bookingRef = (await ensureBookingDetail(bookingId)) ?? existing

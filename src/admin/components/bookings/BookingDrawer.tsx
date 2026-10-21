@@ -43,10 +43,13 @@ import {
   getBookingRooms,
   updateBookingStatus,
   type Booking,
+  type BookingCreator,
 } from '../../../utils/bookings'
+import { bookingCreatorLabel } from '../../utils/bookingCreator'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../../contexts/AuthProvider'
 import { isBookingDetailLoaded } from '../../../lib/bookingsStore'
+import { roleCanManageBills, roleCanModifyBooking } from '../../../lib/roles'
 import { formatDateTime, formatShortDate } from '../../utils/date'
 import { parseRoomLabel } from '../../utils/roomLabel'
 import { formatBookingId } from '../../../utils/bookingId'
@@ -70,11 +73,19 @@ interface BookingDrawerProps {
   onClose: () => void
   onChanged: () => void
   onRetryLoad?: () => void | Promise<void>
+  bookedBy?: BookingCreator
 }
 
-export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChanged, onRetryLoad }: BookingDrawerProps) => {
+export const BookingDrawer = ({
+  booking,
+  detailLoading = false,
+  onClose,
+  onChanged,
+  onRetryLoad,
+  bookedBy,
+}: BookingDrawerProps) => {
   const toast = useToast()
-  const { canDelete } = useAuth()
+  const { canDelete, role, user } = useAuth()
   const [tab, setTab] = useState<TabKey>('overview')
   const [note, setNote] = useState('')
 
@@ -125,6 +136,8 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
   if (!fin) return <Drawer open={false} onClose={onClose}>{null}</Drawer>
 
   const lines = getBookingRooms(booking)
+  const readOnly = !roleCanModifyBooking(role, user?.email, booking)
+  const billsReadOnly = readOnly || !roleCanManageBills(role)
 
   const setStatus = async (status: Booking['status'], label: string) => {
     const updated = await updateBookingStatus(booking.id, status)
@@ -205,6 +218,10 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
               })
               .join('  ·  ')}
           </p>
+          <p className="text-xs text-white/60 mt-1 truncate">
+            Booked {formatDateTime(booking.createdAt)}
+            {bookedBy ? ` by ${bookingCreatorLabel(bookedBy)}` : ''}
+          </p>
         </div>
       </div>
 
@@ -270,8 +287,11 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
               Delete
             </Button>
           ) : (
-            <span className="text-xs text-stone-400 px-1">View & edit only (manager)</span>
+            <span className="text-xs text-stone-400 px-1">
+              {readOnly ? 'View only' : role === 'manager' ? 'View & edit only (manager)' : 'View & edit'}
+            </span>
           )}
+          {!readOnly && (
           <div className="flex flex-wrap gap-2">
             {booking.status === 'pending' && (
               <Button
@@ -301,6 +321,7 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
               </Button>
             )}
           </div>
+          )}
         </div>
       }
     >
@@ -313,6 +334,11 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
           transition={{ duration: 0.18 }}
           className="px-6 py-5"
         >
+          {readOnly && (
+            <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              View only. Booking officers can change only the bookings they created.
+            </p>
+          )}
           {tab === 'overview' && (
             <OverviewTab
               booking={booking}
@@ -321,12 +347,15 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
               isConferenceOnly={isConferenceOnly}
               eventDatesLabel={eventDatesLabel}
               onChangeStatus={changeStatusInline}
+              readOnly={readOnly}
             />
           )}
-          {tab === 'payment' && <PaymentSection booking={booking} onChanged={onChanged} />}
-          {tab === 'bills' && <ExtraChargesSection booking={booking} onChanged={onChanged} />}
+          {tab === 'payment' && <PaymentSection booking={booking} onChanged={onChanged} readOnly={readOnly} />}
+          {tab === 'bills' && (
+            <ExtraChargesSection booking={booking} onChanged={onChanged} readOnly={billsReadOnly} />
+          )}
           {tab === 'guests' && (
-            <GuestDetailsSection booking={booking} onSaved={onChanged} />
+            <GuestDetailsSection booking={booking} onSaved={onChanged} readOnly={readOnly} />
           )}
           {tab === 'notes' && (
             <NotesTab
@@ -334,6 +363,7 @@ export const BookingDrawer = ({ booking, detailLoading = false, onClose, onChang
               note={note}
               onChangeNote={setNote}
               onSave={saveNote}
+              readOnly={readOnly}
             />
           )}
           <p className="mt-6 text-xs text-stone-400 inline-flex items-center gap-1.5">
@@ -379,6 +409,7 @@ interface OverviewTabProps {
   isConferenceOnly: boolean
   eventDatesLabel: string
   onChangeStatus: (status: Booking['status']) => void
+  readOnly: boolean
 }
 
 const OverviewTab = ({
@@ -388,6 +419,7 @@ const OverviewTab = ({
   isConferenceOnly,
   eventDatesLabel,
   onChangeStatus,
+  readOnly,
 }: OverviewTabProps) => (
   <div className="space-y-4 text-sm">
     <Card padded={false} className="p-4">
@@ -395,6 +427,7 @@ const OverviewTab = ({
         <Select
           value={booking.status}
           onChange={(e) => onChangeStatus(e.target.value as Booking['status'])}
+          disabled={readOnly}
         >
           <option value="pending">Pending</option>
           <option value="confirmed">Confirmed</option>
@@ -538,9 +571,10 @@ interface NotesTabProps {
   note: string
   onChangeNote: (v: string) => void
   onSave: () => void
+  readOnly: boolean
 }
 
-const NotesTab = ({ booking, note, onChangeNote, onSave }: NotesTabProps) => (
+const NotesTab = ({ booking, note, onChangeNote, onSave, readOnly }: NotesTabProps) => (
   <Card padded={false} className="p-5">
     <div className="flex items-center justify-between mb-3">
       <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
@@ -558,7 +592,7 @@ const NotesTab = ({ booking, note, onChangeNote, onSave }: NotesTabProps) => (
         {[...booking.notes]
           .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
           .map((n) => (
-            <li key={n.id} className="bg-cream/70 rounded-xl px-3 py-2.5">
+            <li key={n.id} className="bg-stone-50 rounded-xl px-3 py-2.5">
               <div className="flex items-center justify-between text-xs text-stone-500">
                 <span className="font-medium text-forest-700">{n.createdBy}</span>
                 <span>{formatDateTime(n.createdAt)}</span>
@@ -568,12 +602,16 @@ const NotesTab = ({ booking, note, onChangeNote, onSave }: NotesTabProps) => (
           ))}
       </ul>
     ) : (
-      <div className="rounded-xl bg-cream/60 border border-dashed border-stone-200 px-4 py-6 text-center mb-4">
+      <div className="rounded-xl bg-stone-50 border border-dashed border-stone-200 px-4 py-6 text-center mb-4">
         <MessageSquare className="w-5 h-5 text-stone-400 mx-auto mb-2" />
-        <p className="text-xs text-stone-500">No internal notes yet. Add one below.</p>
+        <p className="text-xs text-stone-500">
+          {readOnly ? 'No internal notes yet.' : 'No internal notes yet. Add one below.'}
+        </p>
       </div>
     )}
 
+    {!readOnly && (
+    <>
     <Field label="Add internal note">
       <Textarea
         value={note}
@@ -592,5 +630,7 @@ const NotesTab = ({ booking, note, onChangeNote, onSave }: NotesTabProps) => (
         Save note
       </Button>
     </div>
+    </>
+    )}
   </Card>
 )

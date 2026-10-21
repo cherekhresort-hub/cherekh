@@ -827,29 +827,26 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
                 <ChevronDown className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
-            {guest.advanceAmount > 0 && (
-              <>
-                {advanceNeedsReference && (
-                  <Field
-                    label={`${PAYMENT_METHOD_LABELS[guest.advanceMethod]} transaction ID`}
-                    required
-                  >
-                    <Input
-                      value={guest.advanceReference}
-                      onChange={(e) => updateGuest('advanceReference', e.target.value)}
-                      placeholder="e.g. 9A7B3C2D1E"
-                    />
-                  </Field>
-                )}
-                {finalTotal > 0 && (
-                  <p className="text-xs text-stone-500">
-                    Advance {formatBDT(guest.advanceAmount)} · Balance due{' '}
-                    <span className="font-medium text-forest-700">
-                      {formatBDT(balanceAfterAdvance)}
-                    </span>
-                  </p>
-                )}
-              </>
+            {guest.advanceMethod !== 'cash' && (
+              <Field
+                label={`${PAYMENT_METHOD_LABELS[guest.advanceMethod]} transaction ID`}
+                required={advanceNeedsReference}
+              >
+                <Input
+                  value={guest.advanceReference}
+                  onChange={(e) => updateGuest('advanceReference', e.target.value)}
+                  placeholder="e.g. 9A7B3C2D1E"
+                  aria-label={`${PAYMENT_METHOD_LABELS[guest.advanceMethod]} transaction ID`}
+                />
+              </Field>
+            )}
+            {guest.advanceAmount > 0 && finalTotal > 0 && (
+              <p className="text-xs text-stone-500">
+                Advance {formatBDT(guest.advanceAmount)} · Balance due{' '}
+                <span className="font-medium text-forest-700">
+                  {formatBDT(balanceAfterAdvance)}
+                </span>
+              </p>
             )}
           </div>
         </div>

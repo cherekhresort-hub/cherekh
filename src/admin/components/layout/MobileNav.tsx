@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { LogOut } from 'lucide-react'
+import { confirmDelete } from '../../utils/confirmDelete'
 import { adminNavItems } from '../../data/navigation'
 import { useAuth } from '../../../contexts/AuthProvider'
 import { getMobileNavItems } from '../../utils/navAccess'
@@ -18,7 +20,7 @@ const isNavItemActive = (pathname: string, to: string): boolean => {
 }
 
 export const MobileNav = ({ activityUnreadCount = 0 }: MobileNavProps) => {
-  const { role } = useAuth()
+  const { role, signOut } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const mobileItems = getMobileNavItems(adminNavItems, role)
@@ -28,12 +30,22 @@ export const MobileNav = ({ activityUnreadCount = 0 }: MobileNavProps) => {
     [mobileItems, pathname]
   )
 
+  const handleSignOut = async () => {
+    const ok = await confirmDelete({ title: 'Sign out?', text: 'You will need to log in again.', confirmText: 'Sign out' })
+    if (!ok) return
+    await signOut()
+    navigate('/login', { replace: true })
+  }
+
   const rows = useMemo(() => {
-    const tabs = mobileItems.map((item) => ({
-      title: item.label,
-      icon: item.icon,
-      badge: item.to === '/admin/activity' ? activityUnreadCount : undefined,
-    }))
+    const tabs = [
+      ...mobileItems.map((item) => ({
+        title: item.label,
+        icon: item.icon,
+        badge: item.to === '/admin/activity' ? activityUnreadCount : undefined,
+      })),
+      { title: 'Sign out', icon: LogOut, badge: undefined },
+    ]
     if (tabs.length <= SINGLE_ROW_MAX) return [{ offset: 0, tabs }]
     const split = Math.ceil(tabs.length / 2)
     return [
@@ -60,7 +72,12 @@ export const MobileNav = ({ activityUnreadCount = 0 }: MobileNavProps) => {
                 selectedIndex={local >= 0 && local < row.tabs.length ? local : null}
                 onChange={(index) => {
                   if (index === null) return
-                  const item = mobileItems[row.offset + index]
+                  const position = row.offset + index
+                  if (position === mobileItems.length) {
+                    void handleSignOut()
+                    return
+                  }
+                  const item = mobileItems[position]
                   if (item) navigate(item.to)
                 }}
                 className="min-w-full w-max justify-between border-0 shadow-none bg-transparent p-0 gap-0.5"

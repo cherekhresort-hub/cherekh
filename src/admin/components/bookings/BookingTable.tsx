@@ -12,6 +12,7 @@ import {
   computeBookingFinancials,
   PAYMENT_METHOD_LABELS,
   type Booking,
+  type BookingCreator,
   type PaymentMethod,
 } from '../../../utils/bookings'
 import { Badge } from '../ui/Badge'
@@ -21,6 +22,19 @@ import {
 } from '../../utils/bookingMessages'
 import { printBookingInvoice } from '../../utils/bookingInvoice'
 import { cn } from '../../utils/cn'
+import type { BookingCreatorLookup } from '../../utils/bookingCreator'
+const BookedByLine = ({ creator }: { creator: BookingCreator | undefined }) => {
+  if (!creator) return null
+  const label = creator.type === 'website' ? 'Website' : creator.email.split('@')[0]
+  return (
+    <p
+      className="mt-0.5 max-w-[9rem] truncate text-[11px] text-teal-700"
+      title={creator.type === 'staff' ? `Booked by ${creator.email}` : 'Booked on the website'}
+    >
+      by {label}
+    </p>
+  )
+}
 
 interface BookingTableProps {
   bookings: Booking[]
@@ -29,6 +43,7 @@ interface BookingTableProps {
   sortDir: 'asc' | 'desc'
   onSort: (key: keyof Booking | 'totalGuests') => void
   onSelect: (booking: Booking) => void
+  creatorFor?: BookingCreatorLookup
 }
 
 type Column = {
@@ -49,7 +64,7 @@ const columns: Column[] = [
   { key: 'specialRequests', label: 'Notes' },
 ]
 
-export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: BookingTableProps) => {
+export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, creatorFor }: BookingTableProps) => {
   const toast = useToast()
   const activeSortColumn = sortKey === 'schedule' ? 'checkIn' : sortKey
 
@@ -108,12 +123,13 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect }: B
               <tr
                 key={booking.id}
                 onClick={() => onSelect(booking)}
-                className="cursor-pointer hover:bg-cream/40 transition-colors"
+                className="cursor-pointer hover:bg-stone-50 transition-colors"
               >
                 <td className="py-3 px-4">
                   <p className="text-xs font-mono text-stone-500">{formatBookingId(booking.id)}</p>
                   <p className="text-[11px] text-stone-400">{formatShortDate(booking.createdAt)}</p>
                   <p className="text-[11px] text-stone-400">{formatTime(booking.createdAt)}</p>
+                  <BookedByLine creator={creatorFor?.(booking)} />
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-3">

@@ -100,7 +100,7 @@ const baseGraph = (route) => [
     telephone: '+8801601719735',
     email: 'cherekhcenter@gmail.com',
     priceRange: '$$',
-    checkinTime: '14:00',
+    checkinTime: '12:00',
     checkoutTime: '11:00',
     numberOfRooms: ROOM_NUMBERS.length,
     sameAs: [

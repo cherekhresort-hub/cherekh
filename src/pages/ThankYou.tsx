@@ -111,7 +111,7 @@ const ThankYou = () => {
         {
           label: 'Check-in',
           value: formatDisplayDate(booking.checkIn),
-          hint: 'From 2:00 PM',
+          hint: 'From 12:00 PM',
         },
         {
           label: 'Check-out',

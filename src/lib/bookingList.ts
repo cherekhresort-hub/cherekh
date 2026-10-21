@@ -1,5 +1,7 @@
+import type { StaffRole } from './roles'
 import type {
   Booking,
+  BookingCreator,
   BookingDiscount,
   BookingRoomLine,
   Payment,
@@ -34,6 +36,21 @@ export type BookingListRow = {
   payment_last_method?: string | null
   payment_last_at?: string | null
   extras_total?: number | string | null
+  booked_by?: unknown
+}
+
+const parseBookedBy = (raw: unknown): BookingCreator | undefined => {
+  if (!raw || typeof raw !== 'object') return undefined
+  const value = raw as Record<string, unknown>
+  if (value.type === 'website') return { type: 'website' }
+  if (value.type === 'staff' && typeof value.email === 'string' && value.email) {
+    return {
+      type: 'staff',
+      email: value.email,
+      role: typeof value.role === 'string' ? (value.role as StaffRole) : undefined,
+    }
+  }
+  return undefined
 }
 
 const parseRooms = (raw: unknown): BookingRoomLine[] | undefined => {
@@ -111,6 +128,7 @@ export const bookingFromListRow = (row: BookingListRow): Booking => {
     notes: [],
     payment: buildPayment(row),
     listExtrasTotal: Number(row.extras_total) || undefined,
+    bookedBy: parseBookedBy(row.booked_by),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

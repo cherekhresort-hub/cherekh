@@ -73,7 +73,7 @@ const lodgingSchema = (): Record<string, unknown> => ({
   telephone: resortContact.phoneE164,
   email: resortContact.email,
   priceRange: '$$',
-  checkinTime: '14:00',
+  checkinTime: '12:00',
   checkoutTime: '11:00',
   numberOfRooms: publicRoomCatalog.length,
   areaServed: [

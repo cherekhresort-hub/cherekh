@@ -16,7 +16,7 @@ export const defaultResortSettings: ResortSettings = {
   phone: '+880 1601 719735',
   email: 'cherekhcenter@gmail.com',
   website: SITE_HOST,
-  checkInTime: '14:00',
+  checkInTime: '12:00',
   checkOutTime: '11:00',
 }
 
