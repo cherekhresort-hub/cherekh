@@ -15,7 +15,13 @@ import { checkoutPastConfirmedBookingsRemote, updateBookingStatusRemote } from '
 import { invalidateAvailabilityCache } from '../lib/availabilityCache'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import { notifyAdminOfManagerAction } from '../lib/adminNotifications'
-import { canDeleteRecords, canEditPricing, canManageBills, getActiveStaffRole } from '../lib/permissions'
+import {
+  canDeleteRecords,
+  canEditPricing,
+  canManageBills,
+  getActiveStaffName,
+  getActiveStaffRole,
+} from '../lib/permissions'
 import type { StaffRole } from '../lib/roles'
 
 export { ensureBookingsHydrated }
@@ -209,7 +215,7 @@ export interface Booking {
 }
 
 export type BookingCreator =
-  | { type: 'staff'; email: string; role?: StaffRole }
+  | { type: 'staff'; email: string; role?: StaffRole; name?: string }
   | { type: 'website' }
 
 /** Cancelled bookings are excluded from revenue and financial reports. */
@@ -365,7 +371,9 @@ const resolveBookingCreator = async (): Promise<BookingCreator> => {
   if (!role || !isSupabaseConfigured()) return { type: 'website' }
   const session = (await getSupabase()?.auth.getSession())?.data.session
   const email = session?.user?.email
-  return email ? { type: 'staff', email, role } : { type: 'website' }
+  if (!email) return { type: 'website' }
+  const name = getActiveStaffName()
+  return name ? { type: 'staff', email, role, name } : { type: 'staff', email, role }
 }
 
 export const saveBooking = async (

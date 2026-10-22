@@ -222,7 +222,9 @@ const Bookings = () => {
     }
     try {
       const detailed = await ensureBookingDetails(filtered)
-      await exportBookingsToExcel(detailed)
+      await exportBookingsToExcel(
+        detailed.map((booking) => ({ ...booking, bookedBy: creatorFor(booking) }))
+      )
       toast.success('Export complete', `${filtered.length} bookings`)
     } catch {
       toast.error('Export failed', 'Please try again.')

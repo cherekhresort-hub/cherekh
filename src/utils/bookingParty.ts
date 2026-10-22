@@ -102,7 +102,77 @@ export const buildRoomLinesForParty = (
     used.add(option.value)
   }
 
+  // Every room is at included occupancy: overflow into rooms that allow extra guests (couple beds).
+  if (remAdults > 0 || remChildren > 0) {
+    for (const line of lines) {
+      if (remAdults <= 0 && remChildren <= 0) break
+      const option = sorted.find((o) => o.value === line.roomType)
+      if (!option) continue
+      const spare = option.capacity - getLineTotalGuests(line)
+      if (spare <= 0) continue
+      const addAdults = Math.min(remAdults, spare)
+      const addChildren = Math.min(remChildren, spare - addAdults)
+      line.adults += addAdults
+      line.children += addChildren
+      remAdults -= addAdults
+      remChildren -= addChildren
+    }
+  }
+
   return lines
+}
+
+/**
+ * Move guests out of rooms over their maximum into rooms with space: first up to
+ * included occupancy, then into rooms that allow extra guests (couple beds).
+ */
+export const rebalanceLinesToCapacity = (
+  lines: RoomBookingLine[],
+  options: RoomOption[]
+): RoomBookingLine[] => {
+  const optionFor = (line: RoomBookingLine) => options.find((o) => o.value === line.roomType)
+  const next = lines.map((line) => ({ ...line }))
+  let movedAdults = 0
+  let movedChildren = 0
+
+  for (const line of next) {
+    const option = optionFor(line)
+    if (!option) continue
+    let surplus = getLineTotalGuests(line) - option.capacity
+    if (surplus <= 0) continue
+    const takeChildren = Math.min(line.children, surplus)
+    line.children -= takeChildren
+    movedChildren += takeChildren
+    surplus -= takeChildren
+    const takeAdults = Math.min(Math.max(0, line.adults - 1), surplus)
+    line.adults -= takeAdults
+    movedAdults += takeAdults
+  }
+
+  const place = (limitFor: (option: RoomOption) => number) => {
+    for (const line of next) {
+      if (movedAdults <= 0 && movedChildren <= 0) return
+      const option = optionFor(line)
+      if (!option) continue
+      const spare = limitFor(option) - getLineTotalGuests(line)
+      if (spare <= 0) continue
+      const addAdults = Math.min(movedAdults, spare)
+      const addChildren = Math.min(movedChildren, spare - addAdults)
+      line.adults += addAdults
+      line.children += addChildren
+      movedAdults -= addAdults
+      movedChildren -= addChildren
+    }
+  }
+  place(assignmentCapacity)
+  place((option) => option.capacity)
+
+  // Nowhere to go: leave the overflow on the first room so validation can flag it.
+  if ((movedAdults > 0 || movedChildren > 0) && next[0]) {
+    next[0].adults += movedAdults
+    next[0].children += movedChildren
+  }
+  return next
 }
 
 type AvailableRoomForParty = {

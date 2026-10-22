@@ -1,6 +1,9 @@
+import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { SearchInput } from '../ui/SearchInput'
 import { Avatar } from '../ui/Avatar'
 import { useAuth } from '../../../contexts/AuthProvider'
+import { ProfileNameModal } from './ProfileNameModal'
 
 interface TopBarProps {
   title?: string
@@ -10,8 +13,10 @@ interface TopBarProps {
 }
 
 export const TopBar = ({ title, description, search, actions }: TopBarProps) => {
-  const { roleLabel, user } = useAuth()
-  const displayName = user?.email?.split('@')[0] ?? roleLabel
+  const { roleLabel, user, displayName: savedName, usesSupabase } = useAuth()
+  const displayName = savedName ?? user?.email?.split('@')[0] ?? roleLabel
+  const [profileOpen, setProfileOpen] = useState(false)
+  const canEditName = usesSupabase && Boolean(user?.email)
 
   return (
     <header className="sticky top-0 z-30 bg-white lg:bg-cream/85 backdrop-blur border-b border-stone-100">
@@ -37,7 +42,19 @@ export const TopBar = ({ title, description, search, actions }: TopBarProps) => 
             </div>
           )}
           {actions}
-          <Avatar name={displayName} color="#1E4D2B" size="md" />
+          {canEditName ? (
+            <button
+              type="button"
+              onClick={() => setProfileOpen(true)}
+              className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-500 focus-visible:ring-offset-2"
+              title={savedName ? `${savedName} · Edit your name` : 'Set your name'}
+              aria-label={savedName ? `${savedName}, edit your name` : 'Set your name'}
+            >
+              <Avatar name={displayName} color="#1E4D2B" size="md" />
+            </button>
+          ) : (
+            <Avatar name={displayName} color="#1E4D2B" size="md" />
+          )}
         </div>
       </div>
 
@@ -51,6 +68,9 @@ export const TopBar = ({ title, description, search, actions }: TopBarProps) => 
           />
         </div>
       )}
+
+      {profileOpen &&
+        createPortal(<ProfileNameModal open onClose={() => setProfileOpen(false)} />, document.body)}
     </header>
   )
 }

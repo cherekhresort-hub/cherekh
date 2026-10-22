@@ -585,8 +585,8 @@ const RoomDetails = () => {
                   </button>
 
                   <p className="text-sm text-gray-600 text-center mt-4">
-                    Free cancellation more than 7 days before check-in. 50% refund 3-7 days prior.
-                    Less than 3 days is non-refundable.
+                    Full refund if cancelled 7 days or more before check-in. Less than 7 days is
+                    non-refundable.
                   </p>
                 </>
               ) : (

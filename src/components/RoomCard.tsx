@@ -7,6 +7,11 @@ import ResponsiveImage from './ResponsiveImage'
 import RoomPriceDisplay from './RoomPriceDisplay'
 import { cardImageSources } from '../utils/responsiveImage'
 
+const cardButtonBase =
+  'cursor-pointer rounded-full font-medium shadow-sm transition-all duration-200 ' +
+  'hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.97] ' +
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-resort-cta focus-visible:ring-offset-2'
+
 interface RoomCardProps {
   id: string
   name: string
@@ -31,6 +36,8 @@ interface RoomCardProps {
   onSelectToggle?: (id: string) => void
   /** Guests assigned to this room for the current search party. */
   assignedGuests?: number
+  /** Overrides the default "per night" label under the price. */
+  priceSuffix?: string
 }
 
 const RoomCard = ({
@@ -55,6 +62,7 @@ const RoomCard = ({
   selected = false,
   onSelectToggle,
   assignedGuests,
+  priceSuffix,
 }: RoomCardProps) => {
   const displayPricing =
     price !== undefined && price > 0 ? resolveRoomDisplayPricing(price, listPrice) : null
@@ -62,24 +70,37 @@ const RoomCard = ({
   const facilityHref =
     ctaHref ?? (id === 'conference' ? '/conference-room' : `/rooms/${id}`)
   const facilityCtaLabel = ctaLabel ?? 'Learn More'
+  const detailsHref =
+    type === 'room' && price !== undefined && price > 0
+      ? id === 'conference'
+        ? '/conference-room'
+        : `/rooms/${id}`
+      : facilityHref
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className={`bg-cream rounded-xl sm:rounded-2xl overflow-hidden shadow-lg ${
+      className={`group relative bg-cream rounded-xl sm:rounded-2xl overflow-hidden shadow-lg transition-[box-shadow,transform] duration-300 hover:-translate-y-1 hover:shadow-2xl ${
         selected ? 'ring-2 ring-resort-cta ring-offset-2' : ''
       }`}
     >
+      {/* Whole-card link; buttons below sit above it (relative z-10). */}
+      <Link
+        to={detailsHref}
+        className="absolute inset-0 z-0 rounded-[inherit]"
+        aria-hidden="true"
+        tabIndex={-1}
+      />
       <div
-        className={`relative overflow-hidden ${
+        className={`relative overflow-hidden pointer-events-none ${
           compact ? 'h-32 sm:h-48 md:h-64' : 'h-64'
         }`}
       >
         <ResponsiveImage
           {...cardImageSources(image, name)}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           loading="lazy"
           decoding="async"
         />
@@ -99,9 +120,9 @@ const RoomCard = ({
           </div>
         )}
       </div>
-      <div className={compact ? 'p-3 sm:p-4 md:p-6' : 'p-6'}>
+      <div className={`pointer-events-none ${compact ? 'p-3 sm:p-4 md:p-6' : 'p-6'}`}>
         <h3
-          className={`font-serif text-resort-heading mb-1 sm:mb-2 ${
+          className={`font-serif text-resort-heading mb-1 sm:mb-2 transition-colors duration-200 group-hover:text-resort-cta ${
             compact ? 'text-base sm:text-xl md:text-2xl' : 'text-2xl'
           }`}
         >
@@ -199,31 +220,35 @@ const RoomCard = ({
               <RoomPriceDisplay
                 price={price}
                 listPrice={listPrice}
+                suffix={priceSuffix}
                 size={compact ? 'xs' : 'md'}
                 showBadge={!compact}
                 className={compact ? 'min-w-0' : undefined}
               />
-              <div className={`flex gap-2 ${compact ? 'w-full' : 'w-full sm:w-auto'}`}>
+              <div
+                className={`pointer-events-auto relative z-10 flex gap-2 ${compact ? 'w-full' : 'w-full sm:w-auto'}`}
+              >
                 {selectable && onSelectToggle && (
                   <button
                     type="button"
                     onClick={() => onSelectToggle(id)}
                     aria-pressed={selected}
                     aria-label={selected ? `Deselect ${name}` : `Select ${name}`}
-                    className={`flex-1 rounded-full font-medium text-center transition-colors duration-200 ${
+                    className={`${cardButtonBase} inline-flex flex-1 items-center justify-center gap-1.5 ${
                       compact ? 'px-3 py-2 text-xs sm:text-sm' : 'px-5 py-2 text-sm'
                     } ${
                       selected
                         ? 'bg-resort-heading text-white hover:bg-resort-heading/90'
-                        : 'border border-stone-300 text-resort-heading hover:border-resort-cta hover:text-resort-cta'
+                        : 'border border-stone-300 bg-white text-resort-heading hover:border-resort-cta hover:bg-resort-cta/5 hover:text-resort-cta'
                     }`}
                   >
+                    {selected && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
                     {selected ? 'Selected' : 'Select'}
                   </button>
                 )}
                 <Link
                   to={id === 'conference' ? '/conference-room' : `/rooms/${id}`}
-                  className={`cursor-pointer shrink-0 bg-resort-cta text-white rounded-full hover:bg-resort-cta/90 transition-colors duration-200 font-medium text-center ${
+                  className={`${cardButtonBase} shrink-0 bg-resort-cta text-white hover:bg-resort-cta/90 text-center ${
                     selectable
                       ? `flex-1 ${compact ? 'px-3 py-2 text-xs sm:text-sm' : 'px-5 py-2 text-sm'}`
                       : compact
@@ -239,7 +264,7 @@ const RoomCard = ({
           ) : (
             <Link
               to={facilityHref}
-              className={`w-full bg-resort-cta text-white rounded-full hover:bg-resort-cta/90 transition-colors duration-200 font-medium text-center ${
+              className={`${cardButtonBase} pointer-events-auto relative z-10 w-full bg-resort-cta text-white hover:bg-resort-cta/90 text-center ${
                 compact ? 'px-3 py-1.5 text-xs sm:px-6 sm:py-2 sm:text-sm' : 'px-6 py-2'
               }`}
               aria-label={`${facilityCtaLabel}, ${name}`}

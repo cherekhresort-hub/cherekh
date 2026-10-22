@@ -15,6 +15,14 @@ export const setActiveStaffRole = (role: StaffRole | null): void => {
 
 export const getActiveStaffRole = (): StaffRole | null => activeRole
 
+let activeName: string | null = null
+
+export const setActiveStaffName = (name: string | null): void => {
+  activeName = name?.trim() || null
+}
+
+export const getActiveStaffName = (): string | null => activeName
+
 export const canDeleteRecords = (): boolean => roleCanDelete(activeRole)
 
 export const canEditPricing = (): boolean => roleCanEditPricing(activeRole)

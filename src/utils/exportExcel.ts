@@ -98,7 +98,9 @@ const baseFields = (booking: Booking): Record<string, ExportCell> => ({
   'Booking Time': formatBookingTime(booking.createdAt),
   'Booked By':
     booking.bookedBy?.type === 'staff'
-      ? booking.bookedBy.email
+      ? booking.bookedBy.name
+        ? `${booking.bookedBy.name} (${booking.bookedBy.email})`
+        : booking.bookedBy.email
       : booking.bookedBy?.type === 'website'
         ? 'Website'
         : '',

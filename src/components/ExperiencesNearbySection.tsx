@@ -107,7 +107,7 @@ const ExperiencesNearbySection = () => {
           <div>
             <SectionLabel>Experiences in Cherekh</SectionLabel>
             <SectionTitle>In-house experiences &amp; places to visit</SectionTitle>
-            <p className="mt-2 text-sm text-stone-600 max-w-2xl">
+            <p className="mt-2 text-sm text-stone-600">
               Cultural nights, on-site dining, comfortable rooms, complimentary breakfast, and
               front-desk support, plus nearby Thanchi destinations to explore from Cherekh.
             </p>

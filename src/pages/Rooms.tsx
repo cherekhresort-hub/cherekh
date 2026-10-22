@@ -86,7 +86,7 @@ const SectionHeading = ({
   <div className="mb-6 sm:mb-8">
     <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">{eyebrow}</p>
     <h2 className="mt-1 font-serif text-xl font-semibold text-resort-heading sm:text-2xl">{title}</h2>
-    {description ? <p className="mt-2 max-w-2xl text-sm text-stone-600">{description}</p> : null}
+    {description ? <p className="mt-2 text-sm text-stone-600">{description}</p> : null}
   </div>
 )
 
@@ -134,7 +134,7 @@ const Rooms = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
-          className="mb-8 max-w-2xl"
+          className="mb-8"
         >
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">
             Accommodation

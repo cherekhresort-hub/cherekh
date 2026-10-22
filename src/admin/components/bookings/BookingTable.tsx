@@ -1,4 +1,4 @@
-import { ArrowUpDown, MoreHorizontal, Phone } from 'lucide-react'
+import { ArrowUpDown, ChevronRight, Phone } from 'lucide-react'
 import { FaPrint, FaWhatsapp } from 'react-icons/fa'
 import { Avatar } from '../ui/Avatar'
 import { BookingStatusBadge } from '../ui/StatusBadge'
@@ -22,19 +22,40 @@ import {
 } from '../../utils/bookingMessages'
 import { printBookingInvoice } from '../../utils/bookingInvoice'
 import { cn } from '../../utils/cn'
-import type { BookingCreatorLookup } from '../../utils/bookingCreator'
-const BookedByLine = ({ creator }: { creator: BookingCreator | undefined }) => {
-  if (!creator) return null
-  const label = creator.type === 'website' ? 'Website' : creator.email.split('@')[0]
+import {
+  bookingCreatorLabel,
+  bookingCreatorShortName,
+  type BookingCreatorLookup,
+} from '../../utils/bookingCreator'
+import { roleLabel } from '../../../lib/roles'
+const BookedByCell = ({ creator }: { creator: BookingCreator | undefined }) => {
+  const label = bookingCreatorShortName(creator)
+  if (!creator || !label) return <span className="text-xs text-stone-400">-</span>
+  if (creator.type === 'website') {
+    return (
+      <div title="Booked on the website">
+        <p className="text-sm text-forest-700">Website</p>
+        <p className="text-[11px] text-stone-400">Online</p>
+      </div>
+    )
+  }
   return (
-    <p
-      className="mt-0.5 max-w-[9rem] truncate text-[11px] text-teal-700"
-      title={creator.type === 'staff' ? `Booked by ${creator.email}` : 'Booked on the website'}
+    <div
+      className="max-w-[10rem]"
+      title={`Booked by ${bookingCreatorLabel(creator)}${creator.name ? ` (${creator.email})` : ''}`}
     >
-      by {label}
-    </p>
+      <p className="truncate text-sm font-medium text-teal-700">{label}</p>
+      {creator.role && (
+        <p className="truncate text-[11px] text-stone-400">{roleLabel(creator.role)}</p>
+      )}
+    </div>
   )
 }
+
+const actionButtonBase =
+  'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-500 shadow-sm ' +
+  'transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-95 ' +
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-500 focus-visible:ring-offset-1'
 
 interface BookingTableProps {
   bookings: Booking[]
@@ -55,6 +76,7 @@ type Column = {
 
 const columns: Column[] = [
   { key: 'id', label: 'Booking', sortable: true },
+  { key: 'bookedBy', label: 'Booked by' },
   { key: 'name', label: 'Guest', sortable: true },
   { key: 'phone', label: 'Phone' },
   { key: 'checkIn', label: 'Stay', sortable: true },
@@ -129,7 +151,9 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                   <p className="text-xs font-mono text-stone-500">{formatBookingId(booking.id)}</p>
                   <p className="text-[11px] text-stone-400">{formatShortDate(booking.createdAt)}</p>
                   <p className="text-[11px] text-stone-400">{formatTime(booking.createdAt)}</p>
-                  <BookedByLine creator={creatorFor?.(booking)} />
+                </td>
+                <td className="py-3 px-4">
+                  <BookedByCell creator={creatorFor?.(booking)} />
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-3">
@@ -167,22 +191,22 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                   </p>
                 </td>
                 <td className="py-3 px-4 text-right">
-                  <div className="inline-flex items-center gap-0.5" onClick={stop}>
+                  <div className="inline-flex items-center gap-1.5" onClick={stop}>
                     <button
                       type="button"
                       onClick={() => print(booking)}
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-forest-50 text-stone-500 hover:text-forest-700"
+                      className={cn(actionButtonBase, 'hover:border-forest-300 hover:bg-forest-50 hover:text-forest-700')}
                       aria-label="Print invoice"
                       title="Print invoice on letterhead pad"
                     >
-                      <FaPrint className="w-4 h-4" />
+                      <FaPrint className="w-3.5 h-3.5" />
                     </button>
                     {booking.phone && (
                       <a
                         href={whatsappHref(booking.phone, buildBookingMessages(booking).whatsappBody)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-forest-50 text-stone-500 hover:text-forest-700"
+                        className={cn(actionButtonBase, 'text-[#128C7E] hover:border-[#25D366] hover:bg-[#25D366] hover:text-white')}
                         aria-label="Message on WhatsApp"
                         title="Message on WhatsApp"
                       >
@@ -192,11 +216,11 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                     <button
                       type="button"
                       onClick={() => onSelect(booking)}
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-stone-100 text-stone-500 hover:text-forest-700"
+                      className={cn(actionButtonBase, 'hover:border-forest-600 hover:bg-forest-600 hover:text-white')}
                       aria-label="Open booking"
                       title="Open booking"
                     >
-                      <MoreHorizontal className="w-4 h-4" />
+                      <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </td>

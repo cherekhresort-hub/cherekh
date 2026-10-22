@@ -102,6 +102,20 @@ const Activity = () => {
   const [search, setSearch] = useState('')
   const [markingId, setMarkingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [markingAll, setMarkingAll] = useState(false)
+
+  const handleMarkAllRead = async () => {
+    if (markingAll) return
+    setMarkingAll(true)
+    try {
+      await markAllRead()
+      toast.success('All activity marked as read')
+    } catch (err) {
+      toast.error('Could not mark all as read', err instanceof Error ? err.message : undefined)
+    } finally {
+      setMarkingAll(false)
+    }
+  }
 
   const filtered = useMemo(() => {
     if (!search.trim()) return entries
@@ -224,14 +238,16 @@ const Activity = () => {
         }}
         actions={
           <div className="flex items-center gap-2">
-            {counts.unread > 0 && (
+            {(counts.unread > 0 || markingAll) && (
               <Button
                 variant="secondary"
                 size="md"
                 leftIcon={<CheckCheck className="w-4 h-4" />}
-                onClick={() => void markAllRead()}
+                loading={markingAll}
+                aria-busy={markingAll}
+                onClick={() => void handleMarkAllRead()}
               >
-                Mark all read
+                {markingAll ? 'Marking…' : 'Mark all read'}
               </Button>
             )}
             <Button

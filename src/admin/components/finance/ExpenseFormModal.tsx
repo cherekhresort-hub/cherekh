@@ -95,7 +95,12 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
   const [payment, setPayment] = useState<MoneyFields>(() => emptyMoneyFields(data.accounts))
   const [files, setFiles] = useState<FileDraft[]>([])
   const [saving, setSaving] = useState(false)
+  const [savingLabel, setSavingLabel] = useState('Saving…')
   const [error, setError] = useState<string | null>(null)
+
+  const closeIfIdle = () => {
+    if (!saving) onClose()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -193,12 +198,14 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
   }
 
   const submit = async () => {
+    if (saving) return
     const problem = validate()
     if (problem) {
       setError(problem)
       return
     }
     setError(null)
+    setSavingLabel('Saving…')
     setSaving(true)
     try {
       let resolvedSupplierId: string | null = supplierId && supplierId !== '__new' ? supplierId : null
@@ -258,6 +265,7 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
       })
 
       const failedUploads: string[] = []
+      if (files.length > 0) setSavingLabel('Uploading files…')
       for (const f of files) {
         try {
           await uploadAttachment('expense', result.id, f.file, f.docType, user?.email ?? undefined)
@@ -298,7 +306,7 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={closeIfIdle}
       size="xl"
       title="Record expense"
       description="Expenses are recorded once. Later installments, refunds and reimbursements are added from the expense itself."
@@ -313,11 +321,11 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
             )}
           </p>
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={onClose} disabled={saving}>
+            <Button variant="ghost" onClick={closeIfIdle} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={() => void submit()} loading={saving}>
-              Save expense
+            <Button onClick={() => void submit()} loading={saving} aria-busy={saving}>
+              {saving ? savingLabel : 'Save expense'}
             </Button>
           </div>
         </div>

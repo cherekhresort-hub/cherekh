@@ -20,6 +20,7 @@ import {
 import {
   BOOKING_PARTY_SPLIT_KEY,
   buildRoomLinesForParty,
+  rebalanceLinesToCapacity,
   type BookingPartySplitHint,
 } from '../utils/bookingParty'
 import {
@@ -40,6 +41,7 @@ import {
   roomToOption,
   getLineTotalGuests,
   calculateStayNights,
+  calculateLineNightlyRate,
   calculateBookingEstimate,
   formatBookingDurationLabel,
   deriveConferenceBounds,
@@ -241,7 +243,9 @@ const Booking = () => {
     const checkIn = hint?.checkIn || searchDates?.checkIn
     const checkOut = hint?.checkOut || searchDates?.checkOut
 
-    setRoomLines(createRoomLinesForSelection(validIds, adults, children))
+    setRoomLines(
+      rebalanceLinesToCapacity(createRoomLinesForSelection(validIds, adults, children), roomOptions)
+    )
 
     if (checkIn || checkOut) {
       setFormData((prev) => ({
@@ -827,6 +831,7 @@ const Booking = () => {
                       const options = getOptionsForLine(line.id)
                       const selectedOption = roomOptions.find((room) => room.value === line.roomType)
                       const lineTotalGuests = getLineTotalGuests(line)
+                      const lineExtraFee = calculateLineNightlyRate(line, selectedOption).extraGuestFee
 
                       return (
                         <div
@@ -942,10 +947,16 @@ const Booking = () => {
 
                                 {selectedOption.price > 0 && (
                                   <RoomPriceDisplay
-                                    price={selectedOption.price}
-                                    listPrice={selectedOption.listPrice}
+                                    price={selectedOption.price + lineExtraFee}
+                                    listPrice={
+                                      selectedOption.listPrice
+                                        ? selectedOption.listPrice + lineExtraFee
+                                        : undefined
+                                    }
                                     size="sm"
-                                    suffix={selectedOption.isConference ? '/ event day' : '/ night'}
+                                    suffix={`${selectedOption.isConference ? '/ event day' : '/ night'}${
+                                      lineExtraFee > 0 ? ' · incl. extra guest' : ''
+                                    }`}
                                   />
                                 )}
                               </>

@@ -47,7 +47,7 @@ const StayIncludesSection = () => {
           <div>
             <SectionLabel>Your stay includes</SectionLabel>
             <SectionTitle>Rooms, comforts &amp; on-site facilities</SectionTitle>
-            <p className="mt-2 text-sm text-stone-600 max-w-2xl">
+            <p className="mt-2 text-sm text-stone-600">
               Nine rooms across two floors with breakfast, en-suite bath, hot water, garden-view
               balconies, Starlink WiFi, and IPS backup power. Plus restaurant dining, 24/7 reception,
               conference space, and lounge areas.

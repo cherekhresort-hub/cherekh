@@ -21,6 +21,28 @@ const normalizeEmail = (email) => email.trim().toLowerCase()
 
 const VALID_ROLES = new Set(['admin', 'manager', 'booking_officer'])
 
+const MAX_NAME_LENGTH = 60
+const MEMBER_COLUMNS = 'email, role, user_id, display_name, created_at, updated_at'
+const LEGACY_MEMBER_COLUMNS = 'email, role, user_id, created_at, updated_at'
+
+/** undefined = not provided; null = clear; string = set. Returns { error } when invalid. */
+const parseDisplayName = (raw) => {
+  if (raw === undefined) return { value: undefined }
+  if (raw === null) return { value: null }
+  if (typeof raw !== 'string') return { error: 'Name must be text.' }
+  const trimmed = raw.trim()
+  if (trimmed.length > MAX_NAME_LENGTH) {
+    return { error: `Name must be ${MAX_NAME_LENGTH} characters or fewer.` }
+  }
+  return { value: trimmed || null }
+}
+
+const isMissingDisplayNameColumn = (error) =>
+  Boolean(error?.message && /display_name/i.test(error.message))
+
+const NAME_COLUMN_MISSING_MESSAGE =
+  'Names need the latest database migration (058_team_member_names.sql). Apply it, then try again.'
+
 const getEnv = () => {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
@@ -108,10 +130,14 @@ export const handler = async (event) => {
     const { adminClient, callerEmail } = auth
 
   if (event.httpMethod === 'GET') {
-    const { data, error } = await adminClient
-      .from('user_roles')
-      .select('email, role, user_id, created_at, updated_at')
-      .order('created_at', { ascending: true })
+    const listMembers = (columns) =>
+      adminClient.from('user_roles').select(columns).order('created_at', { ascending: true })
+
+    let result = await listMembers(MEMBER_COLUMNS)
+    if (result.error && isMissingDisplayNameColumn(result.error)) {
+      result = await listMembers(LEGACY_MEMBER_COLUMNS)
+    }
+    const { data, error } = result
 
     if (error) return json(500, { error: error.message })
     return json(200, { members: data ?? [] })
@@ -124,6 +150,8 @@ export const handler = async (event) => {
     const email = normalizeEmail(body.email ?? '')
     const password = body.password ?? ''
     const role = body.role ?? ''
+    const name = parseDisplayName(body.name)
+    if (name.error) return json(400, { error: name.error })
 
     if (!email || !password || !VALID_ROLES.has(role)) {
       return json(400, { error: 'Email, password, and a valid role are required.' })
@@ -152,17 +180,23 @@ export const handler = async (event) => {
       return json(400, { error: createError.message })
     }
 
-    const { error: roleInsertError } = await adminClient.from('user_roles').insert({
+    const roleRow = {
       email,
       role,
       user_id: created.user?.id ?? null,
-    })
+      ...(name.value ? { display_name: name.value } : {}),
+    }
+    const { error: roleInsertError } = await adminClient.from('user_roles').insert(roleRow)
 
     if (roleInsertError) {
       if (created.user?.id) {
         await adminClient.auth.admin.deleteUser(created.user.id)
       }
-      return json(500, { error: roleInsertError.message })
+      return json(500, {
+        error: isMissingDisplayNameColumn(roleInsertError)
+          ? NAME_COLUMN_MISSING_MESSAGE
+          : roleInsertError.message,
+      })
     }
 
     return json(201, {
@@ -170,6 +204,7 @@ export const handler = async (event) => {
         email,
         role,
         user_id: created.user?.id ?? null,
+        display_name: name.value ?? null,
       },
     })
   }
@@ -178,6 +213,8 @@ export const handler = async (event) => {
     const email = normalizeEmail(body.email ?? '')
     const role = body.role
     const password = body.password
+    const name = parseDisplayName(body.name)
+    if (name.error) return json(400, { error: name.error })
 
     if (!email) return json(400, { error: 'Email is required.' })
 
@@ -215,6 +252,21 @@ export const handler = async (event) => {
       if (updateError) return json(500, { error: updateError.message })
     }
 
+    if (name.value !== undefined) {
+      const { error: nameError } = await adminClient
+        .from('user_roles')
+        .update({ display_name: name.value, updated_at: new Date().toISOString() })
+        .ilike('email', email)
+
+      if (nameError) {
+        return json(isMissingDisplayNameColumn(nameError) ? 400 : 500, {
+          error: isMissingDisplayNameColumn(nameError)
+            ? NAME_COLUMN_MISSING_MESSAGE
+            : nameError.message,
+        })
+      }
+    }
+
     if (password) {
       if (password.length < 8) {
         return json(400, { error: 'Password must be at least 8 characters.' })
@@ -228,11 +280,14 @@ export const handler = async (event) => {
       if (pwdError) return json(400, { error: pwdError.message })
     }
 
-    const { data: updated, error: refetchError } = await adminClient
-      .from('user_roles')
-      .select('email, role, user_id, created_at, updated_at')
-      .ilike('email', email)
-      .maybeSingle()
+    const fetchMember = (columns) =>
+      adminClient.from('user_roles').select(columns).ilike('email', email).maybeSingle()
+
+    let refetched = await fetchMember(MEMBER_COLUMNS)
+    if (refetched.error && isMissingDisplayNameColumn(refetched.error)) {
+      refetched = await fetchMember(LEGACY_MEMBER_COLUMNS)
+    }
+    const { data: updated, error: refetchError } = refetched
 
     if (refetchError) return json(500, { error: refetchError.message })
     return json(200, { member: updated })

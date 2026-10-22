@@ -9,7 +9,10 @@ import {
   publicRoomCatalog,
   getPublicCatalogRoomById,
   MAX_INCLUDED_GUESTS_PER_ROOM,
+  EXTRA_GUEST_PRICE,
 } from '../data/roomCatalog'
+
+const formatTaka = (amount: number) => `BDT ${amount.toLocaleString('en-US')}`
 import { ArrowRight, CalendarDays, Users, X } from 'lucide-react'
 import {
   addDaysToDateString,
@@ -144,6 +147,19 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
     () => Object.fromEntries(guestAssignments.map((entry) => [entry.id, entry.guests])),
     [guestAssignments]
   )
+
+  const extraGuestsByRoomId = useMemo(() => {
+    const extras: Record<string, number> = {}
+    for (const entry of guestAssignments) {
+      const room = availableRooms.find((item) => item.id === entry.id)
+      const extra = room ? entry.guests - room.guests : 0
+      if (extra > 0) extras[entry.id] = extra
+    }
+    return extras
+  }, [guestAssignments, availableRooms])
+
+  const extraGuestTotal = Object.values(extraGuestsByRoomId).reduce((sum, n) => sum + n, 0)
+  const extraGuestFeePerNight = extraGuestTotal * EXTRA_GUEST_PRICE
 
   useEffect(() => {
     if (checkIn) {
@@ -529,9 +545,12 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                       {normalizedGuests} guests need more than one room
                     </p>
                     <p className="mt-1 text-blue-800">
-                      Each room is assigned up to its included occupancy (2 guests), not
-                      the extra-guest maximum. We&apos;ve highlighted rooms that best fit your
-                      group - adjust the selection if you prefer different rooms.
+                      Each room is assigned up to its included occupancy (2 guests). If your
+                      group is larger than all available rooms, extra guests are added to
+                      couple rooms (up to 3 guests each; {formatTaka(EXTRA_GUEST_PRICE)} per extra
+                      guest per night). We&apos;ve
+                      highlighted rooms that best fit your group - adjust the selection if you
+                      prefer different rooms.
                     </p>
                   </div>
                 )}
@@ -560,6 +579,9 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                             <li key={entry.id}>
                               {room?.name ?? `Room ${entry.id}`} - {entry.guests}{' '}
                               {entry.guests === 1 ? 'guest' : 'guests'}
+                              {extraGuestsByRoomId[entry.id]
+                                ? ` (+${formatTaka(extraGuestsByRoomId[entry.id] * EXTRA_GUEST_PRICE)}/night extra guest)`
+                                : ''}
                             </li>
                           )
                         })}
@@ -596,18 +618,24 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-                  {orderedRooms.map((room) => (
-                    <RoomCard
-                      key={room.id}
-                      {...room}
-                      type="room"
-                      compact
-                      selectable
-                      selected={isSelected(room.id)}
-                      assignedGuests={guestsByRoomId[room.id]}
-                      onSelectToggle={toggle}
-                    />
-                  ))}
+                  {orderedRooms.map((room) => {
+                    const extraFee = (extraGuestsByRoomId[room.id] ?? 0) * EXTRA_GUEST_PRICE
+                    return (
+                      <RoomCard
+                        key={room.id}
+                        {...room}
+                        price={room.price + extraFee}
+                        listPrice={room.listPrice + extraFee}
+                        priceSuffix={extraFee > 0 ? 'per night · incl. extra guest' : undefined}
+                        type="room"
+                        compact
+                        selectable
+                        selected={isSelected(room.id)}
+                        assignedGuests={guestsByRoomId[room.id]}
+                        onSelectToggle={toggle}
+                      />
+                    )
+                  })}
                 </div>
 
                 <div className="mt-8 rounded-2xl border border-stone-200 bg-white shadow-sm">
@@ -643,6 +671,12 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                                 <span className="text-emerald-700/80">
                                   · {guestsByRoomId[room.id]}{' '}
                                   {guestsByRoomId[room.id] === 1 ? 'guest' : 'guests'}
+                                  {extraGuestsByRoomId[room.id] ? (
+                                    <span className="text-amber-700">
+                                      {' '}
+                                      (+{formatTaka(extraGuestsByRoomId[room.id] * EXTRA_GUEST_PRICE)})
+                                    </span>
+                                  ) : null}
                                 </span>
                               ) : null}
                               <button
@@ -659,6 +693,14 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                       ) : (
                         <p className="mt-3 text-sm text-stone-500">
                           Tap a room above to add it to your stay.
+                        </p>
+                      )}
+                      {extraGuestFeePerNight > 0 && (
+                        <p className="mt-3 text-xs text-amber-800">
+                          Extra guest charge: {extraGuestTotal} ×{' '}
+                          {formatTaka(EXTRA_GUEST_PRICE)} = {formatTaka(extraGuestFeePerNight)}/night
+                          {nights > 1 ? ` (${formatTaka(extraGuestFeePerNight * nights)} for ${nights} nights)` : ''}
+                          , added to your room total.
                         </p>
                       )}
                     </div>

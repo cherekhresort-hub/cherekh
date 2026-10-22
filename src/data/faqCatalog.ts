@@ -122,7 +122,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'cancellation',
     question: 'What is the cancellation policy for room bookings?',
     answer:
-      'Room bookings: more than 7 days before check-in, full refund (minus processing fees if applicable); 3 to 7 days before, 50% refund; less than 3 days, no refund unless exceptional circumstances apply. Conference events have a separate policy (14-day and 7-day windows). Full terms at cherekhcenter.com/cancellation-policy.',
+      'Cancel 7 days or more before check-in for a full refund (minus processing fees if applicable). Cancellations less than 7 days before check-in are non-refundable unless exceptional circumstances apply. Conference and event bookings follow the same 7-day rule. Full terms at cherekhcenter.com/cancellation-policy.',
   },
   {
     id: 'wifi-parking',

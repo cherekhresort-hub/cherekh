@@ -54,16 +54,16 @@ export const BookingFiltersBar = ({
         )}
       </div>
 
-      <Field label="Search">
-        <SearchInput
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          onClear={() => onSearchChange('')}
-          placeholder="Guest name, phone, email, booking ID, room…"
-        />
-      </Field>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3">
+        <Field label="Search" className="sm:col-span-2 lg:col-span-1">
+          <SearchInput
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            onClear={() => onSearchChange('')}
+            placeholder="Guest name, phone, email, booking ID, room…"
+          />
+        </Field>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Field label="Date view">
           <Select
             value={filters.datePreset}

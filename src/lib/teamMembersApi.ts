@@ -5,6 +5,7 @@ export interface TeamMember {
   email: string
   role: StaffRole
   user_id: string | null
+  display_name?: string | null
   created_at: string
   updated_at: string
 }
@@ -65,6 +66,7 @@ export const createTeamMember = async (input: {
   email: string
   password: string
   role: StaffRole
+  name?: string
 }): Promise<TeamMember> => {
   const data = await request<{ member: TeamMember }>('POST', input)
   return data.member
@@ -74,6 +76,7 @@ export const updateTeamMember = async (input: {
   email: string
   role?: StaffRole
   password?: string
+  name?: string | null
 }): Promise<TeamMember> => {
   const data = await request<{ member: TeamMember }>('PATCH', input)
   return data.member

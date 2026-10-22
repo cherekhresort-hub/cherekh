@@ -312,7 +312,23 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
     setGuest((prev) => ({ ...prev, totalAmount: suggestedTotal }))
   }
 
+  const [creating, setCreating] = useState(false)
+
   const submit = async () => {
+    if (creating) return
+    setCreating(true)
+    try {
+      await createBooking()
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const closeIfIdle = () => {
+    if (!creating) onClose()
+  }
+
+  const createBooking = async () => {
     setError(null)
     const normalizedEventDates = normalizeEventDates(eventDates)
     const submitBounds =
@@ -482,16 +498,18 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={closeIfIdle}
       title="Add new booking"
       description="One reservation can include multiple rooms for the same stay"
       size="xl"
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={closeIfIdle} disabled={creating}>
             Cancel
           </Button>
-          <Button onClick={submit}>Create booking</Button>
+          <Button onClick={() => void submit()} loading={creating} aria-busy={creating}>
+            {creating ? 'Creating…' : 'Create booking'}
+          </Button>
         </div>
       }
     >

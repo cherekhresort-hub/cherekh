@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
+import { Home, LogOut } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { adminNavItems } from '../../data/navigation'
 import { useAuth } from '../../../contexts/AuthProvider'
@@ -12,8 +12,9 @@ type SidebarProps = {
 
 export const Sidebar = ({ activityUnreadCount = 0 }: SidebarProps) => {
   const navigate = useNavigate()
-  const { signOut, user, roleLabel, role } = useAuth()
+  const { signOut, user, roleLabel, role, displayName } = useAuth()
   const navItems = filterNavItemsForRole(adminNavItems, role)
+  const greetingName = displayName ?? user?.email?.split('@')[0] ?? 'there'
 
   const handleSignOut = async () => {
     await signOut()
@@ -22,21 +23,27 @@ export const Sidebar = ({ activityUnreadCount = 0 }: SidebarProps) => {
 
   return (
     <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-white border-r border-stone-100 h-screen sticky top-0">
-      <div className="px-6 py-6 border-b border-stone-100">
-        <Link
-          to="/"
-          className="flex items-center gap-3 rounded-xl hover:bg-stone-50 transition-colors -mx-2 px-2 py-1"
-          aria-label="Cherekh Center homepage"
-        >
+      <div className="px-6 py-5 border-b border-stone-100 space-y-3">
+        <div className="flex items-center gap-3 min-w-0">
           <img
             src="/images/CherekhLogoFinal.svg"
             alt="Cherekh Center"
             className="w-10 h-10 object-contain shrink-0"
           />
-          <div>
-            <p className="font-serif text-forest-700 leading-tight text-base">Cherekh</p>
-            <p className="text-xs text-stone-500">Admin Console</p>
+          <div className="min-w-0">
+            <p className="font-serif text-forest-700 leading-tight text-base truncate" title={greetingName}>
+              Hi {greetingName}
+            </p>
+            <p className="text-xs text-stone-500 truncate">{roleLabel}</p>
           </div>
+        </div>
+        <Link
+          to="/"
+          className="inline-flex w-full items-center justify-center gap-2 h-9 rounded-xl border border-stone-200 text-xs font-medium text-stone-600 hover:bg-forest-50 hover:text-forest-700 hover:border-forest-200 transition-colors"
+          aria-label="Go to Cherekh Center homepage"
+        >
+          <Home className="w-3.5 h-3.5" />
+          Homepage
         </Link>
       </div>
 
@@ -89,11 +96,6 @@ export const Sidebar = ({ activityUnreadCount = 0 }: SidebarProps) => {
             <p className="text-xs text-stone-500 truncate" title={user.email}>
               {user.email}
             </p>
-            {roleLabel && (
-              <p className="text-[10px] uppercase tracking-wide text-forest-600 font-medium mt-0.5">
-                {roleLabel}
-              </p>
-            )}
           </div>
         )}
         <div className="rounded-2xl bg-cream/80 p-4 mb-3">

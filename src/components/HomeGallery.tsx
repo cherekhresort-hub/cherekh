@@ -47,7 +47,7 @@ const HomeGallery = () => {
       aria-roledescription="carousel"
     >
       <div className="max-w-6xl mx-auto">
-        <div className="max-w-2xl mb-6 sm:mb-8">
+        <div className="mb-6 sm:mb-8">
           <SectionLabel>Gallery</SectionLabel>
           <SectionTitle>
             <span id="home-gallery-heading">Life at Cherekh Center</span>

@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { setActiveStaffRole } from '../lib/permissions'
+import { setActiveStaffName, setActiveStaffRole } from '../lib/permissions'
+import { fetchMyDisplayName, saveMyDisplayName } from '../lib/staffNames'
 import {
   lookupStaffRoleByEmail,
   roleCanDelete,
@@ -34,6 +35,10 @@ type AuthContextValue = {
   session: Session | null
   role: StaffRole | null
   roleLabel: string
+  /** Saved team name, or null when unset. */
+  displayName: string | null
+  updateDisplayName: (name: string) => Promise<void>
+  refreshDisplayName: () => Promise<void>
   canDelete: boolean
   canEditPricing: boolean
   isAdmin: boolean
@@ -75,10 +80,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [legacyAuth, setLegacyAuth] = useState(false)
   const [loading, setLoading] = useState(() => isAuthRoute() && usesSupabase)
 
+  const [displayName, setDisplayName] = useState<string | null>(null)
+
   const applyRole = useCallback((nextRole: StaffRole | null) => {
     setRole(nextRole)
     setActiveStaffRole(nextRole)
   }, [])
+
+  const applyDisplayName = useCallback((name: string | null) => {
+    setDisplayName(name)
+    setActiveStaffName(name)
+  }, [])
+
+  const sessionEmail = session?.user?.email ?? null
+
+  useEffect(() => {
+    if (!usesSupabase || !sessionEmail || !role) {
+      applyDisplayName(null)
+      return
+    }
+    let cancelled = false
+    void fetchMyDisplayName(sessionEmail).then((name) => {
+      if (!cancelled) applyDisplayName(name)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [usesSupabase, sessionEmail, role, applyDisplayName])
+
+  const updateDisplayName = useCallback(
+    async (name: string) => {
+      const saved = await saveMyDisplayName(name)
+      applyDisplayName(saved)
+    },
+    [applyDisplayName]
+  )
+
+  const refreshDisplayName = useCallback(async () => {
+    if (!usesSupabase || !sessionEmail) return
+    applyDisplayName(await fetchMyDisplayName(sessionEmail))
+  }, [usesSupabase, sessionEmail, applyDisplayName])
 
   const resolveRoleForSession = useCallback(
     async (nextSession: Session | null) => {
@@ -259,6 +300,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       session,
       role,
       roleLabel: roleLabel(role),
+      displayName,
+      updateDisplayName,
+      refreshDisplayName,
       canDelete,
       canEditPricing,
       isAdmin,
@@ -272,6 +316,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [
       session,
       role,
+      displayName,
+      updateDisplayName,
+      refreshDisplayName,
       canDelete,
       canEditPricing,
       isAdmin,

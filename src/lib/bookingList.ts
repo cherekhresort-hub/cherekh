@@ -44,10 +44,12 @@ const parseBookedBy = (raw: unknown): BookingCreator | undefined => {
   const value = raw as Record<string, unknown>
   if (value.type === 'website') return { type: 'website' }
   if (value.type === 'staff' && typeof value.email === 'string' && value.email) {
+    const name = typeof value.name === 'string' ? value.name.trim() : ''
     return {
       type: 'staff',
       email: value.email,
       role: typeof value.role === 'string' ? (value.role as StaffRole) : undefined,
+      ...(name ? { name } : {}),
     }
   }
   return undefined

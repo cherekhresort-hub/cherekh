@@ -23,17 +23,20 @@ import {
   type TeamMember,
 } from '../../lib/teamMembersApi'
 import { logStaffActivity } from '../../lib/staffActivityLog'
+import { MAX_STAFF_NAME_LENGTH } from '../../lib/staffNames'
 import { confirmDelete } from '../utils/confirmDelete'
 
 type FormMode = 'create' | 'edit'
 
 interface MemberFormState {
+  name: string
   email: string
   password: string
   role: StaffRole
 }
 
 const emptyForm = (): MemberFormState => ({
+  name: '',
   email: '',
   password: '',
   role: 'booking_officer',
@@ -48,7 +51,14 @@ const formatDate = (iso: string): string =>
 
 const TeamAccess = () => {
   const toast = useToast()
-  const { isAdmin, user, role, roleLabel, loading: authLoading } = useAuth()
+  const {
+    isAdmin,
+    user,
+    role,
+    roleLabel,
+    loading: authLoading,
+    refreshDisplayName,
+  } = useAuth()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -87,7 +97,10 @@ const TeamAccess = () => {
     if (!search.trim()) return list
     const q = search.trim().toLowerCase()
     return list.filter((member) =>
-      [member.email, formatRoleLabel(member.role)].join(' ').toLowerCase().includes(q)
+      [member.display_name ?? '', member.email, formatRoleLabel(member.role)]
+        .join(' ')
+        .toLowerCase()
+        .includes(q)
     )
   }, [members, search])
 
@@ -102,7 +115,12 @@ const TeamAccess = () => {
   const openEdit = (member: TeamMember) => {
     setFormMode('edit')
     setEditingMember(member)
-    setForm({ email: member.email, password: '', role: member.role })
+    setForm({
+      name: member.display_name ?? '',
+      email: member.email,
+      password: '',
+      role: member.role,
+    })
     setShowPassword(false)
     setFormOpen(true)
   }
@@ -118,34 +136,46 @@ const TeamAccess = () => {
     event.preventDefault()
     setSaving(true)
     try {
+      const name = form.name.trim()
       if (formMode === 'create') {
         const email = form.email.trim()
         await createTeamMember({
           email,
           password: form.password,
           role: form.role,
+          ...(name ? { name } : {}),
         })
         void logStaffActivity({
           category: 'team',
           action: 'team.member_created',
           title: 'Team member added',
-          message: `${email} · ${formatRoleLabel(form.role)}`,
+          message: `${name ? `${name} (${email})` : email} · ${formatRoleLabel(form.role)}`,
         })
-        toast.success('Team member added', `${email} can now sign in.`)
+        toast.success('Team member added', `${name || email} can now sign in.`)
       } else if (editingMember) {
-        const payload: { email: string; role?: StaffRole; password?: string } = {
+        const nameChanged = name !== (editingMember.display_name ?? '').trim()
+        const payload: {
+          email: string
+          role?: StaffRole
+          password?: string
+          name?: string | null
+        } = {
           email: editingMember.email,
           role: form.role,
         }
         if (form.password.trim()) payload.password = form.password
+        if (nameChanged) payload.name = name || null
         await updateTeamMember(payload)
         void logStaffActivity({
           category: 'team',
           action: 'team.member_updated',
           title: 'Team member updated',
-          message: `${editingMember.email}${form.role !== editingMember.role ? ` · role → ${formatRoleLabel(form.role)}` : ''}${form.password.trim() ? ' · password reset' : ''}`,
+          message: `${editingMember.email}${nameChanged ? ` · name → ${name || '(cleared)'}` : ''}${form.role !== editingMember.role ? ` · role → ${formatRoleLabel(form.role)}` : ''}${form.password.trim() ? ' · password reset' : ''}`,
         })
         toast.success('Team member updated')
+        if (nameChanged && user?.email?.toLowerCase() === editingMember.email.toLowerCase()) {
+          void refreshDisplayName()
+        }
       }
       closeForm()
       await loadMembers()
@@ -201,7 +231,7 @@ const TeamAccess = () => {
       <TopBar
         title="Team access"
         description="Manage who can sign in to the admin panel and what they can access"
-        search={{ value: search, onChange: setSearch, placeholder: 'Search by email or role…' }}
+        search={{ value: search, onChange: setSearch, placeholder: 'Search by name, email or role…' }}
         actions={
           <Button size="md" leftIcon={<Plus className="w-4 h-4" />} onClick={openCreate}>
             Add member
@@ -267,13 +297,20 @@ const TeamAccess = () => {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-stone-800 truncate">{member.email}</p>
+                        <p className="font-medium text-stone-800 truncate">
+                          {member.display_name?.trim() || member.email}
+                        </p>
                         {isSelf && (
                           <span className="text-[10px] uppercase tracking-wide font-medium text-forest-700 bg-forest-50 border border-forest-200 rounded-full px-2 py-0.5">
                             You
                           </span>
                         )}
                       </div>
+                      {member.display_name?.trim() ? (
+                        <p className="text-xs text-stone-500 truncate mt-0.5">{member.email}</p>
+                      ) : (
+                        <p className="text-xs text-amber-700 mt-0.5">No name set</p>
+                      )}
                       <p className="text-sm text-forest-700 font-medium mt-1">
                         {formatRoleLabel(member.role)}
                       </p>
@@ -317,7 +354,7 @@ const TeamAccess = () => {
         description={
           formMode === 'create'
             ? 'Creates a Supabase login and assigns an admin panel role.'
-            : 'Update role or set a new password. Leave password blank to keep the current one.'
+            : 'Update name, role or password. Leave password blank to keep the current one.'
         }
         footer={
           <div className="flex justify-end gap-2">
@@ -331,6 +368,17 @@ const TeamAccess = () => {
         }
       >
         <form id="team-member-form" className="space-y-4" onSubmit={(event) => void onSubmit(event)}>
+          <Field label="Name" hint="Shown on bookings they create (e.g. “by Rahim”).">
+            <Input
+              type="text"
+              autoComplete="off"
+              value={form.name}
+              maxLength={MAX_STAFF_NAME_LENGTH}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              placeholder="Full name"
+            />
+          </Field>
+
           {formMode === 'create' ? (
             <Field label="Email" required>
               <Input

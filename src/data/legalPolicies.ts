@@ -34,7 +34,7 @@ export type LegalDocument = {
   sections: LegalSection[]
 }
 
-const LAST_UPDATED = 'June 18, 2026'
+const LAST_UPDATED = 'October 22, 2026'
 
 export const LEGAL_PAGE_COVERS = {
   'privacy-policy': {
@@ -440,9 +440,8 @@ export const getCancellationPolicyDocument = (): LegalDocument => ({
       table: {
         headers: ['Cancellation timing', 'Refund'],
         rows: [
-          ['More than 7 days before check-in', 'Full refund minus any non-refundable processing or payment gateway fees'],
-          ['3 to 7 days before check-in', '50% refund of total booking value'],
-          ['Less than 3 days before check-in', 'No refund, except under exceptional circumstances (Section 6)'],
+          ['7 days or more before check-in', 'Full refund minus any non-refundable processing or payment gateway fees'],
+          ['Less than 7 days before check-in', 'No refund, except under exceptional circumstances (Section 6)'],
           ['No-show without prior cancellation', 'No refund'],
         ],
       },
@@ -451,13 +450,12 @@ export const getCancellationPolicyDocument = (): LegalDocument => ({
       id: 'conference-cancellations',
       title: '3. Conference and event cancellations',
       paragraphs: [
-        'Conference room, seminar, workshop, wedding, and community event bookings follow separate windows because dates, catering, and setup resources are reserved in advance.',
+        'Conference room, seminar, workshop, wedding, and community event bookings follow the same 7-day window as room bookings.',
       ],
       table: {
         headers: ['Cancellation timing', 'Refund'],
         rows: [
-          ['More than 14 days before event date', 'Full refund minus any non-refundable processing fees'],
-          ['7 to 14 days before event date', '50% refund of confirmed event charges'],
+          ['7 days or more before event date', 'Full refund minus any non-refundable processing or payment gateway fees'],
           ['Less than 7 days before event date', 'No refund, except under exceptional circumstances (Section 6)'],
           ['Reduction in attendee count after final confirmation', 'Subject to minimum spend and catering commitments agreed in writing'],
         ],

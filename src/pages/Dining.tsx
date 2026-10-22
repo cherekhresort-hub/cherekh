@@ -48,7 +48,7 @@ const Dining = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
-          className="mb-10 max-w-2xl"
+          className="mb-10"
         >
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">
             Dining
