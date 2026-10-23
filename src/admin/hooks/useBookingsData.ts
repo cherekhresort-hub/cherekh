@@ -39,6 +39,12 @@ const applyRealtimeChange = async (
   if (booking) applyBookingToCache(booking)
 }
 
+/** Fallback when Realtime is not delivering: re-read list rows while the tab is visible. */
+const BACKGROUND_REFRESH_MS = 15_000
+const FOCUS_REFRESH_MIN_GAP_MS = 3_000
+
+let channelSeq = 0
+
 export const useBookingsData = () => {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,6 +52,42 @@ export const useBookingsData = () => {
   const syncFromCache = useCallback(() => {
     setBookings(getBookings())
   }, [])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    let inFlight = false
+    let lastRun = Date.now()
+
+    const quietRefresh = async () => {
+      if (inFlight || document.visibilityState !== 'visible') return
+      inFlight = true
+      lastRun = Date.now()
+      try {
+        await refreshBookingsList()
+        syncFromCache()
+      } catch {
+        // Offline or transient error; the next tick retries.
+      } finally {
+        inFlight = false
+      }
+    }
+
+    const onFocus = () => {
+      if (Date.now() - lastRun < FOCUS_REFRESH_MIN_GAP_MS) return
+      void quietRefresh()
+    }
+
+    const timer = window.setInterval(() => void quietRefresh(), BACKGROUND_REFRESH_MS)
+    document.addEventListener('visibilitychange', onFocus)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('online', onFocus)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('online', onFocus)
+    }
+  }, [syncFromCache])
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -77,7 +119,7 @@ export const useBookingsData = () => {
     }
 
     const channel = supabase
-      .channel('bookings-changes')
+      .channel(`bookings-changes-${++channelSeq}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'bookings' },

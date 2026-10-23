@@ -376,6 +376,16 @@ const resolveBookingCreator = async (): Promise<BookingCreator> => {
   return name ? { type: 'staff', email, role, name } : { type: 'staff', email, role }
 }
 
+/** Signed-in staff member's saved name, else their email. */
+export const resolveStaffLabel = async (): Promise<string> => {
+  const name = getActiveStaffName()?.trim()
+  if (name) return name
+  const session = isSupabaseConfigured()
+    ? (await getSupabase()?.auth.getSession())?.data.session
+    : null
+  return session?.user?.email?.trim() || 'Staff'
+}
+
 export const saveBooking = async (
   booking: SaveBookingInput,
   options: { sendEmails?: boolean } = {}
@@ -512,22 +522,22 @@ export const getBookingsByDateRange = (startDate: string, endDate: string): Book
 export const addBookingNote = async (
   id: string,
   note: string,
-  createdBy: string
+  createdBy?: string
 ): Promise<Booking | null> => {
-  const bookings = getBookings()
-  const index = bookings.findIndex((b) => b.id === id)
-  if (index === -1) return null
+  const existing = getBookings().find((b) => b.id === id)
+  if (!existing) return null
+  const bookingRef = (await ensureBookingDetail(id)) ?? existing
 
   const newNote: BookingNote = {
     id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     note,
-    createdBy,
+    createdBy: createdBy?.trim() || (await resolveStaffLabel()),
     createdAt: new Date().toISOString(),
   }
 
   const updated: Booking = {
-    ...bookings[index],
-    notes: [...(bookings[index].notes || []), newNote],
+    ...bookingRef,
+    notes: [...(bookingRef.notes || []), newNote],
     updatedAt: new Date().toISOString(),
   }
   await persistBooking(updated)
@@ -535,7 +545,7 @@ export const addBookingNote = async (
     category: 'booking',
     action: 'booking.note',
     title: 'Booking note added',
-    message: `${bookings[index].name}: ${note.slice(0, 120)}${note.length > 120 ? '…' : ''}`,
+    message: `${bookingRef.name}: ${note.slice(0, 120)}${note.length > 120 ? '…' : ''}`,
     entityId: id,
   })
   return updated
@@ -948,7 +958,7 @@ export const recordPaymentTransaction = async (
     method: input.method,
     reference: input.reference?.trim() || undefined,
     notes: input.notes?.trim() || undefined,
-    recordedBy: input.recordedBy?.trim() || 'Admin',
+    recordedBy: input.recordedBy?.trim() || (await resolveStaffLabel()),
     recordedAt: input.recordedAt ?? new Date().toISOString(),
     ...(input.isAdvance ? { isAdvance: true } : {}),
   }

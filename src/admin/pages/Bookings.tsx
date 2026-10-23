@@ -16,7 +16,6 @@ import { useAuth } from '../../contexts/AuthProvider'
 import { useBookingCreatorLookup } from '../utils/bookingCreator'
 import { exportBookingsToExcel } from '../../utils/exportExcel'
 import {
-  ensureBookingDetail,
   ensureBookingDetails,
   getBookingsCache,
   isBookingDetailLoaded,
@@ -104,6 +103,8 @@ const Bookings = () => {
 
   // Keep the currently open drawer in sync with the latest data after any
   // mutation (status change, payment, discount, guest details, etc.).
+  const staleReloadFor = useRef<string | null>(null)
+
   useEffect(() => {
     if (!selected) return
     const fresh = bookings.find((b) => b.id === selected.id)
@@ -111,13 +112,24 @@ const Bookings = () => {
       setSelected(null)
       return
     }
+    if (!isBookingDetailLoaded(selected.id)) {
+      if (detailLoading) return
+      // Another device changed this booking; keep showing the current detail until the fresh one arrives.
+      if (staleReloadFor.current === selected.id) return
+      staleReloadFor.current = selected.id
+      void reloadBookingDetail(selected.id)
+        .then((full) => {
+          if (full) setSelected((current) => (current?.id === full.id ? full : current))
+        })
+        .finally(() => {
+          staleReloadFor.current = null
+        })
+      return
+    }
     // List rows are stubs without extras, guests, notes or ledger; never swap a loaded detail for one.
-    const detailed = isBookingDetailLoaded(selected.id)
-      ? getBookingsCache().find((b) => b.id === selected.id)
-      : undefined
-    const next = detailed ?? fresh
+    const next = getBookingsCache().find((b) => b.id === selected.id) ?? fresh
     if (next !== selected) setSelected(next)
-  }, [bookings, selected])
+  }, [bookings, selected, detailLoading])
 
   useEffect(() => {
     setVisibleCount(pageSize)
@@ -178,7 +190,7 @@ const Bookings = () => {
     setSelected(booking)
     setDetailLoading(true)
     try {
-      const full = await ensureBookingDetail(booking.id)
+      const full = await reloadBookingDetail(booking.id)
       if (full) setSelected(full)
     } finally {
       setDetailLoading(false)

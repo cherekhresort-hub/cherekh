@@ -105,13 +105,7 @@ export const ensureBookingsHydrated = async (): Promise<Booking[]> => {
           remote.forEach((b) => markBookingDetailLoaded(b.id))
         } else {
           const existingById = new Map(bookingsCache.map((b) => [b.id, b]))
-          bookingsCache = remote.map((stub) => {
-            const existing = existingById.get(stub.id)
-            if (existing?.payment?.transactions?.length) {
-              return mergeListStubOntoDetail(existing, stub)
-            }
-            return stub
-          })
+          bookingsCache = remote.map((stub) => mergeListRow(existingById.get(stub.id), stub))
           saveBookingsToLocal(bookingsCache)
         }
       } else if (bookingsCache.length > 0 && import.meta.env.DEV) {
@@ -124,6 +118,35 @@ export const ensureBookingsHydrated = async (): Promise<Booking[]> => {
 
   await hydratePromise
   return bookingsCache
+}
+
+const roundMoney = (value: number): number => Math.round(value * 100) / 100
+
+/** True when the server row's payment ledger, extras or subtotal no longer match the cached full payload. */
+const detailIsStale = (existing: Booking, stub: Booking): boolean => {
+  const txs = existing.payment?.transactions ?? []
+  if ((stub.payment.listTxCount ?? 0) !== txs.length) return true
+  const net = txs.reduce((sum, tx) => {
+    const amount = Math.abs(Number(tx.amount) || 0)
+    return tx.type === 'refund' ? sum - amount : sum + amount
+  }, 0)
+  if (roundMoney(stub.payment.listNetPaid ?? 0) !== roundMoney(net)) return true
+  const extras = (existing.extras ?? []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+  if (roundMoney(stub.listExtrasTotal ?? 0) !== roundMoney(extras)) return true
+  if (roundMoney(stub.payment.amount) !== roundMoney(existing.payment?.amount ?? 0)) return true
+  return false
+}
+
+/** Merge a list row onto a cached detail, or fall back to the row when the detail is out of date. */
+const mergeListRow = (existing: Booking | undefined, stub: Booking): Booking => {
+  if (!existing) return stub
+  const hasDetail = Boolean(existing.payment?.transactions?.length) || detailLoadedIds.has(stub.id)
+  if (!hasDetail) return stub
+  if (detailIsStale(existing, stub)) {
+    detailLoadedIds.delete(stub.id)
+    return stub
+  }
+  return mergeListStubOntoDetail(existing, stub)
 }
 
 const mergeListStubOntoDetail = (existing: Booking, stub: Booking): Booking => ({
@@ -176,16 +199,7 @@ export const refreshBookingsList = async (): Promise<Booking[]> => {
   }
 
   const existingById = new Map(bookingsCache.map((b) => [b.id, b]))
-  bookingsCache = remote.map((stub) => {
-    const existing = existingById.get(stub.id)
-    if (existing?.payment?.transactions?.length) {
-      return mergeListStubOntoDetail(existing, stub)
-    }
-    if (existing && detailLoadedIds.has(stub.id)) {
-      return mergeListStubOntoDetail(existing, stub)
-    }
-    return stub
-  })
+  bookingsCache = remote.map((stub) => mergeListRow(existingById.get(stub.id), stub))
   saveBookingsToLocal(bookingsCache)
   return bookingsCache
 }

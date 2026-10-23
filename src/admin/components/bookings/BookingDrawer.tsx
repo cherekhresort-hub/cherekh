@@ -181,7 +181,7 @@ export const BookingDrawer = ({
 
   const saveNote = async () => {
     if (!note.trim()) return
-    await addBookingNote(booking.id, note.trim(), 'Admin')
+    await addBookingNote(booking.id, note.trim())
     setNote('')
     toast.success('Internal note added')
     onChanged()
