@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import {
   FaBolt,
   FaWhatsapp,
   FaPhone,
   FaRegCopy,
   FaPrint,
+  FaFilePdf,
+  FaSpinner,
 } from 'react-icons/fa'
 import { Card } from '../ui/Card'
 import { useToast } from '../ui/Toast'
@@ -45,9 +48,26 @@ export const BookingActions = ({ booking }: BookingActionsProps) => {
   const msg = buildBookingMessages(booking)
   const phone = booking.phone?.trim()
 
+  const [exporting, setExporting] = useState(false)
+
   const print = () => {
     const ok = printBookingInvoice(booking)
     if (!ok) toast.error('Pop-up blocked', 'Allow pop-ups for this site to print invoices.')
+  }
+
+  const exportPdf = async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const { exportBookingInvoicePdf } = await import('../../utils/bookingInvoicePdf')
+      await exportBookingInvoicePdf(booking)
+      toast.success('PDF ready', 'Bill saved on the Cherekh pad')
+    } catch (e) {
+      console.error(e)
+      toast.error('Could not create PDF', 'Check your connection and try again.')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const openExternal = (href: string) => {
@@ -71,6 +91,15 @@ export const BookingActions = ({ booking }: BookingActionsProps) => {
       icon: <FaPrint className="w-4 h-4" />,
       tone: 'forest',
       onClick: print,
+    },
+    {
+      key: 'pdf',
+      label: exporting ? 'Preparing PDF…' : 'Export as PDF',
+      description: 'Bill on the Cherekh pad',
+      icon: exporting ? <FaSpinner className="w-4 h-4 animate-spin" /> : <FaFilePdf className="w-4 h-4" />,
+      tone: 'teal',
+      onClick: () => void exportPdf(),
+      disabled: exporting,
     },
     {
       key: 'whatsapp',
@@ -105,7 +134,7 @@ export const BookingActions = ({ booking }: BookingActionsProps) => {
       <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium mb-3 inline-flex items-center gap-1.5">
         <FaBolt className="w-3 h-3" /> Actions
       </h3>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {actions.map((action) => (
           <button
             key={action.key}

@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { ArrowUpDown, ChevronRight, Phone } from 'lucide-react'
-import { FaPrint, FaWhatsapp } from 'react-icons/fa'
+import { FaFilePdf, FaPrint, FaSpinner, FaWhatsapp } from 'react-icons/fa'
 import { Avatar } from '../ui/Avatar'
 import { BookingStatusBadge } from '../ui/StatusBadge'
 import { EmptyState } from '../ui/EmptyState'
@@ -21,6 +22,7 @@ import {
   whatsappHref,
 } from '../../utils/bookingMessages'
 import { printBookingInvoice } from '../../utils/bookingInvoice'
+import { reloadBookingDetail } from '../../../lib/bookingsStore'
 import { cn } from '../../utils/cn'
 import {
   bookingCreatorLabel,
@@ -92,9 +94,29 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
 
   const stop = (e: React.MouseEvent) => e.stopPropagation()
 
+  const [exportingId, setExportingId] = useState<string | null>(null)
+
   const print = (booking: Booking) => {
     const ok = printBookingInvoice(booking)
     if (!ok) toast.error('Pop-up blocked', 'Allow pop-ups for this site to print invoices.')
+  }
+
+  const exportPdf = async (booking: Booking) => {
+    if (exportingId) return
+    setExportingId(booking.id)
+    try {
+      const [{ exportBookingInvoicePdf }, full] = await Promise.all([
+        import('../../utils/bookingInvoicePdf'),
+        reloadBookingDetail(booking.id),
+      ])
+      await exportBookingInvoicePdf(full ?? booking)
+      toast.success('PDF ready', 'Bill saved on the Cherekh pad')
+    } catch (e) {
+      console.error(e)
+      toast.error('Could not create PDF', 'Check your connection and try again.')
+    } finally {
+      setExportingId(null)
+    }
   }
 
   if (bookings.length === 0) {
@@ -200,6 +222,20 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                       title="Print invoice on letterhead pad"
                     >
                       <FaPrint className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void exportPdf(booking)}
+                      disabled={exportingId !== null}
+                      className={cn(actionButtonBase, 'hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 disabled:opacity-60 disabled:cursor-wait')}
+                      aria-label="Export invoice as PDF"
+                      title="Export bill as PDF on the Cherekh pad"
+                    >
+                      {exportingId === booking.id ? (
+                        <FaSpinner className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <FaFilePdf className="w-3.5 h-3.5" />
+                      )}
                     </button>
                     {booking.phone && (
                       <a

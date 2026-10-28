@@ -58,6 +58,41 @@ const renderTransactions = (txs: PaymentTransaction[]): string => {
   `
 }
 
+export const paidSealDate = (booking: Booking): string => {
+  const lastPayment = (booking.payment?.transactions ?? [])
+    .filter((t) => t.type === 'payment')
+    .reduce<string | undefined>((latest, t) => (!latest || t.recordedAt > latest ? t.recordedAt : latest), undefined)
+  const raw = lastPayment ?? booking.payment?.paidAt
+  const date = raw ? new Date(raw) : new Date()
+  if (Number.isNaN(date.getTime())) return ''
+  return date
+    .toLocaleDateString('en-GB', { timeZone: 'Asia/Dhaka', day: '2-digit', month: 'short', year: 'numeric' })
+    .toUpperCase()
+}
+
+const renderPaidSeal = (booking: Booking): string => `
+  <div class="paid-seal" aria-hidden="true">
+    <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <path id="seal-top" d="M 34 110 A 76 76 0 0 1 186 110" />
+        <path id="seal-bottom" d="M 30 110 A 80 80 0 0 0 190 110" />
+      </defs>
+      <circle cx="110" cy="110" r="104" fill="none" stroke="currentColor" stroke-width="5" />
+      <circle cx="110" cy="110" r="96" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <circle cx="110" cy="110" r="62" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <text font-size="15" font-weight="700" letter-spacing="3" fill="currentColor" text-anchor="middle">
+        <textPath href="#seal-top" startOffset="50%">CHEREKH CENTER</textPath>
+      </text>
+      <text font-size="12" font-weight="700" letter-spacing="2" fill="currentColor" text-anchor="middle" dominant-baseline="hanging">
+        <textPath href="#seal-bottom" startOffset="50%">${escapeHtml(paidSealDate(booking))}</textPath>
+      </text>
+      <text x="23" y="115" font-size="13" fill="currentColor" text-anchor="middle">★</text>
+      <text x="197" y="115" font-size="13" fill="currentColor" text-anchor="middle">★</text>
+      <rect x="40" y="88" width="140" height="44" rx="4" fill="#fff" stroke="currentColor" stroke-width="3" />
+      <text x="110" y="122" font-size="36" font-weight="800" letter-spacing="6" fill="currentColor" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif">PAID</text>
+    </svg>
+  </div>`
+
 const buildInvoiceHtml = (booking: Booking): string => {
   const rooms = getBookingRooms(booking)
   const fin = computeBookingFinancials(booking)
@@ -91,17 +126,44 @@ const buildInvoiceHtml = (booking: Booking): string => {
     }
     * { box-sizing: border-box; }
     /* Pad letterhead: pre-printed header (~top 48mm) and footer (~bottom 56mm).
-       @page margin 0 hides the browser title/URL so they do not land on the pad art. */
+       @page margin 0 hides the browser title/URL so they do not land on the pad art.
+       The .pad table's thead/tfoot spacers repeat on every printed page, so page 2+
+       keep the same blank header and footer bands as page 1. */
     @page { size: A4; margin: 0; }
+    html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body {
       font-family: 'Inter', -apple-system, system-ui, sans-serif;
       color: #1F2937;
       margin: 0;
-      padding: 48mm 18mm 56mm;
+      padding: 0 18mm;
       background: #fff;
       font-size: 12px;
       line-height: 1.45;
     }
+    table.pad { width: 100%; border-collapse: collapse; margin: 0; }
+    table.pad > thead { display: table-header-group; }
+    table.pad > tfoot { display: table-footer-group; }
+    table.pad > thead > tr > td,
+    table.pad > tfoot > tr > td,
+    table.pad > tbody > tr > td { padding: 0; border: 0; font-size: inherit; vertical-align: top; }
+    .pad-head { height: 48mm; }
+    .pad-foot { height: 56mm; }
+    .content table tr, .panel, .totals { break-inside: avoid; page-break-inside: avoid; }
+    .content h2 { break-after: avoid; page-break-after: avoid; }
+    .paid-seal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 82mm;
+      height: 82mm;
+      transform: translate(-50%, -50%) rotate(-16deg);
+      color: #C8102E;
+      opacity: 0.22;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .paid-seal svg { width: 100%; height: 100%; display: block; font-family: 'Inter', Arial, sans-serif; }
+    table.pad { position: relative; z-index: 1; }
     h1, h2 { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--forest); margin: 0; }
     h1 { font-size: 22px; }
     h2 { font-size: 15px; margin-top: 14px; margin-bottom: 6px; }
@@ -167,12 +229,14 @@ const buildInvoiceHtml = (booking: Booking): string => {
     .stamp.partial { color: #B45309; }
     .stamp.pending { color: var(--stone); }
     .stamp.refunded { color: var(--red); }
-    @media print {
-      body { padding: 48mm 18mm 56mm; }
-    }
   </style>
 </head>
 <body>
+  ${fin.status === 'paid' ? renderPaidSeal(booking) : ''}
+  <table class="pad" role="presentation">
+    <thead><tr><td><div class="pad-head"></div></td></tr></thead>
+    <tfoot><tr><td><div class="pad-foot"></div></td></tr></tfoot>
+    <tbody><tr><td class="content">
   <div class="meta">
     <div>
       <div class="muted" style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;">Invoice</div>
@@ -291,6 +355,8 @@ const buildInvoiceHtml = (booking: Booking): string => {
          <p>${escapeHtml(booking.specialRequests)}</p>`
       : ''
   }
+    </td></tr></tbody>
+  </table>
 </body>
 </html>`
 }
