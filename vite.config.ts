@@ -18,12 +18,13 @@ const supabaseProxy = (mode: string) => {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode, isSsrBuild }) => ({
   server: { proxy: supabaseProxy(mode) },
   preview: { proxy: supabaseProxy(mode) },
   plugins: [
     react(),
     netlifyFunctionsDevPlugin(mode),
+    !isSsrBuild &&
     VitePWA({
       registerType: 'autoUpdate',
       minify: true,
@@ -68,10 +69,11 @@ export default defineConfig(({ mode }) => ({
     }),
   ],
   build: {
-    target: 'es2020',
+    target: isSsrBuild ? 'node20' : 'es2020',
+    copyPublicDir: !isSsrBuild,
     cssMinify: true,
     rollupOptions: {
-      output: {
+      output: isSsrBuild ? {} : {
         manualChunks(id) {
           if (!id.includes('node_modules')) return
           if (id.includes('framer-motion')) return 'motion'

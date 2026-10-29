@@ -1,5 +1,6 @@
-import { useEffect, useState, type ComponentType } from 'react'
+import { useEffect, useRef, useState, type ComponentType } from 'react'
 import type { Settings } from 'react-slick'
+import { Volume2, VolumeX } from 'lucide-react'
 import Button from './Button'
 import ResponsiveImage from './ResponsiveImage'
 import { AnimatedHeroContent } from './ui/animated-hero'
@@ -8,8 +9,18 @@ import { hideHeroSplash } from '../utils/heroSplash'
 
 interface HeroSlide {
   image: string
+  /** WebP srcset for images outside the optimize-images pipeline (e.g. video poster frames). */
+  srcSet?: string
   title: string
   subtitle?: string
+}
+
+export interface HeroVideo {
+  /** Wide screens. */
+  src: string
+  /** Phones (smaller file). */
+  mobileSrc?: string
+  poster?: string
 }
 
 interface HeroProps {
@@ -18,12 +29,150 @@ interface HeroProps {
   image?: string
   images?: string[]
   slides?: HeroSlide[]
+  video?: HeroVideo
   showButtons?: boolean
   compact?: boolean
 }
 
 const isMobileViewport = () =>
   typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
+
+/** Reduced-motion and data-saver visitors keep the still image slider. */
+const canPlayHeroVideo = () => {
+  if (typeof window === 'undefined') return false
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
+  return !connection?.saveData
+}
+
+/** Set once the visitor presses Mute, so the hero stays quiet for the rest of the visit. */
+const HERO_MUTED_KEY = 'cherekh_hero_muted'
+
+const visitorChoseMute = (): boolean => {
+  try {
+    return sessionStorage.getItem(HERO_MUTED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+const rememberMuteChoice = (mutedByVisitor: boolean) => {
+  try {
+    if (mutedByVisitor) sessionStorage.setItem(HERO_MUTED_KEY, '1')
+    else sessionStorage.removeItem(HERO_MUTED_KEY)
+  } catch {
+    // Private mode: the choice just isn't remembered.
+  }
+}
+
+const HeroVideoLayer = ({ video, isMobile }: { video: HeroVideo; isMobile: boolean }) => {
+  const ref = useRef<HTMLVideoElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const wantSoundRef = useRef(!visitorChoseMute())
+  const [playing, setPlaying] = useState(false)
+  const [muted, setMuted] = useState(true)
+  const src = isMobile && video.mobileSrc ? video.mobileSrc : video.src
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let inView = true
+
+    // Browsers refuse audible autoplay until the visitor interacts with the page; fall back to muted.
+    const play = () => {
+      el.muted = !wantSoundRef.current
+      if (!el.muted) el.volume = 1
+      el.play()
+        .then(() => setMuted(el.muted))
+        .catch(() => {
+          if (el.muted) return
+          el.muted = true
+          setMuted(true)
+          void el.play().catch(() => {})
+        })
+    }
+
+    const sync = () => {
+      if (inView && document.visibilityState === 'visible') play()
+      else el.pause()
+    }
+
+    const unlockSound = (event: Event) => {
+      if (!wantSoundRef.current || !el.muted) return
+      if (buttonRef.current?.contains(event.target as Node)) return
+      el.muted = false
+      el.volume = 1
+      setMuted(false)
+      if (inView && document.visibilityState === 'visible') void el.play().catch(() => {})
+    }
+    const unlockEvents = ['pointerdown', 'keydown', 'touchend'] as const
+    unlockEvents.forEach((name) => document.addEventListener(name, unlockSound, { capture: true }))
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        inView = entry.isIntersecting
+        sync()
+      },
+      { threshold: 0.25 }
+    )
+    observer.observe(el)
+    document.addEventListener('visibilitychange', sync)
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('visibilitychange', sync)
+      unlockEvents.forEach((name) => document.removeEventListener(name, unlockSound, { capture: true }))
+    }
+  }, [])
+
+  const toggleSound = () => {
+    const el = ref.current
+    if (!el) return
+    const nextMuted = !muted
+    el.muted = nextMuted
+    if (!nextMuted) {
+      el.volume = 1
+      void el.play().catch(() => {})
+    }
+    wantSoundRef.current = !nextMuted
+    rememberMuteChoice(nextMuted)
+    setMuted(nextMuted)
+  }
+
+  return (
+    <>
+      <video
+        ref={ref}
+        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+          playing ? 'opacity-100' : 'opacity-0'
+        }`}
+        src={src}
+        poster={video.poster}
+        loop
+        playsInline
+        preload="metadata"
+        aria-hidden="true"
+        tabIndex={-1}
+        onPlaying={() => {
+          setPlaying(true)
+          hideHeroSplash()
+        }}
+      />
+      {playing && (
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={toggleSound}
+          className="absolute z-20 bottom-20 right-4 sm:bottom-24 sm:right-6 lg:right-8 inline-flex items-center gap-2 rounded-full bg-black/45 hover:bg-black/65 backdrop-blur-sm text-white text-xs sm:text-sm font-medium px-3.5 py-2 border border-white/25 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          aria-label={muted ? 'Turn video sound on' : 'Mute video'}
+          aria-pressed={!muted}
+        >
+          {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          <span>{muted ? 'Sound on' : 'Mute'}</span>
+        </button>
+      )}
+    </>
+  )
+}
 
 const HeroSlideImage = ({
   slide,
@@ -38,7 +187,9 @@ const HeroSlideImage = ({
 }) => (
   <div className={`relative ${heroHeight}`}>
     <ResponsiveImage
-      {...heroImageSources(slide.image, slide.title)}
+      {...(slide.srcSet
+        ? { src: slide.image, alt: slide.title, webpSrcSet: slide.srcSet, sizes: '100vw', width: 1280, height: 720 }
+        : heroImageSources(slide.image, slide.title))}
       className="w-full h-full object-cover"
       loading={idx === 0 ? 'eager' : 'lazy'}
       decoding="async"
@@ -55,6 +206,7 @@ const Hero = ({
   image,
   images,
   slides,
+  video,
   showButtons = true,
   compact = false,
 }: HeroProps) => {
@@ -87,11 +239,21 @@ const Hero = ({
   }
 
   const [currentSlide, setCurrentSlide] = useState(0)
-  const [isMobile] = useState(isMobileViewport)
-  const [carouselReady, setCarouselReady] = useState(heroSlides.length <= 1 || isMobile)
+  // Viewport-dependent state starts at the build-time values and is resolved after mount,
+  // so the first client render matches the prerendered HTML.
+  const [isMobile, setIsMobile] = useState(false)
+  const [showVideo, setShowVideo] = useState(false)
+  const [viewportResolved, setViewportResolved] = useState(false)
+  const [carouselReady, setCarouselReady] = useState(heroSlides.length <= 1)
   const [Slider, setSlider] = useState<ComponentType<{ children?: React.ReactNode } & Settings> | null>(
     null
   )
+
+  useEffect(() => {
+    setIsMobile(isMobileViewport())
+    setShowVideo(Boolean(video) && canPlayHeroVideo())
+    setViewportResolved(true)
+  }, [video])
 
   useEffect(() => {
     const splashTimer = window.setTimeout(hideHeroSplash, 3500)
@@ -99,7 +261,16 @@ const Hero = ({
   }, [])
 
   useEffect(() => {
-    if (isMobile || heroSlides.length <= 1) return
+    if (!showVideo || heroSlides.length <= 1) return
+    const timer = window.setInterval(() => {
+      setCurrentSlide((i) => (i + 1) % heroSlides.length)
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [showVideo, heroSlides.length])
+
+  useEffect(() => {
+    // With a video hero the slides only carry rotating subtitles; never fetch the photo carousel.
+    if (!viewportResolved || video || isMobile || heroSlides.length <= 1) return
 
     const timer = window.setTimeout(() => {
       void Promise.all([
@@ -113,7 +284,7 @@ const Hero = ({
     }, 3000)
 
     return () => window.clearTimeout(timer)
-  }, [heroSlides.length, isMobile])
+  }, [heroSlides.length, isMobile, video, viewportResolved])
 
   const settings: Settings = {
     dots: true,
@@ -146,7 +317,13 @@ const Hero = ({
   return (
     <div className={`relative ${heroHeight} flex items-center justify-center overflow-hidden z-[2]`}>
       <div className="absolute inset-0 z-0">
-        {carouselReady && Slider ? (
+        {showVideo && video ? (
+          <div className={`relative ${heroHeight}`}>
+            <HeroSlideImage slide={firstSlide} idx={0} heroHeight={heroHeight} compact={compact} />
+            <HeroVideoLayer video={video} isMobile={isMobile} />
+            <div className={`absolute inset-0 pointer-events-none ${compact ? 'bg-black/45' : 'bg-black/35'}`} />
+          </div>
+        ) : carouselReady && Slider ? (
           <Slider {...settings}>
             {heroSlides.map((slide, idx) => (
               <div key={slide.image}>

@@ -157,10 +157,13 @@ export const getFaqItemsByIds = (ids: readonly string[]): FaqItem[] =>
 
 export const FAQ_HOMEPAGE_ITEMS = getFaqItemsByIds(FAQ_HOMEPAGE_PREVIEW_IDS)
 
-export const faqSchemaJsonLd = (pagePath = '/faq'): Record<string, unknown> => ({
+export const faqSchemaJsonLd = (
+  pagePath = '/faq',
+  items: readonly FaqItem[] = FAQ_ITEMS
+): Record<string, unknown> => ({
   '@type': 'FAQPage',
   '@id': `${siteUrl(pagePath)}#faq`,
-  mainEntity: FAQ_ITEMS.map((item) => ({
+  mainEntity: items.map((item) => ({
     '@type': 'Question',
     name: item.question,
     acceptedAnswer: {

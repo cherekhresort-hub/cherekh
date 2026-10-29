@@ -1,12 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { Writable } from 'node:stream'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { loadEnv } from 'vite'
 import {
-  BLOG_POSTS,
   CRAWL_NAV_LINKS,
-  ROOM_NUMBERS,
   getIndexableRoutes,
   siteAssetUrl,
   siteUrl,
@@ -15,6 +14,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const distIndex = path.join(root, 'dist', 'index.html')
+const HOME_FILE = 'home.html'
 
 if (!fs.existsSync(distIndex)) {
   console.warn('[seo] dist/index.html not found - skip prerender')
@@ -54,207 +54,9 @@ const stripStaticSchemas = (html) =>
     ''
   )
 
-const baseGraph = (route) => [
-  {
-    '@type': 'Organization',
-    '@id': `${siteUrl('/')}#organization`,
-    name: 'Cherekh Center',
-    url: siteUrl('/'),
-    logo: {
-      '@type': 'ImageObject',
-      url: siteAssetUrl('/images/CherekhLogoFinal.png'),
-    },
-    sameAs: [
-      'https://www.facebook.com/cherekhcenter',
-      'https://www.instagram.com/cherekhcenter',
-      'https://www.youtube.com/@CherekhCenter',
-      'https://maps.app.goo.gl/4mootYhEFtM2TQUJ7',
-    ],
-  },
-  {
-    '@type': ['LodgingBusiness', 'Hotel'],
-    '@id': `${siteUrl('/')}#lodging`,
-    name: 'Cherekh Center',
-    description:
-      'Comfortable accommodation in Thanchi, Bandarban with nine guest rooms, restaurant, conference room, and local hill experiences.',
-    url: siteUrl('/'),
-    image: [
-      siteAssetUrl('/cherekhImages/homepageHero/hero01.jpg'),
-      siteAssetUrl('/cherekhImages/homepageHero/hero02.jpg'),
-      siteAssetUrl('/cherekhImages/homepageHero/hero03.jpg'),
-    ],
-    address: {
-      '@type': 'PostalAddress',
-      streetAddress: 'Thanchi',
-      addressLocality: 'Thanchi',
-      addressRegion: 'Bandarban',
-      postalCode: '4650',
-      addressCountry: 'BD',
-    },
-    geo: {
-      '@type': 'GeoCoordinates',
-      latitude: 21.8166336,
-      longitude: 92.4336567,
-    },
-    hasMap: 'https://maps.app.goo.gl/4mootYhEFtM2TQUJ7',
-    telephone: '+8801601719735',
-    email: 'cherekhcenter@gmail.com',
-    priceRange: '$$',
-    checkinTime: '12:00',
-    checkoutTime: '11:00',
-    numberOfRooms: ROOM_NUMBERS.length,
-    sameAs: [
-      'https://www.facebook.com/cherekhcenter',
-      'https://www.instagram.com/cherekhcenter',
-      'https://www.youtube.com/@CherekhCenter',
-      'https://maps.app.goo.gl/4mootYhEFtM2TQUJ7',
-    ],
-    parentOrganization: { '@id': `${siteUrl('/')}#organization` },
-  },
-  {
-    '@type': 'WebSite',
-    '@id': `${siteUrl('/')}#website`,
-    name: 'Cherekh Center',
-    url: siteUrl('/'),
-    publisher: { '@id': `${siteUrl('/')}#organization` },
-  },
-  {
-    '@type': 'WebPage',
-    '@id': `${siteUrl(route.path)}#webpage`,
-    url: siteUrl(route.path),
-    name: route.title,
-    description: route.description,
-    isPartOf: { '@id': `${siteUrl('/')}#website` },
-    inLanguage: 'en',
-  },
-]
-
-const breadcrumbSchema = (items) => ({
-  '@type': 'BreadcrumbList',
-  '@id': `${siteUrl(items.at(-1)?.path || '/')}#breadcrumbs`,
-  itemListElement: items.map((item, index) => ({
-    '@type': 'ListItem',
-    position: index + 1,
-    name: item.name,
-    item: siteUrl(item.path),
-  })),
-})
-
-const routeSchema = (route) => {
-  const graph = baseGraph(route)
-
-  const roomMatch = route.path.match(/^\/rooms\/(\d{3})$/)
-  if (roomMatch) {
-    const roomNumber = roomMatch[1]
-    graph.push(
-      breadcrumbSchema([
-        { name: 'Home', path: '/' },
-        { name: 'Rooms', path: '/rooms' },
-        { name: `Room ${roomNumber}`, path: route.path },
-      ]),
-      {
-        '@type': 'HotelRoom',
-        '@id': `${siteUrl(route.path)}#room`,
-        name: `Room ${roomNumber}`,
-        description: route.description,
-        image: siteAssetUrl(`/cherekhImages/RoomPhotos/${roomNumber}_1.jpg`),
-        url: siteUrl(route.path),
-        isPartOf: { '@id': `${siteUrl('/')}#lodging` },
-      }
-    )
-  } else if (route.path === '/') {
-    graph.push({
-      '@type': 'FAQPage',
-      '@id': `${siteUrl('/')}#faq`,
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'What types of rooms does Cherekh Center offer?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Cherekh Center has nine guest rooms numbered 103-206 with double and couple bed options, AC and Non-AC rooms.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Where is Cherekh Center located?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Cherekh Center is located in Thanchi, Bandarban, Bangladesh.',
-          },
-        },
-      ],
-    })
-  } else if (route.path === '/rooms') {
-    graph.push(
-      breadcrumbSchema([
-        { name: 'Home', path: '/' },
-        { name: 'Rooms', path: '/rooms' },
-      ]),
-      {
-        '@type': 'ItemList',
-        '@id': `${siteUrl('/rooms')}#room-list`,
-        name: 'Cherekh Center Rooms',
-        itemListElement: ROOM_NUMBERS.map((roomNumber, index) => ({
-          '@type': 'ListItem',
-          position: index + 1,
-          url: siteUrl(`/rooms/${roomNumber}`),
-        })),
-      }
-    )
-  } else if (route.path === '/conference-room') {
-    graph.push({
-      '@type': 'EventVenue',
-      '@id': `${siteUrl('/conference-room')}#venue`,
-      name: 'Cherekh Center Conference Room',
-      description: route.description,
-      url: siteUrl('/conference-room'),
-      image: siteAssetUrl('/cherekhImages/ConferenceRoomPhotos/CFR_1.jpg'),
-      maximumAttendeeCapacity: 100,
-      isPartOf: { '@id': `${siteUrl('/')}#lodging` },
-    })
-  } else if (route.path === '/dining') {
-    graph.push({
-      '@type': 'Restaurant',
-      '@id': `${siteUrl('/dining')}#restaurant`,
-      name: 'Cherekh Center Restaurant',
-      url: siteUrl('/dining'),
-      image: siteAssetUrl('/cherekhImages/RestaurantPhotos/Restaurant_1.jpg'),
-      servesCuisine: ['Bangla', 'Local Tribal', 'International'],
-      isPartOf: { '@id': `${siteUrl('/')}#lodging` },
-    })
-  } else if (route.path.startsWith('/blog/')) {
-    const post = BLOG_POSTS.find((item) => route.path === `/blog/${item.id}`)
-    if (post) {
-      graph.push(
-        breadcrumbSchema([
-          { name: 'Home', path: '/' },
-          { name: 'Blog', path: '/blog' },
-          { name: post.title, path: route.path },
-        ]),
-        {
-          '@type': 'BlogPosting',
-          headline: post.title,
-          description: post.excerpt,
-          image: siteAssetUrl(post.image),
-          datePublished: post.date,
-          author: { '@id': `${siteUrl('/')}#organization` },
-          publisher: { '@id': `${siteUrl('/')}#organization` },
-          mainEntityOfPage: siteUrl(route.path),
-        }
-      )
-    }
-  }
-
-  return {
-    '@context': 'https://schema.org',
-    '@graph': graph,
-  }
-}
-
 const stripHeroPreload = (html) =>
   html.replace(
-    /\s*<link(?=[\s\S]*?homepageHero)(?=[\s\S]*?rel=["']preload["'])[\s\S]*?>\s*/gi,
+    /\s*<link\b(?=[^>]*rel=["']preload["'])(?=[^>]*cherekh-hero-poster)[^>]*>\s*/gi,
     '\n'
   )
 
@@ -319,6 +121,9 @@ const writeNetlifyRedirects = (routeList) => {
     '# (sitemap + canonical are slashless; a 301 there is "Page with redirect" in Search Console)',
     ...supabaseProxyLines(),
     '',
+    '# Rendered homepage (forced: dist/index.html is the empty SPA shell)',
+    `/  /${HOME_FILE}  200!`,
+    '',
   ]
 
   for (const route of routeList) {
@@ -348,7 +153,7 @@ const writeNetlifyRedirects = (routeList) => {
   fs.writeFileSync(path.join(root, 'dist', '_redirects'), `${lines.join('\n')}\n`, 'utf8')
 }
 
-const injectRouteMeta = (html, route) => {
+const injectRouteMeta = (html, route, buildRouteSchema) => {
   const canonical = siteUrl(route.path)
   const ogImage = siteAssetUrl(route.ogImage || '/images/CherekhLogoFinal.png')
   const robots = route.robots || 'index, follow'
@@ -371,40 +176,100 @@ const injectRouteMeta = (html, route) => {
   out = setMetaContent(out, 'name', 'twitter:description', route.description)
   out = setMetaContent(out, 'name', 'twitter:image', ogImage)
 
-  out = stripStaticSchemas(out)
-
-  const schemaTag = `<script type="application/ld+json" id="prerender-route-schema" data-static-seo="true">${JSON.stringify(routeSchema(route))}</script>`
-  if (out.includes('id="prerender-route-schema"')) {
-    out = out.replace(
-      /<script type="application\/ld\+json" id="prerender-route-schema"[^>]*>[\s\S]*?<\/script>/i,
-      schemaTag
-    )
-  } else {
-    out = out.replace('</head>', `${schemaTag}\n  </head>`)
+  if (buildRouteSchema) {
+    out = stripStaticSchemas(out)
+    const schemaJson = JSON.stringify(buildRouteSchema(route.path)).replace(/</g, '\\u003c')
+    const schemaTag = `<script type="application/ld+json" id="prerender-route-schema" data-static-seo="true">${schemaJson}</script>`
+    out = out.replace('</head>', () => `${schemaTag}\n  </head>`)
   }
 
   return injectCrawlableBody(out, route)
 }
 
-const writeRouteHtml = (routePath, html) => {
-  if (routePath === '/') {
-    fs.writeFileSync(distIndex, html, 'utf8')
-    return
+const ssrEntry = path.join(root, 'dist-ssr', 'entry-server.js')
+const ROOT_PLACEHOLDER = '<div id="root"></div>'
+const RENDER_TIMEOUT_MS = 15_000
+
+const streamToString = (stream) =>
+  new Promise((resolve, reject) => {
+    let html = ''
+    const sink = new Writable({
+      write(chunk, _encoding, done) {
+        html += chunk.toString()
+        done()
+      },
+    })
+    sink.on('finish', () => resolve(html))
+    sink.on('error', reject)
+    stream.pipe(sink)
+  })
+
+const loadSsrModule = async () => {
+  if (!fs.existsSync(ssrEntry)) {
+    console.warn(
+      '[seo] dist-ssr/entry-server.js not found - pages keep meta tags and the static index.html schema only'
+    )
+    return { renderPage: null, buildRouteSchema: null }
+  }
+  const { render, buildRouteSchema } = await import(pathToFileURL(ssrEntry).href)
+  const renderPage = async (routePath) => {
+    let timer
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`[seo] page render timed out for ${routePath}`)),
+        RENDER_TIMEOUT_MS
+      )
+    })
+    try {
+      return await Promise.race([render(routePath).then(streamToString), timeout])
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+  return { renderPage, buildRouteSchema }
+}
+
+const injectRenderedBody = (html, route, body) => {
+  if (!html.includes(ROOT_PLACEHOLDER)) {
+    throw new Error(`[seo] ${ROOT_PLACEHOLDER} missing from dist/index.html`)
+  }
+  const withoutCrawlFallback = html.replace(
+    /\s*<noscript id="static-crawl-content">[\s\S]*?<\/noscript>/i,
+    ''
+  )
+  return withoutCrawlFallback.replace(
+    ROOT_PLACEHOLDER,
+    () => `<div id="root" data-prerendered="${escapeHtml(route.path)}">${body}</div>`
+  )
+}
+
+/** The homepage lives in home.html; index.html stays an empty shell for client-only routes and the service worker fallback. */
+const routeFilePath = (routePath) => {
+  if (routePath === '/') return path.join(root, 'dist', HOME_FILE)
+  const segments = routePath.split('/').filter(Boolean)
+  return `${path.join(root, 'dist', ...segments)}.html`
+}
+
+const { renderPage, buildRouteSchema } = await loadSsrModule()
+
+let rendered = 0
+for (const route of routes) {
+  const metaHtml = injectRouteMeta(baseHtml, route, buildRouteSchema)
+  if (route.path === '/') fs.writeFileSync(distIndex, metaHtml, 'utf8')
+
+  let html = metaHtml
+  if (renderPage) {
+    html = injectRenderedBody(metaHtml, route, await renderPage(route.path))
+    rendered += 1
   }
 
-  const segments = routePath.split('/').filter(Boolean)
-  const filePath = `${path.join(root, 'dist', ...segments)}.html`
+  const filePath = routeFilePath(route.path)
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.writeFileSync(filePath, html, 'utf8')
 }
 
-let count = 0
-for (const route of routes) {
-  writeRouteHtml(route.path, injectRouteMeta(baseHtml, route))
-  count += 1
-}
-
 writeNetlifyRedirects(routes)
 
-console.log(`[seo] prerendered meta for ${count} routes`)
-console.log(`[seo] wrote dist/_redirects with ${routes.length - 1} prerendered paths`)
+console.log(`[seo] prerendered meta for ${routes.length} routes, full page HTML for ${rendered}`)
+console.log(`[seo] wrote dist/_redirects with ${routes.length} prerendered paths`)
+process.exit(0)

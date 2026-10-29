@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
 import { RouteFallback } from './components/RouteFallback'
@@ -56,10 +56,11 @@ const withSuspense = (element: ReactNode) => (
   <Suspense fallback={<RouteFallback />}>{element}</Suspense>
 )
 
-function App() {
+/** Route tree without a router, shared by the browser app and the build-time prerender. */
+export function AppRoutes() {
   return (
     <ErrorBoundary>
-      <Router>
+      <>
         <UrlNormalization />
         <Routes>
           <Route path="/login" element={withSuspense(<Login />)} />
@@ -142,8 +143,16 @@ function App() {
             }
           />
         </Routes>
-      </Router>
+      </>
     </ErrorBoundary>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   )
 }
 

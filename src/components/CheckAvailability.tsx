@@ -14,12 +14,9 @@ import {
 
 const formatTaka = (amount: number) => `BDT ${amount.toLocaleString('en-US')}`
 import { ArrowRight, CalendarDays, Users, X } from 'lucide-react'
-import {
-  addDaysToDateString,
-  formatDisplayDate,
-  getTodayDate,
-  toLocalDateString,
-} from '../utils/dates'
+import { formatDisplayDate, getTodayDate, toLocalDateString } from '../utils/dates'
+import StayDatesPicker from './StayDatesPicker'
+import RoomSearchLoader from './RoomSearchLoader'
 import {
   BOOKING_PARTY_SPLIT_KEY,
   allocateGuestsToRooms,
@@ -30,6 +27,7 @@ import { useRoomSelection } from '../hooks/useRoomSelection'
 import { saveSelectedRoomsHint, buildBookingUrl } from '../utils/roomSelection'
 const DEFAULT_GUEST_COUNT = 2
 const MAX_GUEST_COUNT = 100
+const MIN_SEARCH_DISPLAY_MS = 1200
 
 const getMaxDate = () => {
   const maxDate = new Date()
@@ -66,13 +64,14 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
   const [guests, setGuests] = useState(String(DEFAULT_GUEST_COUNT))
-  const [minCheckOut, setMinCheckOut] = useState('')
   const [errors, setErrors] = useState({ checkIn: '', checkOut: '' })
   const [availableRooms, setAvailableRooms] = useState<AvailableRoomCard[]>([])
   const [hasSearched, setHasSearched] = useState(false)
   const [availabilityError, setAvailabilityError] = useState('')
   const [autoSelectedIds, setAutoSelectedIds] = useState<string[]>([])
   const [resultsVersion, setResultsVersion] = useState(0)
+  const [searching, setSearching] = useState(false)
+  const searchRequestRef = useRef(0)
   const lastSearchRef = useRef({ checkIn: '', checkOut: '', guests: 0 })
   const resultsRef = useRef<HTMLDivElement>(null)
   const scrollToResultsRef = useRef(false)
@@ -81,8 +80,9 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
     setCheckIn('')
     setCheckOut('')
     setGuests(String(DEFAULT_GUEST_COUNT))
-    setMinCheckOut('')
     setErrors({ checkIn: '', checkOut: '' })
+    searchRequestRef.current += 1
+    setSearching(false)
     setAvailableRooms([])
     setHasSearched(false)
     setAvailabilityError('')
@@ -161,17 +161,6 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
   const extraGuestTotal = Object.values(extraGuestsByRoomId).reduce((sum, n) => sum + n, 0)
   const extraGuestFeePerNight = extraGuestTotal * EXTRA_GUEST_PRICE
 
-  useEffect(() => {
-    if (checkIn) {
-      setMinCheckOut(addDaysToDateString(checkIn, 1))
-      if (checkOut && checkOut <= checkIn) {
-        setCheckOut('')
-      }
-    } else {
-      setMinCheckOut('')
-    }
-  }, [checkIn, checkOut])
-
   // Invalidate results when dates or guests change after a search
   useEffect(() => {
     if (!hasSearched) return
@@ -181,6 +170,8 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
       checkOut !== last.checkOut ||
       normalizedGuests !== last.guests
     ) {
+      searchRequestRef.current += 1
+      setSearching(false)
       setHasSearched(false)
       setAvailableRooms([])
       setAutoSelectedIds([])
@@ -194,6 +185,15 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
       return
     }
 
+    const requestId = ++searchRequestRef.current
+    const startedAt = Date.now()
+    setSearching(true)
+    const settle = async () => {
+      const remaining = MIN_SEARCH_DISPLAY_MS - (Date.now() - startedAt)
+      if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
+      return requestId === searchRequestRef.current
+    }
+
     const storedRooms = getRooms()
     setAvailabilityError('')
     let available: Awaited<ReturnType<typeof getAvailableRooms>>
@@ -202,13 +202,16 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
         (room) => room.id !== 'conference' && getPublicCatalogRoomById(room.id) !== undefined
       )
     } catch (e) {
+      if (!(await settle())) return
       setAvailableRooms([])
       if (e instanceof AvailabilityLoadError) {
         setAvailabilityError('Could not check availability right now. Please try again in a moment.')
       }
+      setSearching(false)
       setResultsVersion((v) => v + 1)
       return
     }
+    if (!(await settle())) return
 
     const roomsToShow = available
       .map((room) => {
@@ -243,6 +246,7 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
     )
     selectRooms(autoSelected)
     setAutoSelectedIds(autoSelected)
+    setSearching(false)
     setResultsVersion((v) => v + 1)
     lastSearchRef.current = { checkIn, checkOut, guests: normalizedGuests }
     setSearchDates({ checkIn, checkOut, guests: normalizedGuests })
@@ -364,103 +368,47 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
             autoComplete="off"
           >
             <div
-              className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 ${
-                compact ? 'gap-3' : 'gap-4 lg:gap-5'
+              className={`grid grid-cols-3 lg:grid-cols-4 gap-x-2 gap-y-3 ${
+                compact ? 'sm:gap-3' : 'sm:gap-4 lg:gap-5'
               }`}
             >
-              <div>
-                <label
-                  htmlFor="home-check-in"
-                  className="flex items-center gap-2 text-sm font-medium text-resort-heading mb-2"
-                >
-                  <FaCalendarAlt className="w-4 h-4 text-resort-cta" aria-hidden />
-                  Check-in
-                </label>
-                <div className="relative">
-                  <input
-                    id="home-check-in"
-                    type="date"
-                    value={checkIn}
-                    onChange={(e) => {
-                      setCheckIn(e.target.value)
-                      setErrors((prev) => ({ ...prev, checkIn: '' }))
-                    }}
-                    min={minCheckInDate}
-                    max={maxDate}
-                    required
-                    autoComplete="off"
-                    className={`w-full border rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta ${
-                      compact ? 'p-2.5 text-sm' : 'p-3'
-                    } ${
-                      errors.checkIn ? 'border-red-500' : 'border-gray-300'
-                    } ${!checkIn ? 'date-input-empty' : ''}`}
-                  />
-                  {!checkIn && (
-                    <span
-                      className={`pointer-events-none absolute inset-y-0 left-0 flex items-center text-stone-400 ${
-                        compact ? 'px-2.5 text-sm' : 'px-3'
-                      }`}
-                    >
-                      dd/mm/yyyy
-                    </span>
-                  )}
-                </div>
-                {errors.checkIn && (
-                  <p className="mt-1 text-xs text-red-600">{errors.checkIn}</p>
-                )}
-              </div>
+              <StayDatesPicker
+                narrowOnMobile
+                checkIn={checkIn}
+                checkOut={checkOut}
+                onChange={(next) => {
+                  setCheckIn(next.checkIn)
+                  setCheckOut(next.checkOut)
+                  setErrors({ checkIn: '', checkOut: '' })
+                }}
+                minDate={minCheckInDate}
+                maxDate={maxDate}
+                errors={errors}
+                className={`col-span-2 self-start grid grid-cols-2 gap-2 ${compact ? 'sm:gap-3' : 'sm:gap-4 lg:gap-5'}`}
+                labelClassName="flex items-center gap-2 text-sm font-medium text-resort-heading mb-2"
+                fieldClassName={compact ? 'p-2.5 text-sm' : 'p-3'}
+                labels={{
+                  checkIn: (
+                    <>
+                      <FaCalendarAlt className="hidden sm:block w-4 h-4 text-resort-cta" aria-hidden />
+                      Check-in
+                    </>
+                  ),
+                  checkOut: (
+                    <>
+                      <FaCalendarAlt className="hidden sm:block w-4 h-4 text-resort-cta" aria-hidden />
+                      Check-out
+                    </>
+                  ),
+                }}
+              />
 
-              <div>
-                <label
-                  htmlFor="home-check-out"
-                  className="flex items-center gap-2 text-sm font-medium text-resort-heading mb-2"
-                >
-                  <FaCalendarAlt className="w-4 h-4 text-resort-cta" aria-hidden />
-                  Check-out
-                </label>
-                <div className="relative">
-                  <input
-                    id="home-check-out"
-                    type="date"
-                    value={checkOut}
-                    onChange={(e) => {
-                      setCheckOut(e.target.value)
-                      setErrors((prev) => ({ ...prev, checkOut: '' }))
-                    }}
-                    min={minCheckOut || minCheckInDate}
-                    max={maxDate}
-                    disabled={!checkIn}
-                    required
-                    autoComplete="off"
-                    className={`w-full border rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta ${
-                      compact ? 'p-2.5 text-sm' : 'p-3'
-                    } ${
-                      errors.checkOut ? 'border-red-500' : 'border-gray-300'
-                    } ${!checkIn ? 'bg-gray-100 cursor-not-allowed' : ''} ${
-                      !checkOut ? 'date-input-empty' : ''
-                    }`}
-                  />
-                  {!checkOut && (
-                    <span
-                      className={`pointer-events-none absolute inset-y-0 left-0 flex items-center text-stone-400 ${
-                        compact ? 'px-2.5 text-sm' : 'px-3'
-                      }`}
-                    >
-                      dd/mm/yyyy
-                    </span>
-                  )}
-                </div>
-                {errors.checkOut && (
-                  <p className="mt-1 text-xs text-red-600">{errors.checkOut}</p>
-                )}
-              </div>
-
-              <div>
+              <div className="self-start">
                 <label
                   htmlFor="home-guests"
                   className="flex items-center gap-2 text-sm font-medium text-resort-heading mb-2"
                 >
-                  <FaUsers className="w-4 h-4 text-resort-cta" aria-hidden />
+                  <FaUsers className="hidden sm:block w-4 h-4 text-resort-cta" aria-hidden />
                   Guests
                 </label>
                 <input
@@ -497,13 +445,18 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
                     compact ? 'p-2.5 text-sm' : 'p-3'
                   }`}
                 />
-                <p className="mt-1 text-xs text-stone-500">
-                  Up to {MAX_INCLUDED_GUESTS_PER_ROOM} included guests per room · double rooms 2,
-                  couple rooms 3 (৳1,000 for the 3rd) · larger groups book multiple rooms
-                </p>
               </div>
 
-              <div className={`flex flex-col ${compact ? 'sm:pt-7' : 'lg:pt-8'}`}>
+              <p className="col-span-3 -mt-1 text-xs text-stone-500 lg:col-span-1 lg:col-start-3 lg:row-start-2 lg:-mt-2">
+                Up to {MAX_INCLUDED_GUESTS_PER_ROOM} included guests per room · double rooms 2,
+                couple rooms 3 (৳1,000 for the 3rd) · larger groups book multiple rooms
+              </p>
+
+              <div
+                className={`col-span-3 flex flex-col lg:col-span-1 lg:col-start-4 lg:row-start-1 ${
+                  compact ? 'lg:pt-7' : 'lg:pt-8'
+                }`}
+              >
                 <button
                   type="submit"
                   disabled={!datesValid}
@@ -532,7 +485,9 @@ const CheckAvailability = ({ compact = false }: CheckAvailabilityProps) => {
             transition={{ duration: 0.4 }}
             className="mt-8 sm:mt-10 scroll-mt-32"
           >
-            {availabilityError ? (
+            {searching ? (
+              <RoomSearchLoader compact={compact} />
+            ) : availabilityError ? (
               <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
                 <p className="text-red-800 font-medium mb-2">Availability unavailable</p>
                 <p className="text-sm text-red-700">{availabilityError}</p>

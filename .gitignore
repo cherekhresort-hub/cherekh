@@ -26,3 +26,6 @@ dist-ssr
 *.sln
 *.sw?
 
+
+# Original hero video master (too large for git); web copies live beside it
+public/video/cherekhVideo.mp4

@@ -24,13 +24,25 @@ window.addEventListener('pageshow', (event) => {
 
 dismissHeroSplashForRoute(window.location.pathname)
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const app = (
   <React.StrictMode>
     <AuthProvider>
       <SiteSettingsProvider>
         <App />
       </SiteSettingsProvider>
     </AuthProvider>
-  </React.StrictMode>,
+  </React.StrictMode>
 )
+
+const rootEl = document.getElementById('root')!
+const currentPath = window.location.pathname.replace(/\/+$/, '') || '/'
+
+// Build-time HTML is only reused for the exact route it was rendered for; the service worker
+// can serve another page's markup (or the empty shell) for any navigation.
+if (rootEl.dataset.prerendered === currentPath && rootEl.firstElementChild) {
+  ReactDOM.hydrateRoot(rootEl, app)
+} else {
+  rootEl.replaceChildren()
+  ReactDOM.createRoot(rootEl).render(app)
+}
 

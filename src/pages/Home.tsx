@@ -14,48 +14,35 @@ import HowToReachUs from '../components/HowToReachUs'
 import FaqSection from '../components/FaqSection'
 import { FAQ_HOMEPAGE_ITEMS } from '../data/faqCatalog'
 import { useRoomCardList } from '../hooks/useRoomCardList'
-import { useRoomSelection } from '../hooks/useRoomSelection'
 import { usePersistSelectedRooms, useBookingHref } from '../hooks/useBookSelectedRooms'
 
 const featuredRoomIds = ['206', '105', '103', '204']
 
+// Poster stills are the video's first frame; keep in sync with the preload and #hero-splash in index.html.
+const HERO_POSTER = '/video/cherekh-hero-poster-768w.webp'
+const HERO_POSTER_SRCSET = [480, 768, 1280]
+  .map((w) => `/video/cherekh-hero-poster-${w}w.webp ${w}w`)
+  .join(', ')
+
 const heroSlides = [
-  {
-    image: '/cherekhImages/homepageHero/Cover.jpg',
-    title: 'Cherekh Center',
-    subtitle: 'A quiet hill retreat surrounded by nature',
-  },
-  {
-    image: '/cherekhImages/homepageHero/Cover_2.jpg',
-    title: 'Rooms with a view',
-    subtitle: 'Comfortable stays surrounded by nature',
-  },
-  {
-    image: '/cherekhImages/homepageHero/Cover_3.jpg',
-    title: 'Comfort for every trip',
-    subtitle: 'Ideal for couples, families, and group getaways',
-  },
-  {
-    image: '/cherekhImages/homepageHero/Cover_4.jpg',
-    title: 'Stay close to local experiences',
-    subtitle: 'Dining, hill trails, and riverside moments in one place',
-  },
-  {
-    image: '/cherekhImages/homepageHero/Cover_5.jpg',
-    title: 'Wake up to hill light',
-    subtitle: 'Scenic mornings, fresh air, and restful stays',
-  },
-  {
-    image: '/cherekhImages/homepageHero/Cover_6.jpg',
-    title: 'Stay your way',
-    subtitle: 'Flexible room choices with direct online booking',
-  },
-  {
-    image: '/cherekhImages/homepageHero/Cover_7.jpg',
-    title: 'Moments worth sharing',
-    subtitle: 'Perfect for peaceful escapes and memorable trips',
-  },
-]
+  'A quiet hill retreat surrounded by nature',
+  'Comfortable stays surrounded by nature',
+  'Ideal for couples, families, and group getaways',
+  'Dining, hill trails, and riverside moments in one place',
+  'Scenic mornings, fresh air, and restful stays',
+  'Flexible room choices with direct online booking',
+  'Perfect for peaceful escapes and memorable trips',
+].map((subtitle) => ({
+  image: HERO_POSTER,
+  srcSet: HERO_POSTER_SRCSET,
+  title: 'Cherekh Center',
+  subtitle,
+}))
+
+const heroVideo = {
+  src: '/video/cherekh-hero-720.mp4',
+  mobileSrc: '/video/cherekh-hero-480.mp4',
+}
 
 const staggerContainer = {
   hidden: {},
@@ -81,14 +68,13 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 
 const Home = () => {
   const featuredRooms = useRoomCardList(featuredRoomIds)
-  const { toggle, isSelected } = useRoomSelection()
   const persistSelectedRooms = usePersistSelectedRooms()
   const bookingHref = useBookingHref()
 
   return (
     <div className="bg-resort-bg">
       {/* 1. Brand & first impression */}
-      <Hero compact slides={heroSlides} />
+      <Hero compact slides={heroSlides} video={heroVideo} />
 
       {/* 2. Booking intent: dates before the long scroll */}
       <CheckAvailability compact />
@@ -119,14 +105,7 @@ const Home = () => {
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mt-8">
             {featuredRooms.map((room) => (
-              <RoomCard
-                key={room.id}
-                {...room}
-                compact
-                selectable
-                selected={isSelected(room.id)}
-                onSelectToggle={toggle}
-              />
+              <RoomCard key={room.id} {...room} compact />
             ))}
           </div>
           <div className="mt-8 flex flex-wrap justify-center gap-3">

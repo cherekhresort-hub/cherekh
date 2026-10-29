@@ -11,7 +11,7 @@ import {
   formatCurrency,
   type Room,
 } from '../utils/rooms'
-import { addDaysToDateString, getTodayDate, toLocalDateString } from '../utils/dates'
+import { getTodayDate, toLocalDateString } from '../utils/dates'
 import {
   CONFERENCE_ROOM_ID,
   MAX_INCLUDED_GUESTS_PER_ROOM,
@@ -51,6 +51,8 @@ import {
   type RoomBookingLine,
 } from '../utils/bookingHelpers'
 import EventDatesPicker from '../components/EventDatesPicker'
+import StayDatesPicker from '../components/StayDatesPicker'
+import RoomSearchLoader from '../components/RoomSearchLoader'
 import RoomPriceDisplay from '../components/RoomPriceDisplay'
 import WhatsAppChat from '../components/WhatsAppChat'
 import {
@@ -174,17 +176,19 @@ const Booking = () => {
 
   const minCheckInDate = getTodayDate()
   const maxCheckInDate = getMaxDate()
-  const [minCheckOutDate, setMinCheckOutDate] = useState('')
-
+  const [checkingRooms, setCheckingRooms] = useState(false)
   useEffect(() => {
     setRoomOptions(toGuestRoomOptions(getRooms()))
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     const loadOptions = async () => {
       if (formData.checkIn && formData.checkOut && formData.checkOut > formData.checkIn) {
+        setCheckingRooms(true)
         try {
         const availableRooms = await getAvailableRooms(formData.checkIn, formData.checkOut)
+        if (cancelled) return
         setRoomOptions(toGuestRoomOptions(availableRooms))
         setRoomsError('')
 
@@ -198,16 +202,23 @@ const Booking = () => {
           })
         )
         } catch (e) {
+          if (cancelled) return
           if (e instanceof AvailabilityLoadError) {
             setRoomsError('Could not load room availability. Please refresh and try again.')
           }
+        } finally {
+          if (!cancelled) setCheckingRooms(false)
         }
       } else {
+        setCheckingRooms(false)
         setRoomOptions(toGuestRoomOptions(getRooms()))
         setRoomsError('')
       }
     }
     void loadOptions()
+    return () => {
+      cancelled = true
+    }
   }, [formData.checkIn, formData.checkOut])
 
   useEffect(() => {
@@ -306,8 +317,6 @@ const Booking = () => {
 
   useEffect(() => {
     if (formData.checkIn) {
-      setMinCheckOutDate(addDaysToDateString(formData.checkIn, 1))
-
       if (formData.checkOut && formData.checkOut <= formData.checkIn) {
         setFormData((prev) => ({ ...prev, checkOut: '' }))
         setDateErrors((prev) => ({
@@ -317,8 +326,6 @@ const Booking = () => {
       } else {
         setDateErrors((prev) => ({ ...prev, checkOut: '' }))
       }
-    } else {
-      setMinCheckOutDate('')
     }
   }, [formData.checkIn, formData.checkOut])
 
@@ -539,6 +546,9 @@ const Booking = () => {
         }))
         return
       }
+    } else if (!formData.checkIn) {
+      setDateErrors({ checkIn: 'Please select a check-in date', checkOut: '', eventDates: '' })
+      return
     } else if (formData.checkOut <= formData.checkIn) {
       setDateErrors({
         checkIn: '',
@@ -741,54 +751,24 @@ const Booking = () => {
                     error={dateErrors.eventDates}
                   />
                 ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-resort-heading mb-2">
-                    Check-in Date *
-                  </label>
-                  <input
-                    type="date"
-                    name="checkIn"
-                    value={formData.checkIn}
-                    onChange={handleChange}
-                    min={minCheckInDate}
-                    max={maxCheckInDate}
-                    required
-                    className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta ${
-                      dateErrors.checkIn ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                  <StayDatesPicker
+                    checkIn={formData.checkIn}
+                    checkOut={formData.checkOut}
+                    onChange={({ checkIn, checkOut }) => {
+                      setFormData((prev) => ({ ...prev, checkIn, checkOut }))
+                      setDateErrors((prev) => ({ ...prev, checkIn: '', checkOut: '' }))
+                    }}
+                    minDate={minCheckInDate}
+                    maxDate={maxCheckInDate}
+                    errors={dateErrors}
+                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                    labels={{ checkIn: 'Check-in Date *', checkOut: 'Check-out Date *' }}
+                    checkOutHint={
+                      formData.checkIn ? (
+                        <p className="mt-1 text-xs text-gray-500">Minimum stay: 1 night.</p>
+                      ) : null
+                    }
                   />
-                  {dateErrors.checkIn && (
-                    <p className="mt-1 text-sm text-red-600">{dateErrors.checkIn}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-resort-heading mb-2">
-                    Check-out Date *
-                  </label>
-                  <input
-                    type="date"
-                    name="checkOut"
-                    value={formData.checkOut}
-                    onChange={handleChange}
-                    min={minCheckOutDate || minCheckInDate}
-                    max={maxCheckInDate}
-                    disabled={!formData.checkIn}
-                    required
-                    className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-resort-cta focus:border-resort-cta ${
-                      dateErrors.checkOut ? 'border-red-500' : 'border-gray-300'
-                    } ${!formData.checkIn ? 'bg-sand-100 cursor-not-allowed' : ''}`}
-                  />
-                  {dateErrors.checkOut && (
-                    <p className="mt-1 text-sm text-red-600">{dateErrors.checkOut}</p>
-                  )}
-                  {formData.checkIn && !dateErrors.checkOut && (
-                    <p className="mt-1 text-xs text-gray-500">
-                      Minimum stay: 1 night.
-                    </p>
-                  )}
-                </div>
-              </div>
                 )}
               </section>
 
@@ -813,6 +793,8 @@ const Booking = () => {
                       ? 'Add at least one event date first.'
                       : 'Select check-in and check-out dates first.'}
                   </div>
+                ) : datesSelected && checkingRooms && !conferenceOnly ? (
+                  <RoomSearchLoader compact />
                 ) : datesSelected && roomOptions.length === 0 ? (
                   <div className="w-full p-4 border border-yellow-300 rounded-lg bg-yellow-50">
                     <p className="text-sm text-yellow-800">

@@ -72,9 +72,8 @@ const HomeGallery = () => {
                 <ResponsiveImage
                   {...heroImageSources(current.src, current.alt)}
                   className="w-full h-full object-cover"
-                  loading={index === 0 ? 'eager' : 'lazy'}
+                  loading="lazy"
                   decoding="async"
-                  fetchPriority={index === 0 ? 'high' : 'low'}
                 />
               </motion.div>
             </AnimatePresence>

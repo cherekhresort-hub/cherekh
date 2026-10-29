@@ -5,5 +5,6 @@ export const isSupabaseConfigured = (): boolean =>
       import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
   )
 
-export const isAuthRoute = (path = window.location.pathname): boolean =>
-  path.startsWith('/admin') || path === '/login'
+export const isAuthRoute = (
+  path = typeof window === 'undefined' ? '' : window.location.pathname
+): boolean => path.startsWith('/admin') || path === '/login'

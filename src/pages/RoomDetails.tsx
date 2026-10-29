@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import Button from '../components/Button'
 import RoomPriceDisplay from '../components/RoomPriceDisplay'
+import StayDatesPicker from '../components/StayDatesPicker'
 import { getRoomById, formatCurrency, getAvailableRooms } from '../utils/rooms'
 import { loadRoomRates, ROOM_RATES_CHANGED_EVENT } from '../lib/roomRatesDb'
 import {
@@ -11,7 +12,7 @@ import {
   getGuestPolicyLabel,
   calculateExtraGuestCountForParty,
 } from '../data/roomCatalog'
-import { addDaysToDateString, getTodayDate, toLocalDateString } from '../utils/dates'
+import { getTodayDate, toLocalDateString } from '../utils/dates'
 import { withRateLimit, RateLimitPresets } from '../utils/rateLimiter'
 import { validateFormSubmission, createProtectedFormData } from '../utils/csrf'
 
@@ -84,11 +85,6 @@ const RoomDetails = () => {
     const maxDate = new Date()
     maxDate.setFullYear(maxDate.getFullYear() + 1)
     return toLocalDateString(maxDate)
-  }
-
-  const getMinCheckOutDate = () => {
-    if (!bookingData.checkIn) return getMinCheckInDate()
-    return addDaysToDateString(bookingData.checkIn, 1)
   }
 
   const handleBookingChange = (
@@ -493,44 +489,21 @@ const RoomDetails = () => {
               {isBookableRoom ? (
                 <>
                   <div className="space-y-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium text-resort-heading mb-2">
-                        Check-in *
-                      </label>
-                      <input
-                        type="date"
-                        value={bookingData.checkIn}
-                        onChange={(e) => handleBookingChange('checkIn', e.target.value)}
-                        min={getMinCheckInDate()}
-                        max={getMaxCheckInDate()}
-                        required
-                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-resort-heading focus:border-transparent outline-none ${
-                          bookingErrors.checkIn ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      />
-                      {bookingErrors.checkIn && (
-                        <p className="mt-1 text-xs text-red-600">{bookingErrors.checkIn}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-resort-heading mb-2">
-                        Check-out *
-                      </label>
-                      <input
-                        type="date"
-                        value={bookingData.checkOut}
-                        onChange={(e) => handleBookingChange('checkOut', e.target.value)}
-                        min={getMinCheckOutDate()}
-                        disabled={!bookingData.checkIn}
-                        required
-                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-resort-heading focus:border-transparent outline-none ${
-                          bookingErrors.checkOut ? 'border-red-500' : 'border-gray-300'
-                        } ${!bookingData.checkIn ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                      />
-                      {bookingErrors.checkOut && (
-                        <p className="mt-1 text-xs text-red-600">{bookingErrors.checkOut}</p>
-                      )}
-                    </div>
+                    <StayDatesPicker
+                      checkIn={bookingData.checkIn}
+                      checkOut={bookingData.checkOut}
+                      onChange={({ checkIn, checkOut }) => {
+                        setBookingData((prev) => ({ ...prev, checkIn, checkOut }))
+                        setBookingErrors((prev) => ({ ...prev, checkIn: '', checkOut: '' }))
+                      }}
+                      minDate={getMinCheckInDate()}
+                      maxDate={getMaxCheckInDate()}
+                      errors={bookingErrors}
+                      months={1}
+                      className="space-y-4"
+                      fieldClassName="px-4 py-2"
+                      labels={{ checkIn: 'Check-in *', checkOut: 'Check-out *' }}
+                    />
                     <div>
                       <label className="block text-sm font-medium text-resort-heading mb-2">
                         Adults (12+) *
