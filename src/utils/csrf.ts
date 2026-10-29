@@ -107,29 +107,6 @@ const isValidOrigin = (): boolean => {
 }
 
 /**
- * Validate referrer header (for form submissions)
- */
-const validateReferrer = (): boolean => {
-  if (typeof window === 'undefined') return true
-
-  const referrer = document.referrer
-  const currentOrigin = window.location.origin
-
-  // Allow same-origin requests
-  if (referrer.startsWith(currentOrigin)) {
-    return true
-  }
-
-  // Allow empty referrer (direct navigation)
-  if (!referrer) {
-    return true
-  }
-
-  // Block cross-origin form submissions
-  return false
-}
-
-/**
  * Create a form with CSRF protection
  */
 export const createProtectedFormData = (formData: FormData | Record<string, any>): FormData | Record<string, any> => {
@@ -156,11 +133,8 @@ export const validateFormSubmission = (formData: FormData | Record<string, any>)
     return false
   }
 
-  // Check referrer
-  if (!validateReferrer()) {
-    console.error('Invalid referrer for form submission')
-    return false
-  }
+  // No document.referrer check: in this SPA it stays fixed to the page that first opened the
+  // site (Google, Facebook, WhatsApp…), so it rejected real visitors without stopping forged requests.
 
   // Check CSRF token
   let token: string | null = null
