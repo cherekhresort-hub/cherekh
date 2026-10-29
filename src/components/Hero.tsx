@@ -162,7 +162,7 @@ const HeroVideoLayer = ({ video, isMobile }: { video: HeroVideo; isMobile: boole
           ref={buttonRef}
           type="button"
           onClick={toggleSound}
-          className="absolute z-20 bottom-20 right-4 sm:bottom-24 sm:right-6 lg:right-8 inline-flex items-center gap-2 rounded-full bg-black/45 hover:bg-black/65 backdrop-blur-sm text-white text-xs sm:text-sm font-medium px-3.5 py-2 border border-white/25 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          className="absolute z-20 bottom-28 right-4 sm:bottom-24 sm:right-6 lg:right-8 inline-flex items-center gap-2 rounded-full bg-black/45 hover:bg-black/65 backdrop-blur-sm text-white text-xs sm:text-sm font-medium px-3.5 py-2 border border-white/25 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           aria-label={muted ? 'Turn video sound on' : 'Mute video'}
           aria-pressed={!muted}
         >
