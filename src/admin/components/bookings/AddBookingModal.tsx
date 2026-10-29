@@ -45,9 +45,9 @@ import {
   type RoomBookingLine,
 } from '../../../utils/bookingHelpers'
 import EventDatesPicker from '../../../components/EventDatesPicker'
+import StayDatesPicker, { type StayDates } from '../../../components/StayDatesPicker'
 import { formatBDT } from '../../utils/format'
 import { toISODate } from '../../utils/date'
-import { addDaysToDateString } from '../../../utils/dates'
 import { cn } from '../../utils/cn'
 
 const maxBookingDate = () => {
@@ -225,29 +225,11 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
   const updateGuest = <K extends keyof GuestForm>(key: K, value: GuestForm[K]) =>
     setGuest((prev) => ({ ...prev, [key]: value }))
 
-  const handleCheckInChange = (value: string) => {
+  const handleStayDatesChange = ({ checkIn, checkOut }: StayDates) => {
     setError(null)
     totalManuallyEdited.current = false
-    setGuest((prev) => {
-      const next = { ...prev, checkIn: value }
-      if (value && prev.checkOut && prev.checkOut <= value) {
-        next.checkOut = addDaysToDateString(value, 1)
-      }
-      return next
-    })
+    setGuest((prev) => ({ ...prev, checkIn, checkOut }))
   }
-
-  const handleCheckOutChange = (value: string) => {
-    if (guest.checkIn && value && value <= guest.checkIn) {
-      setError('Check-out must be after check-in.')
-      return
-    }
-    setError(null)
-    totalManuallyEdited.current = false
-    updateGuest('checkOut', value)
-  }
-
-  const minCheckOutDate = guest.checkIn ? addDaysToDateString(guest.checkIn, 1) : undefined
 
   const getOptionsForLine = (lineId: string) => {
     const taken = roomLines
@@ -556,26 +538,28 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
               />
             </div>
           ) : (
-            <>
-              <Field label="Check-in" required>
-                <Input
-                  type="date"
-                  value={guest.checkIn}
-                  onChange={(e) => handleCheckInChange(e.target.value)}
-                  max={maxBookingDate()}
-                />
-              </Field>
-              <Field label="Check-out" required>
-                <Input
-                  type="date"
-                  value={guest.checkOut}
-                  onChange={(e) => handleCheckOutChange(e.target.value)}
-                  min={minCheckOutDate}
-                  max={maxBookingDate()}
-                  disabled={!guest.checkIn}
-                />
-              </Field>
-            </>
+            <StayDatesPicker
+              checkIn={guest.checkIn}
+              checkOut={guest.checkOut}
+              onChange={handleStayDatesChange}
+              maxDate={maxBookingDate()}
+              narrowOnMobile
+              className="sm:col-span-2 grid grid-cols-2 gap-4"
+              labelClassName="block text-xs font-medium text-stone-600 mb-1.5"
+              fieldClassName="h-10 px-3.5 text-sm"
+              labels={{
+                checkIn: (
+                  <>
+                    Check-in<span className="text-red-500 ml-0.5">*</span>
+                  </>
+                ),
+                checkOut: (
+                  <>
+                    Check-out<span className="text-red-500 ml-0.5">*</span>
+                  </>
+                ),
+              }}
+            />
           )}
           <Field label="Booking status" required>
             <Select

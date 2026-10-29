@@ -11,7 +11,8 @@ export interface StayDates {
 
 interface StayDatesPickerProps extends StayDates {
   onChange: (next: StayDates) => void
-  minDate: string
+  /** Omit to allow past dates (admin back-dated bookings). */
+  minDate?: string
   maxDate: string
   errors?: Partial<Record<StayField, string>>
   /** Number of months shown side by side from the `sm` breakpoint up. */
@@ -79,7 +80,7 @@ const StayDatesPicker = ({
   const [activeField, setActive] = useState<StayField>('checkIn')
   // The parent may clear the dates while the calendar is open (form reset).
   const active: StayField = activeField === 'checkOut' && !checkIn ? 'checkIn' : activeField
-  const [viewMonth, setViewMonth] = useState(() => monthKey(checkIn || minDate))
+  const [viewMonth, setViewMonth] = useState(() => monthKey(checkIn || minDate || toLocalDateString(new Date())))
   const [hoverDate, setHoverDate] = useState('')
   const [focusDate, setFocusDate] = useState('')
 
@@ -91,7 +92,8 @@ const StayDatesPicker = ({
 
   const openFor = (field: StayField) => {
     const target: StayField = field === 'checkOut' && !checkIn ? 'checkIn' : field
-    const anchor = (target === 'checkOut' ? checkOut || checkIn : checkIn) || minDate
+    const anchor =
+      (target === 'checkOut' ? checkOut || checkIn : checkIn) || minDate || toLocalDateString(new Date())
     setActive(target)
     setViewMonth(monthKey(anchor))
     setFocusDate(anchor)
@@ -120,7 +122,7 @@ const StayDatesPicker = ({
     dialogRef.current?.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
   }, [open])
 
-  const isDisabled = (iso: string) => iso < minDate || iso > maxDate
+  const isDisabled = (iso: string) => (minDate !== undefined && iso < minDate) || iso > maxDate
 
   const select = (iso: string) => {
     if (isDisabled(iso)) return
@@ -156,7 +158,7 @@ const StayDatesPicker = ({
     () => Array.from({ length: months }, (_, i) => shiftMonth(viewMonth, i)),
     [viewMonth, months]
   )
-  const canGoBack = viewMonth > monthKey(minDate)
+  const canGoBack = minDate === undefined || viewMonth > monthKey(minDate)
   const canGoForward = shiftMonth(viewMonth, months - 1) < monthKey(maxDate)
   const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : 0
 
