@@ -89,3 +89,9 @@
   for = "/cherekhImages/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# Cached for a year: give replacement videos or posters a new file name.
+[[headers]]
+  for = "/video/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

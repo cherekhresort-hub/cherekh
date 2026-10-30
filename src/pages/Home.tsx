@@ -40,8 +40,8 @@ const heroSlides = [
 }))
 
 const heroVideo = {
-  src: '/video/cherekh-hero-720.mp4',
-  mobileSrc: '/video/cherekh-hero-480.mp4',
+  src: '/video/cherekh-hero-loop-720.mp4',
+  mobileSrc: '/video/cherekh-hero-loop-480.mp4',
 }
 
 const staggerContainer = {
