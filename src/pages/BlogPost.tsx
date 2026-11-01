@@ -2,6 +2,8 @@ import { Link, useParams } from 'react-router-dom'
 import { FaArrowLeft, FaCalendar, FaUser } from 'react-icons/fa'
 import { getBlogPostById } from '../data/blogPosts'
 import NotFound from './NotFound'
+import ResponsiveImage from '../components/ResponsiveImage'
+import { heroImageSources } from '../utils/responsiveImage'
 
 const BlogPost = () => {
   const { id } = useParams<{ id: string }>()
@@ -12,7 +14,11 @@ const BlogPost = () => {
   return (
     <article>
       <section className="relative h-72 md:h-96 flex items-end overflow-hidden">
-        <img src={post.image} alt={post.title} className="absolute inset-0 w-full h-full object-cover" />
+        <ResponsiveImage
+          {...heroImageSources(post.image, post.title)}
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 w-full">
           <Link

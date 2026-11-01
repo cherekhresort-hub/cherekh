@@ -90,6 +90,12 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# Cached for a year: give replacement logos or icons a new file name.
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 # Cached for a year: give replacement videos or posters a new file name.
 [[headers]]
   for = "/video/*"

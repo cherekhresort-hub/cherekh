@@ -14,6 +14,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { facilityCatalog, ROOM_BASE_AMENITIES, publicRoomCatalog } from '../data/roomCatalog'
+import ResponsiveImage from './ResponsiveImage'
+import { cardImageSources } from '../utils/responsiveImage'
 
 const amenityIcons: Record<(typeof ROOM_BASE_AMENITIES)[number], LucideIcon> = {
   'Complimentary Breakfast': Coffee,
@@ -131,11 +133,9 @@ const StayIncludesSection = () => {
                 className="group relative overflow-hidden rounded-xl border border-stone-200/80 bg-cream min-w-0"
               >
                 <div className="aspect-[4/3] sm:aspect-[16/9] overflow-hidden bg-stone-100">
-                  <img
-                    src={facility.images[0]}
-                    alt={facility.name}
+                  <ResponsiveImage
+                    {...cardImageSources(facility.images[0], facility.name)}
                     className="h-full w-full object-cover"
-                    loading="lazy"
                   />
                 </div>
                 <div className="p-2.5 sm:p-4">

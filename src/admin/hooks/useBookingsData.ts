@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import {
   applyBookingToCache,
@@ -39,15 +39,22 @@ const applyRealtimeChange = async (
   if (booking) applyBookingToCache(booking)
 }
 
-/** Fallback when Realtime is not delivering: re-read list rows while the tab is visible. */
+/**
+ * Fallback when Realtime is not delivering: re-read list rows while the tab is visible.
+ * Every read goes through the Netlify /sb proxy (billed requests + bandwidth), so poll
+ * quickly only while the Realtime channel is down.
+ */
 const BACKGROUND_REFRESH_MS = 15_000
+const LIVE_SAFETY_REFRESH_MS = 5 * 60_000
 const FOCUS_REFRESH_MIN_GAP_MS = 3_000
+const LIVE_FOCUS_REFRESH_MIN_GAP_MS = 60_000
 
 let channelSeq = 0
 
 export const useBookingsData = () => {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  const realtimeLive = useRef(false)
 
   const syncFromCache = useCallback(() => {
     setBookings(getBookings())
@@ -73,11 +80,17 @@ export const useBookingsData = () => {
     }
 
     const onFocus = () => {
-      if (Date.now() - lastRun < FOCUS_REFRESH_MIN_GAP_MS) return
+      const minGap = realtimeLive.current ? LIVE_FOCUS_REFRESH_MIN_GAP_MS : FOCUS_REFRESH_MIN_GAP_MS
+      if (Date.now() - lastRun < minGap) return
       void quietRefresh()
     }
 
-    const timer = window.setInterval(() => void quietRefresh(), BACKGROUND_REFRESH_MS)
+    const onTick = () => {
+      const gap = realtimeLive.current ? LIVE_SAFETY_REFRESH_MS : BACKGROUND_REFRESH_MS
+      if (Date.now() - lastRun >= gap - 1_000) void quietRefresh()
+    }
+
+    const timer = window.setInterval(onTick, BACKGROUND_REFRESH_MS)
     document.addEventListener('visibilitychange', onFocus)
     window.addEventListener('focus', onFocus)
     window.addEventListener('online', onFocus)
@@ -118,6 +131,7 @@ export const useBookingsData = () => {
       return () => window.removeEventListener('storage', onStorage)
     }
 
+    let hasSubscribed = false
     const channel = supabase
       .channel(`bookings-changes-${++channelSeq}`)
       .on(
@@ -129,9 +143,17 @@ export const useBookingsData = () => {
           )
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        const wasLive = realtimeLive.current
+        realtimeLive.current = status === 'SUBSCRIBED'
+        if (realtimeLive.current && !wasLive && hasSubscribed) {
+          void refreshBookingsList().then(syncFromCache, () => undefined)
+        }
+        if (realtimeLive.current) hasSubscribed = true
+      })
 
     return () => {
+      realtimeLive.current = false
       window.removeEventListener('storage', onStorage)
       void supabase.removeChannel(channel)
     }

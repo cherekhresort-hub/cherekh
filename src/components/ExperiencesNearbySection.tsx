@@ -2,6 +2,8 @@ import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Compass, MapPin, Users } from 'lucide-react'
 import { inHouseExperiences, thanchiVisitPlaces, type InHouseExperience } from '../data/experienceCatalog'
+import ResponsiveImage from './ResponsiveImage'
+import { cardImageSources, heroImageSources } from '../utils/responsiveImage'
 
 const planningPoints = [
   {
@@ -68,11 +70,9 @@ const ExperienceCard = ({
     className="group flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-stone-200/80 bg-cream"
   >
     <div className="aspect-[4/3] overflow-hidden bg-stone-100 sm:aspect-[16/10]">
-      <img
-        src={experience.image}
-        alt={experience.title}
+      <ResponsiveImage
+        {...cardImageSources(experience.image, experience.title)}
         className="h-full w-full object-cover"
-        loading="lazy"
       />
     </div>
     <div className="flex flex-1 flex-col p-2.5 sm:p-4">
@@ -129,11 +129,10 @@ const ExperiencesNearbySection = () => {
               viewport={{ once: true }}
               className="group relative min-h-[240px] overflow-hidden rounded-xl border border-stone-200/80 bg-stone-900 sm:min-h-[300px]"
             >
-              <img
-                src={featuredExperience.image}
-                alt={featuredExperience.title}
+              <ResponsiveImage
+                {...heroImageSources(featuredExperience.image, featuredExperience.title)}
+                sizes="(max-width: 1024px) 100vw, 640px"
                 className="absolute inset-0 h-full w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-[1.02]"
-                loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
               <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">
@@ -231,11 +230,9 @@ const ExperiencesNearbySection = () => {
                 className="group/visit flex min-w-0 flex-col overflow-hidden rounded-xl border border-stone-200/80 bg-cream shadow-sm transition-shadow duration-300 hover:shadow-md hover:shadow-stone-200/60"
               >
                 <div className="aspect-[4/3] overflow-hidden bg-stone-100">
-                  <img
-                    src={place.image}
-                    alt={place.name}
+                  <ResponsiveImage
+                    {...cardImageSources(place.image, place.name)}
                     className="h-full w-full object-cover transition-transform duration-500 group-hover/visit:scale-[1.03]"
-                    loading="lazy"
                   />
                 </div>
                 <div className="flex flex-1 flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-4">

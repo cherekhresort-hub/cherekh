@@ -5,6 +5,8 @@ import { Users, Phone, MessageCircle } from 'lucide-react'
 import Button from '../components/Button'
 import { getRoomById, formatCurrency } from '../utils/rooms'
 import { conferenceImages } from '../data/roomCatalog'
+import ResponsiveImage from '../components/ResponsiveImage'
+import { galleryThumbSources, heroImageSources } from '../utils/responsiveImage'
 import { useResortContact } from '../contexts/SiteSettingsProvider'
 
 const EVENT_TYPES = [
@@ -58,9 +60,9 @@ const ConferenceRoom = () => {
           >
             <div className="overflow-hidden rounded-2xl border border-stone-200/80 bg-cream shadow-sm">
               <div className="relative aspect-[16/10] w-full">
-                <img
-                  src={conferenceImages[selectedImage]}
-                  alt={`Conference Room, photo ${selectedImage + 1}`}
+                <ResponsiveImage
+                  {...heroImageSources(conferenceImages[selectedImage], `Conference Room, photo ${selectedImage + 1}`)}
+                  sizes="(max-width: 1024px) 100vw, 768px"
                   className="absolute inset-0 h-full w-full object-cover"
                   loading="eager"
                 />
@@ -80,11 +82,10 @@ const ConferenceRoom = () => {
                           : 'border-stone-200 hover:border-stone-300'
                       }`}
                     >
-                      <img
-                        src={image}
-                        alt=""
+                      <ResponsiveImage
+                        {...galleryThumbSources(image, '')}
+                        thumb
                         className="h-full w-full object-cover"
-                        loading="lazy"
                       />
                     </button>
                   ))}

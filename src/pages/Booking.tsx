@@ -67,6 +67,8 @@ import { getCSRFToken, validateFormSubmission, createProtectedFormData } from '.
 import { isValidEmail, normalizeEmail } from '../utils/validation'
 import { useResortContact } from '../contexts/SiteSettingsProvider'
 import { formatTime12h } from '../utils/contactFromSettings'
+import ResponsiveImage from '../components/ResponsiveImage'
+import { heroImageSources } from '../utils/responsiveImage'
 
 const toGuestRoomOptions = (rooms: Room[]): RoomOption[] =>
   rooms.filter((room) => isRoomBookableByGuests(room.id)).map(roomToOption)
@@ -690,9 +692,8 @@ const Booking = () => {
     <motion.div>
       <section className="relative h-72 md:h-80 flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <img
-            src="/cherekhImages/homepageHero/hero01.jpg"
-            alt="Book Your Stay"
+          <ResponsiveImage
+            {...heroImageSources('/cherekhImages/homepageHero/hero01.jpg', 'Book Your Stay')}
             className="w-full h-full object-cover"
             loading="eager"
           />

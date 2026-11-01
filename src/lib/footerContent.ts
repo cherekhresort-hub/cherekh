@@ -28,7 +28,7 @@ export type FooterContent = {
 
 export const buildFooterContent = (contact: ResortContact): FooterContent => ({
   logo: {
-    src: '/images/CherekhLogoFinal.svg',
+    src: '/images/cherekh-logo-256.webp',
     alt: contact.resortName,
     title: contact.resortName,
     href: '/',

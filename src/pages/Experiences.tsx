@@ -2,6 +2,8 @@ import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import Button from '../components/Button'
 import { inHouseExperiences, thanchiVisitPlaces } from '../data/experienceCatalog'
+import ResponsiveImage from '../components/ResponsiveImage'
+import { cardImageSources } from '../utils/responsiveImage'
 
 const cardReveal = {
   hidden: { opacity: 0, y: 12 },
@@ -92,9 +94,8 @@ const Experiences = () => {
                 >
                   <div className="flex h-full flex-col overflow-hidden rounded-xl border border-stone-200/80 bg-cream shadow-sm transition-all duration-300 sm:rounded-2xl group-hover/experience:border-resort-heading/20 group-hover/experience:shadow-lg group-hover/experience:shadow-resort-heading/5">
                     <div className="relative aspect-[4/3] overflow-hidden sm:aspect-auto sm:h-44">
-                      <img
-                        src={experience.image}
-                        alt={experience.title}
+                      <ResponsiveImage
+                        {...cardImageSources(experience.image, experience.title)}
                         className="h-full w-full object-cover transition-transform duration-500 group-hover/experience:scale-[1.03]"
                         loading={index === 0 ? 'eager' : 'lazy'}
                       />
@@ -160,9 +161,8 @@ const Experiences = () => {
                   className="group/visit flex min-w-0 flex-col overflow-hidden rounded-xl border border-stone-200/80 bg-cream shadow-sm transition-shadow duration-300 hover:shadow-md hover:shadow-stone-200/60 sm:rounded-2xl"
                 >
                   <div className="aspect-[4/3] overflow-hidden bg-stone-100 sm:aspect-[16/10]">
-                    <img
-                      src={place.image}
-                      alt={place.name}
+                    <ResponsiveImage
+                      {...cardImageSources(place.image, place.name)}
                       className="h-full w-full object-cover transition-transform duration-500 group-hover/visit:scale-[1.03]"
                       loading={index < 2 ? 'eager' : 'lazy'}
                     />

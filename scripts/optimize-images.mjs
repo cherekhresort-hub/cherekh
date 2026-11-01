@@ -40,15 +40,16 @@ function outputBase(relPath) {
   return path.join(OUTPUT_ROOT, parsed.dir, parsed.name)
 }
 
+/**
+ * Every width listed by src/utils/responsiveImage.ts must exist, even for small originals
+ * (files are capped at the original size), or the browser requests a missing srcset entry.
+ */
 function pickWidths(relPath, metaWidth) {
   const max = metaWidth ?? 1280
   if (relPath.includes('homepageHero')) {
-    return HERO_WIDTHS.filter((w) => w <= Math.max(max, 480))
+    return HERO_WIDTHS.filter((w) => w <= Math.max(max, 1024))
   }
-  if (relPath.includes('RoomPhotos') || relPath.includes('ExperiencePhotos')) {
-    return CARD_WIDTHS.filter((w) => w <= Math.max(max, 320))
-  }
-  return CARD_WIDTHS.filter((w) => w <= Math.max(max, 320))
+  return CARD_WIDTHS
 }
 
 async function ensureDir(filePath) {
@@ -75,7 +76,7 @@ async function optimizeFile(absPath) {
   }
 
   // Small thumbnails for gallery strip
-  if (rel.includes('homepageHero')) {
+  if (/homepageHero|RoomPhotos|RestaurantPhotos|ConferenceRoomPhotos/.test(rel)) {
     for (const width of THUMB_WIDTHS) {
       const outPath = `${base}-thumb-${width}w.webp`
       await ensureDir(outPath)

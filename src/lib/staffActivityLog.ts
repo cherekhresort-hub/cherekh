@@ -301,6 +301,41 @@ export const fetchStaffActivityLog = async (
     .slice(0, limit)
 }
 
+/**
+ * Unread entries among the latest `limit`, counted in the database so the nav badge
+ * doesn't download the log. RLS limits staff_activity_reads to the signed-in admin.
+ */
+export const fetchUnreadActivityCount = async (limit: number): Promise<number> => {
+  const fallback = async () =>
+    computeActivityCounts(await fetchStaffActivityLog({ limit })).unread
+
+  const supabase = isSupabaseConfigured() ? getSupabase() : null
+  if (!supabase) return fallback()
+
+  const { data: edge, error: edgeError } = await supabase
+    .from('staff_activity_log')
+    .select('created_at')
+    .order('created_at', { ascending: false })
+    .range(limit - 1, limit - 1)
+  if (edgeError) return fallback()
+
+  let query = supabase
+    .from('staff_activity_log')
+    .select('id, staff_activity_reads(activity_id)', { count: 'exact', head: true })
+    .is('staff_activity_reads', null)
+  const oldest = edge?.[0]?.created_at as string | undefined
+  if (oldest) query = query.gte('created_at', oldest)
+
+  const { count, error } = await query
+  if (error) return fallback()
+
+  const localReadIds = readLocalReadIds()
+  const localUnread = readLocal().filter(
+    (entry) => entry.id.startsWith('local-') && !localReadIds.has(entry.id)
+  ).length
+  return (count ?? 0) + localUnread
+}
+
 /** Staff who created bookings, from "New booking" log entries (admins only; RLS returns nothing for others). */
 export const fetchBookingCreatorsFromActivity = async (): Promise<
   Map<string, { email: string; role: StaffRole }>

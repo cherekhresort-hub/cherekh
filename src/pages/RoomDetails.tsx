@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import Button from '../components/Button'
 import RoomPriceDisplay from '../components/RoomPriceDisplay'
 import StayDatesPicker from '../components/StayDatesPicker'
+import ResponsiveImage from '../components/ResponsiveImage'
+import { cardImageSources, heroImageSources } from '../utils/responsiveImage'
 import { getRoomById, formatCurrency, getAvailableRooms } from '../utils/rooms'
 import { loadRoomRates, ROOM_RATES_CHANGED_EVENT } from '../lib/roomRatesDb'
 import {
@@ -240,9 +242,9 @@ const RoomDetails = () => {
     <div>
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-5 mb-8">
         <div className="relative h-96 md:h-[600px] rounded-2xl overflow-hidden">
-          <img
-            src={room.images[selectedImage]}
-            alt={room.name}
+          <ResponsiveImage
+            {...heroImageSources(room.images[selectedImage], room.name)}
+            sizes="(max-width: 1280px) 100vw, 1280px"
             className="w-full h-full object-cover"
             loading="eager"
           />
@@ -271,11 +273,10 @@ const RoomDetails = () => {
                   : 'border-transparent hover:border-gray-300'
               }`}
             >
-              <img
-                src={image}
-                alt={`${room.name} ${index + 1}`}
+              <ResponsiveImage
+                {...cardImageSources(image, `${room.name} ${index + 1}`)}
+                sizes="(max-width: 768px) 33vw, 200px"
                 className="w-full h-full object-cover"
-                loading="lazy"
               />
             </button>
           ))}

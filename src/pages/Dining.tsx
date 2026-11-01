@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { defaultMenuCategories, formatMenuPortion, formatMenuPrice, type MenuCategory } from '../data/menuCatalog'
 import { restaurantImages } from '../data/roomCatalog'
+import ResponsiveImage from '../components/ResponsiveImage'
+import { galleryThumbSources, heroImageSources } from '../utils/responsiveImage'
 import { loadRestaurantMenu, RESTAURANT_MENU_CHANGED_EVENT } from '../lib/restaurantMenuDb'
 
 /** Full restaurant menu service begins on this date (Asia/Dhaka). */
@@ -86,9 +88,9 @@ const Dining = () => {
           className="mx-auto mb-8 max-w-3xl overflow-hidden rounded-2xl border border-stone-200/80 bg-cream shadow-sm"
         >
           <div className="relative h-[13.2rem] w-full sm:h-[15.6rem] md:h-[16.8rem]">
-            <img
-              src={restaurantImages[selectedImage]}
-              alt={`Cherekh Restaurant, photo ${selectedImage + 1}`}
+            <ResponsiveImage
+              {...heroImageSources(restaurantImages[selectedImage], `Cherekh Restaurant, photo ${selectedImage + 1}`)}
+              sizes="(max-width: 768px) 100vw, 768px"
               className="absolute inset-0 h-full w-full object-cover"
               loading="eager"
             />
@@ -108,7 +110,7 @@ const Dining = () => {
                       : 'border-stone-200 hover:border-stone-300'
                   }`}
                 >
-                  <img src={image} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  <ResponsiveImage {...galleryThumbSources(image, '')} thumb className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>

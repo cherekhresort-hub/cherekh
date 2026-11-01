@@ -26,7 +26,7 @@ export const Sidebar = ({ activityUnreadCount = 0 }: SidebarProps) => {
       <div className="px-6 py-5 border-b border-stone-100 space-y-3">
         <div className="flex items-center gap-3 min-w-0">
           <img
-            src="/images/CherekhLogoFinal.svg"
+            src="/images/cherekh-logo-256.webp"
             alt="Cherekh Center"
             className="w-10 h-10 object-contain shrink-0"
           />

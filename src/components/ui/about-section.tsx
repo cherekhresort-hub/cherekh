@@ -5,6 +5,8 @@ import { VerticalCutReveal } from './vertical-cut-reveal'
 import { ArrowRight, MapPin } from 'lucide-react'
 import { FaFacebookF, FaInstagram, FaYoutube } from 'react-icons/fa'
 import { useResortContact } from '../../contexts/SiteSettingsProvider'
+import ResponsiveImage from '../ResponsiveImage'
+import { heroImageSources } from '../../utils/responsiveImage'
 
 export default function AboutSection() {
   const resortContact = useResortContact()
@@ -54,9 +56,9 @@ export default function AboutSection() {
             className="relative group"
           >
             <div className="h-[240px] w-full overflow-hidden rounded-3xl sm:h-[340px] lg:h-[420px]">
-              <img
-                src="/cherekhImages/homepageHero/Cover_4.jpg"
-                alt="Cherekh Center in Thanchi"
+              <ResponsiveImage
+                {...heroImageSources('/cherekhImages/homepageHero/Cover_4.jpg', 'Cherekh Center in Thanchi')}
+                sizes="(max-width: 1024px) 100vw, 1024px"
                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
             </div>

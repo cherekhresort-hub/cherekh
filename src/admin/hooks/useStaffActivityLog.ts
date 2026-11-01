@@ -3,6 +3,7 @@ import {
   computeActivityCounts,
   deleteActivityEntry,
   fetchStaffActivityLog,
+  fetchUnreadActivityCount,
   isStaffLoginEntry,
   markActivityAsRead,
   markAllActivityAsRead,
@@ -157,8 +158,7 @@ export const useActivityNavBadge = (enabled: boolean) => {
       return
     }
     try {
-      const rows = await fetchStaffActivityLog({ limit: FETCH_LIMIT })
-      setUnreadCount(computeActivityCounts(rows).unread)
+      setUnreadCount(await fetchUnreadActivityCount(FETCH_LIMIT))
     } catch {
       setUnreadCount(0)
     }

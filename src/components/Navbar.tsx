@@ -58,7 +58,7 @@ const Navbar = () => {
               aria-label="Cherekh Center Homepage"
             >
               <img
-                src="/images/CherekhLogoFinal.svg"
+                src="/images/cherekh-logo-256.webp"
                 alt="Cherekh Center Logo"
                 width={160}
                 height={80}
@@ -104,7 +104,7 @@ const Navbar = () => {
               aria-label="Cherekh Center Homepage"
             >
               <img
-                src="/images/CherekhLogoFinal.svg"
+                src="/images/cherekh-logo-256.webp"
                 alt="Cherekh Center Logo"
                 width={160}
                 height={80}

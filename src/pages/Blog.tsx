@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { FaCalendar, FaUser, FaArrowRight } from 'react-icons/fa'
 import { blogPosts } from '../data/blogPosts'
+import ResponsiveImage from '../components/ResponsiveImage'
+import { cardImageSources, heroImageSources } from '../utils/responsiveImage'
 
 const Blog = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -26,10 +28,10 @@ const Blog = () => {
       {/* Hero Section */}
       <section className="relative h-96 flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <img
-            src="/cherekhImages/homepageHero/hero01.jpg"
-            alt="Blog"
+          <ResponsiveImage
+            {...heroImageSources('/cherekhImages/homepageHero/hero01.jpg', 'Blog')}
             className="w-full h-full object-cover"
+            loading="eager"
           />
           <div className="absolute inset-0 bg-black/50"></div>
         </div>
@@ -73,9 +75,9 @@ const Blog = () => {
             >
               <div className="md:flex">
                 <div className="md:w-1/2">
-                  <img
-                    src={featuredPost.image}
-                    alt={featuredPost.title}
+                  <ResponsiveImage
+                    {...heroImageSources(featuredPost.image, featuredPost.title)}
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -128,9 +130,8 @@ const Blog = () => {
                 className="bg-cream rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
               >
                 <div className="relative h-48 overflow-hidden">
-                  <img
-                    src={post.image}
-                    alt={post.title}
+                  <ResponsiveImage
+                    {...cardImageSources(post.image, post.title)}
                     className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
                   />
                 </div>
