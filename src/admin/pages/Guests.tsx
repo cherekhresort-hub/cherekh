@@ -28,8 +28,9 @@ const Guests = () => {
 
   const guests = useMemo(
     () => getGuests(),
+    // getGuests() reads the bookings cache; `bookings` changes whenever that cache refreshes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bookings.length, overridesVersion]
+    [bookings, overridesVersion]
   )
 
   useEffect(() => {

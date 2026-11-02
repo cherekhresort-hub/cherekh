@@ -102,19 +102,27 @@ export const PaymentSection = ({ booking, onChanged, readOnly = false }: Payment
   const backfillAttempted = useRef<string | null>(null)
 
   useEffect(() => {
-    setTotalDraft(fin.subtotal)
     setEditingTotal(false)
     setEditingDiscount(false)
-    setDiscountType(booking.payment?.discount?.type ?? 'amount')
-    setDiscountValue(booking.payment?.discount?.value ?? 0)
-    setDiscountReason(booking.payment?.discount?.reason ?? '')
     setAmount(0)
     setReference('')
     setNotes('')
     setType('payment')
     setMethod('cash')
     setOpen(false)
-  }, [booking.id, fin.subtotal, booking.payment?.discount?.type, booking.payment?.discount?.value, booking.payment?.discount?.reason])
+  }, [booking.id])
+
+  // Saved total/discount can change from another device; refresh the drafts without closing open forms.
+  useEffect(() => {
+    if (!editingTotal) setTotalDraft(fin.subtotal)
+  }, [fin.subtotal, editingTotal])
+
+  useEffect(() => {
+    if (editingDiscount) return
+    setDiscountType(booking.payment?.discount?.type ?? 'amount')
+    setDiscountValue(booking.payment?.discount?.value ?? 0)
+    setDiscountReason(booking.payment?.discount?.reason ?? '')
+  }, [booking.payment?.discount?.type, booking.payment?.discount?.value, booking.payment?.discount?.reason, editingDiscount])
 
   useEffect(() => {
     if (fin.status === 'paid' && type === 'payment') {

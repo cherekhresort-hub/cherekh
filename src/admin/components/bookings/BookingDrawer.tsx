@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   CalendarDays,
@@ -88,6 +88,7 @@ export const BookingDrawer = ({
   const { canDelete, role, user } = useAuth()
   const [tab, setTab] = useState<TabKey>('overview')
   const [note, setNote] = useState('')
+  const shownDetailFor = useRef<string | null>(null)
 
   useEffect(() => {
     setNote('')
@@ -109,8 +110,12 @@ export const BookingDrawer = ({
 
   const detailReady = isBookingDetailLoaded(booking.id)
   const initialLoad = detailLoading && !detailReady
+  // A background refresh can mark a shown booking stale; keep its detail on screen
+  // (and any open forms mounted) while the fresh copy loads.
+  if (detailReady) shownDetailFor.current = booking.id
+  const keepShowing = shownDetailFor.current === booking.id
 
-  if (!detailReady || initialLoad) {
+  if (!keepShowing && (!detailReady || initialLoad)) {
     const failed = !detailLoading && !detailReady
     return (
       <Drawer open onClose={onClose} title={failed ? 'Could not load booking' : 'Loading booking'} width="lg">

@@ -119,7 +119,9 @@ const Bookings = () => {
       staleReloadFor.current = selected.id
       void reloadBookingDetail(selected.id)
         .then((full) => {
-          if (full) setSelected((current) => (current?.id === full.id ? full : current))
+          // On failure reload returns the list stub; keep the loaded detail rather than blank sections.
+          if (!full || !isBookingDetailLoaded(full.id)) return
+          setSelected((current) => (current?.id === full.id ? full : current))
         })
         .finally(() => {
           staleReloadFor.current = null

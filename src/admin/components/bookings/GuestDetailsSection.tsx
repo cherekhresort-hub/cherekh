@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Save,
@@ -87,12 +87,19 @@ export const GuestDetailsSection = ({ booking, onSaved, readOnly = false }: Gues
   const [phone, setPhone] = useState(booking.phone ?? '')
 
   useEffect(() => {
+    setEditing(false)
+    setOpenGuest(0)
+  }, [booking.id])
+
+  // Background refreshes hand over a new booking object; never overwrite an open form.
+  const syncedBooking = useRef(booking)
+  useEffect(() => {
+    if (editing || syncedBooking.current === booking) return
+    syncedBooking.current = booking
     setGuests(buildSlots(booking))
     setEmergency(getBookingGuestInfo(booking).emergencyContact ?? emptyEmergency())
     setPhone(booking.phone ?? '')
-    setEditing(false)
-    setOpenGuest(0)
-  }, [booking])
+  }, [booking, editing])
 
   const filledCount = useMemo(() => guests.filter(isGuestFilled).length, [guests])
   const hasAnyData = filledCount > 0 || isEmergencyFilled(emergency)
@@ -125,6 +132,7 @@ export const GuestDetailsSection = ({ booking, onSaved, readOnly = false }: Gues
         toast.error('Could not save guest details')
         return
       }
+      syncedBooking.current = booking
     } catch {
       toast.error('Could not save guest details', 'The change was not saved. Check your connection and try again.')
       return
