@@ -547,6 +547,7 @@ export const addBookingNote = async (
     title: 'Booking note added',
     message: `${bookingRef.name}: ${note.slice(0, 120)}${note.length > 120 ? '…' : ''}`,
     entityId: id,
+    metadata: { noteId: newNote.id },
   })
   return updated
 }
@@ -893,6 +894,7 @@ export const addBookingExtras = async (
     title: foodCount === extras.length ? 'Food billed to room' : 'Extra charge added',
     message: `${bookingRef.name}: ${extras.length} item${extras.length === 1 ? '' : 's'} · ${extras.reduce((sum, extra) => sum + extra.amount, 0)} BDT${mealLabel ? ` · ${mealLabel}` : ''}${datesLabel}`,
     entityId: id,
+    metadata: { extraIds: extras.slice(0, 30).map((extra) => extra.id) },
   })
   return next
 }
@@ -979,6 +981,7 @@ export const recordPaymentTransaction = async (
     title: 'Payment activity',
     message: `${bookingRef.name}: ${tx.type} ${tx.amount} BDT${tx.method ? ` via ${tx.method}` : ''}`,
     entityId: id,
+    metadata: { transactionId: tx.id },
   })
   return next
 }

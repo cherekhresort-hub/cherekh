@@ -64,8 +64,22 @@ import {
   getBookingEventDates,
 } from '../../../utils/bookingHelpers'
 import { cn } from '../../utils/cn'
+import { useFlashHighlight } from '../../hooks/useFlashHighlight'
+import {
+  BOOKING_HIGHLIGHT,
+  BOOKING_TAB_FALLBACK,
+  type BookingDrawerTab,
+} from '../../../lib/activityNavigation'
 
-type TabKey = 'overview' | 'payment' | 'bills' | 'guests' | 'notes'
+type TabKey = BookingDrawerTab
+
+/** Opens a tab and highlights rows when the drawer is reached from an activity link. */
+export type BookingDrawerFocus = {
+  bookingId: string
+  tab: TabKey
+  highlight: string[]
+  key: number
+}
 
 interface BookingDrawerProps {
   booking: Booking | null
@@ -74,6 +88,7 @@ interface BookingDrawerProps {
   onChanged: () => void
   onRetryLoad?: () => void | Promise<void>
   bookedBy?: BookingCreator
+  focus?: BookingDrawerFocus | null
 }
 
 export const BookingDrawer = ({
@@ -83,17 +98,36 @@ export const BookingDrawer = ({
   onChanged,
   onRetryLoad,
   bookedBy,
+  focus,
 }: BookingDrawerProps) => {
   const toast = useToast()
   const { canDelete, role, user } = useAuth()
   const [tab, setTab] = useState<TabKey>('overview')
   const [note, setNote] = useState('')
   const shownDetailFor = useRef<string | null>(null)
+  const focusTabApplied = useRef<number | null>(null)
+  const focusHighlighted = useRef<number | null>(null)
+  const { start: startHighlight, clear: clearHighlight } = useFlashHighlight()
+  const focusForBooking = focus && booking && focus.bookingId === booking.id ? focus : null
+  const detailLoaded = booking ? isBookingDetailLoaded(booking.id) : false
 
   useEffect(() => {
     setNote('')
     setTab('overview')
-  }, [booking?.id])
+    clearHighlight()
+  }, [booking?.id, clearHighlight])
+
+  useEffect(() => {
+    if (!focusForBooking || focusTabApplied.current === focusForBooking.key) return
+    focusTabApplied.current = focusForBooking.key
+    setTab(focusForBooking.tab)
+  }, [focusForBooking])
+
+  useEffect(() => {
+    if (!focusForBooking || !detailLoaded || focusHighlighted.current === focusForBooking.key) return
+    focusHighlighted.current = focusForBooking.key
+    startHighlight(focusForBooking.highlight, { fallback: BOOKING_TAB_FALLBACK[focusForBooking.tab] })
+  }, [focusForBooking, detailLoaded, startHighlight])
 
   const fin = useMemo(
     () => (booking ? computeBookingFinancials(booking) : null),
@@ -360,7 +394,9 @@ export const BookingDrawer = ({
             <ExtraChargesSection booking={booking} onChanged={onChanged} readOnly={billsReadOnly} />
           )}
           {tab === 'guests' && (
-            <GuestDetailsSection booking={booking} onSaved={onChanged} readOnly={readOnly} />
+            <div data-highlight-id={BOOKING_HIGHLIGHT.guests} className="rounded-2xl">
+              <GuestDetailsSection booking={booking} onSaved={onChanged} readOnly={readOnly} />
+            </div>
           )}
           {tab === 'notes' && (
             <NotesTab
@@ -427,7 +463,7 @@ const OverviewTab = ({
   readOnly,
 }: OverviewTabProps) => (
   <div className="space-y-4 text-sm">
-    <Card padded={false} className="p-4">
+    <Card padded={false} className="p-4" data-highlight-id={BOOKING_HIGHLIGHT.status}>
       <Field label="Booking status">
         <Select
           value={booking.status}
@@ -491,7 +527,7 @@ const OverviewTab = ({
         </ul>
       </Card>
 
-      <Card padded={false} className="p-5">
+      <Card padded={false} className="p-5" data-highlight-id={BOOKING_HIGHLIGHT.stay}>
         <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium mb-3 inline-flex items-center gap-1.5">
           <CalendarDays className="w-3 h-3" /> {isConferenceOnly ? 'Event' : 'Stay'}
         </h3>
@@ -580,7 +616,7 @@ interface NotesTabProps {
 }
 
 const NotesTab = ({ booking, note, onChangeNote, onSave, readOnly }: NotesTabProps) => (
-  <Card padded={false} className="p-5">
+  <Card padded={false} className="p-5" data-highlight-id={BOOKING_HIGHLIGHT.notes}>
     <div className="flex items-center justify-between mb-3">
       <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
         <MessageSquare className="w-3 h-3" /> Internal notes
@@ -597,7 +633,7 @@ const NotesTab = ({ booking, note, onChangeNote, onSave, readOnly }: NotesTabPro
         {[...booking.notes]
           .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
           .map((n) => (
-            <li key={n.id} className="bg-stone-50 rounded-xl px-3 py-2.5">
+            <li key={n.id} data-highlight-id={n.id} className="bg-stone-50 rounded-xl px-3 py-2.5">
               <div className="flex items-center justify-between text-xs text-stone-500">
                 <span className="font-medium text-forest-700">{n.createdBy}</span>
                 <span>{formatDateTime(n.createdAt)}</span>

@@ -10,6 +10,7 @@ import { useToast } from '../ui/Toast'
 import { notifyAdminOfManagerAction } from '../../../lib/adminNotifications'
 import { notifyHousekeepingChanged } from '../../../lib/housekeepingDb'
 import { useHousekeepingData } from '../../hooks/useHousekeepingData'
+import { useHighlightParam } from '../../hooks/useFlashHighlight'
 import { useStaffData } from '../../hooks/useStaffData'
 import { cn } from '../../utils/cn'
 import type { CleaningStatus, HousekeepingTask } from '../../types'
@@ -24,6 +25,7 @@ export const HousekeepingBoard = () => {
   const toast = useToast()
   const { staff } = useStaffData()
   const { tasks, loading, saveTask } = useHousekeepingData()
+  useHighlightParam(!loading)
   const housekeepingStaff = useMemo(
     () => staff.filter((s) => s.role.toLowerCase().includes('housekeep')),
     [staff]
@@ -161,6 +163,7 @@ export const HousekeepingBoard = () => {
                     >
                       <Card
                         draggable
+                        data-highlight-id={task.id}
                         onDragStart={onDragStart(task.id)}
                         className={cn(
                           'p-4 cursor-grab active:cursor-grabbing',

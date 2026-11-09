@@ -21,6 +21,7 @@ import { Badge } from '../ui/Badge'
 import { Field, Input, Select, Textarea } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../../contexts/AuthProvider'
+import { BOOKING_HIGHLIGHT } from '../../../lib/activityNavigation'
 import {
   backfillMissingPaymentTransactions,
   computeBookingFinancials,
@@ -290,7 +291,10 @@ export const PaymentSection = ({ booking, onChanged, readOnly = false }: Payment
         />
       </div>
 
-      <div className="rounded-2xl border border-stone-100 p-3 mb-4 bg-cream/40 space-y-3">
+      <div
+        data-highlight-id={BOOKING_HIGHLIGHT.paymentSummary}
+        className="rounded-2xl border border-stone-100 p-3 mb-4 bg-cream/40 space-y-3"
+      >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wide text-stone-500">Room rent</p>
@@ -634,12 +638,13 @@ export const PaymentSection = ({ booking, onChanged, readOnly = false }: Payment
       </AnimatePresence>
 
       {transactions.length > 0 ? (
-        <ul className="space-y-2">
+        <ul data-highlight-id={BOOKING_HIGHLIGHT.transactions} className="space-y-2 rounded-xl">
           {transactions.map((tx) => {
             const isRefund = tx.type === 'refund'
             return (
               <li
                 key={tx.id}
+                data-highlight-id={tx.id}
                 className="flex items-start gap-3 bg-cream/60 rounded-xl px-3 py-2.5"
               >
                 <span
@@ -698,7 +703,10 @@ export const PaymentSection = ({ booking, onChanged, readOnly = false }: Payment
           })}
         </ul>
       ) : (
-        <div className="rounded-xl bg-cream/60 border border-dashed border-stone-200 px-4 py-6 text-center">
+        <div
+          data-highlight-id={BOOKING_HIGHLIGHT.transactions}
+          className="rounded-xl bg-cream/60 border border-dashed border-stone-200 px-4 py-6 text-center"
+        >
           <Receipt className="w-5 h-5 text-stone-400 mx-auto mb-2" />
           <p className="text-xs text-stone-500">No transactions yet. Record a payment to get started.</p>
         </div>

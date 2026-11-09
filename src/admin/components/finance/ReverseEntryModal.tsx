@@ -32,6 +32,7 @@ export const ReverseEntryModal = ({ entry, onClose }: { entry: FinLedgerEntry | 
         title: `Reversed ${LEDGER_KIND_LABELS[entry.kind]}`,
         message: `${money(entry.amount)}: ${reason.trim()}`,
         entityId: entry.expenseId ?? undefined,
+        metadata: { kind: entry.kind },
       })
       toast.success(count > 1 ? 'Both sides of the transfer reversed' : 'Entry reversed')
       onClose()

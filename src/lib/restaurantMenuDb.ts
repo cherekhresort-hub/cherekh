@@ -1,4 +1,10 @@
-import { defaultMenuCategories, normalizeMenuPortion, type MenuCategory, type MenuItem } from '../data/menuCatalog'
+import {
+  defaultMenuCategories,
+  formatMenuPrice,
+  normalizeMenuPortion,
+  type MenuCategory,
+  type MenuItem,
+} from '../data/menuCatalog'
 import { notifyAdminOfManagerAction } from './adminNotifications'
 import { getSupabase, isSupabaseConfigured } from './supabase'
 
@@ -178,6 +184,75 @@ export const loadRestaurantMenu = async (): Promise<MenuCategory[]> => {
   return categories
 }
 
+const MAX_SUMMARY_PARTS = 3
+const MAX_HIGHLIGHT_IDS = 20
+
+type MenuChanges = { changedItemIds: string[]; removedNames: string[]; summary: string }
+
+/** What changed between the previously loaded menu and the one being published. */
+export const describeMenuChanges = (
+  before: MenuCategory[] | null,
+  after: MenuCategory[]
+): MenuChanges | null => {
+  if (!before) return null
+  const flatten = (categories: MenuCategory[]) =>
+    new Map(
+      categories.flatMap((category) =>
+        category.items.map((item) => [item.id, { item: normalizeItem(item), section: category.title }] as const)
+      )
+    )
+  const prev = flatten(before)
+  const next = flatten(after)
+  const parts: string[] = []
+  const changedItemIds: string[] = []
+  const removedNames: string[] = []
+
+  for (const [id, { item, section }] of next) {
+    const old = prev.get(id)
+    if (!old) {
+      changedItemIds.push(id)
+      parts.push(`Added ${item.name}`)
+      continue
+    }
+    const edits: string[] = []
+    if (old.item.name !== item.name) edits.push(`renamed from ${old.item.name}`)
+    if (old.item.price !== item.price) {
+      edits.push(`${formatMenuPrice(old.item.price)} → ${formatMenuPrice(item.price)}`)
+    }
+    if (old.item.portion !== item.portion) edits.push(`portion ${old.item.portion} → ${item.portion}`)
+    if (old.section !== section) edits.push(`moved to ${section}`)
+    if (edits.length > 0) {
+      changedItemIds.push(id)
+      parts.push(`${item.name} ${edits.join(', ')}`)
+    }
+  }
+  for (const [id, { item }] of prev) {
+    if (!next.has(id)) {
+      removedNames.push(item.name)
+      parts.push(`Removed ${item.name}`)
+    }
+  }
+
+  const shown = parts.slice(0, MAX_SUMMARY_PARTS).join(' · ')
+  const extra = parts.length - MAX_SUMMARY_PARTS
+  return {
+    changedItemIds: changedItemIds.slice(0, MAX_HIGHLIGHT_IDS),
+    removedNames,
+    summary: parts.length === 0 ? 'Menu order updated' : extra > 0 ? `${shown} · +${extra} more` : shown,
+  }
+}
+
+const notifyMenuUpdated = (changes: MenuChanges | null, fallback: string) =>
+  notifyAdminOfManagerAction({
+    category: 'system',
+    action: 'menu.updated',
+    title: 'Restaurant menu updated',
+    message: changes?.summary ?? fallback,
+    metadata: changes
+      ? { changedItemIds: changes.changedItemIds, removedNames: changes.removedNames }
+      : undefined,
+  })
+
 export const saveRestaurantMenu = async (categories: MenuCategory[]): Promise<boolean> => {
   const cleaned = categories
     .map((category) => ({
@@ -193,16 +268,15 @@ export const saveRestaurantMenu = async (categories: MenuCategory[]): Promise<bo
     }))
     .filter((category) => category.title.length > 0)
 
+  const changes = describeMenuChanges(readLocal(), cleaned)
   writeLocal(cleaned)
   dispatchMenuChange()
 
   if (!isSupabaseConfigured()) {
-    void notifyAdminOfManagerAction({
-      category: 'system',
-      action: 'menu.updated',
-      title: 'Restaurant menu updated',
-      message: `${cleaned.reduce((sum, cat) => sum + cat.items.length, 0)} items saved locally`,
-    })
+    void notifyMenuUpdated(
+      changes,
+      `${cleaned.reduce((sum, cat) => sum + cat.items.length, 0)} items saved locally`
+    )
     return true
   }
 
@@ -267,12 +341,7 @@ export const saveRestaurantMenu = async (categories: MenuCategory[]): Promise<bo
         )
         if (!retry.error) {
           console.warn('[Menu] portion column missing; run 036_restaurant_menu_portion.sql')
-          void notifyAdminOfManagerAction({
-            category: 'system',
-            action: 'menu.updated',
-            title: 'Restaurant menu updated',
-            message: `${records.length} items published to the dining page`,
-          })
+          void notifyMenuUpdated(changes, `${records.length} items published to the dining page`)
           return true
         }
       }
@@ -281,12 +350,7 @@ export const saveRestaurantMenu = async (categories: MenuCategory[]): Promise<bo
     }
   }
 
-  void notifyAdminOfManagerAction({
-    category: 'system',
-    action: 'menu.updated',
-    title: 'Restaurant menu updated',
-    message: `${records.length} items published to the dining page`,
-  })
+  void notifyMenuUpdated(changes, `${records.length} items published to the dining page`)
 
   return true
 }

@@ -73,6 +73,7 @@ export const ChargeList = ({
       {extras.map((extra) => (
         <li
           key={extra.id}
+          data-highlight-id={extra.id}
           className="flex items-center justify-between gap-2 rounded-xl bg-stone-50 border border-stone-100 px-3 py-2 text-sm"
         >
           <div className="min-w-0">

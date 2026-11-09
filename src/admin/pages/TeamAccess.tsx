@@ -25,6 +25,7 @@ import {
 import { logStaffActivity } from '../../lib/staffActivityLog'
 import { MAX_STAFF_NAME_LENGTH } from '../../lib/staffNames'
 import { confirmDelete } from '../utils/confirmDelete'
+import { useHighlightParam } from '../hooks/useFlashHighlight'
 
 type FormMode = 'create' | 'edit'
 
@@ -61,6 +62,7 @@ const TeamAccess = () => {
   } = useAuth()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
+  useHighlightParam(!loading)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
@@ -150,6 +152,7 @@ const TeamAccess = () => {
           action: 'team.member_created',
           title: 'Team member added',
           message: `${name ? `${name} (${email})` : email} · ${formatRoleLabel(form.role)}`,
+          entityId: email,
         })
         toast.success('Team member added', `${name || email} can now sign in.`)
       } else if (editingMember) {
@@ -170,6 +173,7 @@ const TeamAccess = () => {
           category: 'team',
           action: 'team.member_updated',
           title: 'Team member updated',
+          entityId: editingMember.email,
           message: `${editingMember.email}${nameChanged ? ` · name → ${name || '(cleared)'}` : ''}${form.role !== editingMember.role ? ` · role → ${formatRoleLabel(form.role)}` : ''}${form.password.trim() ? ' · password reset' : ''}`,
         })
         toast.success('Team member updated')
@@ -204,6 +208,7 @@ const TeamAccess = () => {
         action: 'team.member_deleted',
         title: 'Team member removed',
         message: `${member.email} · ${formatRoleLabel(member.role)}`,
+        entityId: member.email,
       })
       toast.success('Team member removed')
       await loadMembers()
@@ -293,7 +298,7 @@ const TeamAccess = () => {
             {filtered.map((member) => {
               const isSelf = user?.email?.toLowerCase() === member.email.toLowerCase()
               return (
-                <Card key={member.email} className="p-4 sm:p-5">
+                <Card key={member.email} data-highlight-id={member.email} className="p-4 sm:p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">

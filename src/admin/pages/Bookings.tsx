@@ -8,7 +8,7 @@ import { Button } from '../components/ui/Button'
 import { Select } from '../components/ui/Input'
 import { BookingTable } from '../components/bookings/BookingTable'
 import { BookingFiltersBar } from '../components/bookings/BookingFiltersBar'
-import { BookingDrawer } from '../components/bookings/BookingDrawer'
+import { BookingDrawer, type BookingDrawerFocus } from '../components/bookings/BookingDrawer'
 import { AddBookingModal } from '../components/bookings/AddBookingModal'
 import { useBookingsData } from '../hooks/useBookingsData'
 import { useToast } from '../components/ui/Toast'
@@ -22,6 +22,12 @@ import {
   reloadBookingDetail,
 } from '../../lib/bookingsStore'
 import type { Booking } from '../../utils/bookings'
+import {
+  BOOKING_DRAWER_TABS,
+  BOOKING_TAB_PARAM,
+  HIGHLIGHT_PARAM,
+  type BookingDrawerTab,
+} from '../../lib/activityNavigation'
 import { roomCatalog, facilityCatalog } from '../../data/roomCatalog'
 import { bookingHasRoomType } from '../../utils/bookings'
 import { businessToday } from '../../lib/finance/dates'
@@ -88,6 +94,7 @@ const Bookings = () => {
   const creatorFor = useBookingCreatorLookup(isAdmin)
   const [searchParams, setSearchParams] = useSearchParams()
   const deepLinkHandled = useRef<string | null>(null)
+  const [drawerFocus, setDrawerFocus] = useState<BookingDrawerFocus | null>(null)
 
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
@@ -201,17 +208,28 @@ const Bookings = () => {
 
   useEffect(() => {
     const id = searchParams.get('id')
-    if (!id || bookings.length === 0) return
-    if (deepLinkHandled.current === id) return
+    if (!id) {
+      deepLinkHandled.current = null
+      return
+    }
+    if (bookings.length === 0) return
+    const linkKey = searchParams.toString()
+    if (deepLinkHandled.current === linkKey) return
 
     const booking = bookings.find((b) => b.id === id)
     if (!booking) return
 
-    deepLinkHandled.current = id
+    deepLinkHandled.current = linkKey
+    const tabParam = searchParams.get(BOOKING_TAB_PARAM) as BookingDrawerTab | null
+    const tab = tabParam && BOOKING_DRAWER_TABS.includes(tabParam) ? tabParam : 'overview'
+    const highlight = (searchParams.get(HIGHLIGHT_PARAM) ?? '').split(',').filter(Boolean)
+    setDrawerFocus({ bookingId: id, tab, highlight, key: Date.now() })
     void openBooking(booking)
     setSearchParams(
       (params) => {
         params.delete('id')
+        params.delete(BOOKING_TAB_PARAM)
+        params.delete(HIGHLIGHT_PARAM)
         return params
       },
       { replace: true }
@@ -379,6 +397,7 @@ const Bookings = () => {
         onChanged={handleBookingChanged}
         onRetryLoad={retryBookingDetail}
         bookedBy={selected ? creatorFor(selected) : undefined}
+        focus={drawerFocus}
       />
 
       <AddBookingModal

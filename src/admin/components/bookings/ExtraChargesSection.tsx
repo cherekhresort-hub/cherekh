@@ -5,6 +5,7 @@ import { Card } from '../ui/Card'
 import { Input, Select } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../../contexts/AuthProvider'
+import { BOOKING_HIGHLIGHT } from '../../../lib/activityNavigation'
 import {
   addBookingExtra,
   extraLineTotal,
@@ -112,7 +113,9 @@ export const ExtraChargesSection = ({ booking, onChanged, readOnly = false }: Ex
 
         {!readOnly && <FoodBillComposer booking={booking} rooms={rooms} onAdded={onChanged} />}
 
-        <FoodBillList extras={food} multiRoom={multiRoom} onRemove={readOnly ? undefined : remove} />
+        <div data-highlight-id={BOOKING_HIGHLIGHT.bills} className="rounded-xl">
+          <FoodBillList extras={food} multiRoom={multiRoom} onRemove={readOnly ? undefined : remove} />
+        </div>
       </Card>
 
       <Card padded={false} className="p-5 space-y-3">

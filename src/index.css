@@ -227,3 +227,14 @@ button:disabled:hover * {
   cursor: not-allowed !important;
 }
 
+/* Admin activity deep links (useFlashHighlight) */
+[data-highlight-id] {
+  transition: background-color 0.7s ease, box-shadow 0.7s ease;
+  scroll-margin: 1rem;
+}
+
+[data-highlight-id][data-flash='on'] {
+  background-color: #fffbeb !important;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #fbbf24 !important;
+}
+

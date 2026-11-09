@@ -1,5 +1,17 @@
-import { useEffect, useState, type DragEvent } from 'react'
-import { GripVertical, Plus, Save, Trash2, UtensilsCrossed } from 'lucide-react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  List,
+  Plus,
+  Save,
+  Trash2,
+  UtensilsCrossed,
+  X,
+} from 'lucide-react'
 import { TopBar } from '../components/layout/TopBar'
 import { Card, CardDescription, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -20,6 +32,8 @@ import {
   saveRestaurantMenu,
   slugifyCategoryId,
 } from '../../lib/restaurantMenuDb'
+import { HIGHLIGHT_PARAM } from '../../lib/activityNavigation'
+import { useFlashHighlight } from '../hooks/useFlashHighlight'
 import { confirmDelete } from '../utils/confirmDelete'
 import { cn } from '../utils/cn'
 
@@ -61,12 +75,89 @@ const RestaurantMenu = () => {
   const [newCategoryTitle, setNewCategoryTitle] = useState('')
   const [dragging, setDragging] = useState<DragPayload | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [changedIds, setChangedIds] = useState<string[]>([])
+  const [seen, setSeen] = useState<Set<string>>(() => new Set())
+  const [activeChangeId, setActiveChangeId] = useState<string | null>(null)
+  const [changesOpen, setChangesOpen] = useState(false)
+  const changesNavRef = useRef<HTMLDivElement>(null)
+  const flash = useFlashHighlight({
+    onVisible: setActiveChangeId,
+    onExpire: (id) => setSeen((prev) => new Set(prev).add(id)),
+  })
 
   useEffect(() => {
     void loadRestaurantMenu()
       .then((loaded) => setCategories(cloneMenu(loaded)))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!changesOpen) return
+    const close = (event: PointerEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent ? event.key === 'Escape' : !changesNavRef.current?.contains(event.target as Node)) {
+        setChangesOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('pointerdown', close)
+      document.removeEventListener('keydown', close)
+    }
+  }, [changesOpen])
+
+  const changedSet = new Set(changedIds)
+  const changedItems = categories.flatMap((category) =>
+    category.items.filter((item) => changedSet.has(item.id)).map((item) => ({ item, categoryTitle: category.title }))
+  )
+  const activeChangeIndex = changedItems.findIndex(({ item }) => item.id === activeChangeId)
+
+  const jumpToChange = (id: string) => {
+    setActiveChangeId(id)
+    flash.flash(id)
+  }
+
+  const stepChange = (direction: 1 | -1) => {
+    const count = changedItems.length
+    if (count === 0) return
+    const from = activeChangeIndex === -1 ? (direction === 1 ? -1 : 0) : activeChangeIndex
+    jumpToChange(changedItems[(from + direction + count) % count].item.id)
+  }
+
+  const dismissChanges = () => {
+    flash.clear()
+    setChangedIds([])
+    setSeen(new Set())
+    setActiveChangeId(null)
+    setChangesOpen(false)
+  }
+
+  // Activity links pass ?highlight=id1,id2 for the items a menu update changed.
+  useEffect(() => {
+    if (loading) return
+    const raw = searchParams.get(HIGHLIGHT_PARAM)
+    if (!raw) return
+    setSearchParams(
+      (params) => {
+        params.delete(HIGHLIGHT_PARAM)
+        return params
+      },
+      { replace: true }
+    )
+    const wanted = new Set(raw.split(',').filter(Boolean))
+    const present = categories.flatMap((category) => category.items).filter((item) => wanted.has(item.id))
+    if (present.length === 0) {
+      toast.info('Those menu items have since been changed or removed')
+      return
+    }
+    const ids = present.map((item) => item.id)
+    setChangedIds(ids)
+    setSeen(new Set())
+    setActiveChangeId(ids[0])
+    flash.start(ids)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, searchParams])
 
   const updateCategoryTitle = (categoryId: string, title: string) => {
     setCategories((prev) =>
@@ -365,6 +456,98 @@ const RestaurantMenu = () => {
           </div>
         </Card>
       </main>
+
+      {changedItems.length > 0 && (
+        <div className="fixed inset-x-0 bottom-36 lg:bottom-6 z-40 flex justify-center px-4 pointer-events-none">
+          <div ref={changesNavRef} className="relative pointer-events-auto max-w-full">
+            {changesOpen && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-stone-200 bg-white shadow-pop overflow-hidden">
+                <p className="px-4 pt-3 pb-2 text-[11px] uppercase tracking-wide text-stone-400">
+                  Changed in last update
+                </p>
+                <ul className="max-h-64 overflow-y-auto pb-1.5">
+                  {changedItems.map(({ item, categoryTitle }, index) => {
+                    const glowing = flash.active.has(item.id)
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            jumpToChange(item.id)
+                            setChangesOpen(false)
+                          }}
+                          className={cn(
+                            'w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-stone-50',
+                            index === activeChangeIndex && 'bg-amber-50/70'
+                          )}
+                        >
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                            {glowing ? (
+                              <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
+                            ) : seen.has(item.id) ? (
+                              <Check className="w-4 h-4 text-forest-600" />
+                            ) : (
+                              <span className="h-2.5 w-2.5 rounded-full bg-stone-300" />
+                            )}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm text-stone-800">
+                              {item.name.trim() || 'Untitled item'}
+                            </span>
+                            <span className="block truncate text-xs text-stone-500">
+                              {categoryTitle} · {normalizeMenuPortion(item.portion)} · {formatMenuPrice(item.price)}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-50 p-1 shadow-pop text-sm text-amber-900">
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Previous changed item"
+                disabled={changedItems.length < 2}
+                onClick={() => stepChange(-1)}
+              >
+                <ChevronUp className="w-4 h-4" />
+              </Button>
+              <button
+                type="button"
+                aria-expanded={changesOpen}
+                onClick={() => setChangesOpen((open) => !open)}
+                className="flex min-w-0 items-center gap-2 rounded-full px-2 py-1.5 hover:bg-amber-100"
+              >
+                <span className="shrink-0 tabular-nums font-medium">
+                  {activeChangeIndex === -1 ? changedItems.length : `${activeChangeIndex + 1}/${changedItems.length}`}
+                </span>
+                <span className="truncate max-w-[9rem] sm:max-w-[14rem]">
+                  {activeChangeIndex === -1
+                    ? `changed item${changedItems.length === 1 ? '' : 's'}`
+                    : changedItems[activeChangeIndex].item.name.trim() || 'Untitled item'}
+                </span>
+                <List className="w-3.5 h-3.5 shrink-0 opacity-60" />
+              </button>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Next changed item"
+                disabled={changedItems.length < 2}
+                onClick={() => stepChange(1)}
+              >
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+              <Button size="icon" variant="ghost" aria-label="Close changed items" onClick={dismissChanges}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
@@ -391,6 +574,7 @@ const MenuItemRow = ({
   onRemove: () => void
 }) => (
   <div
+    data-highlight-id={item.id}
     onDragOver={onDragOver}
     onDrop={onDrop}
     className={cn('relative rounded-xl', isDragging && 'opacity-40')}
