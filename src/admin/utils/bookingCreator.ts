@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchBookingCreatorsFromActivity, roleLabelForActivity } from '../../lib/staffActivityLog'
-import { fetchStaffDirectory } from '../../lib/staffNames'
+import { useStaffDirectory } from '../hooks/useStaffDirectory'
 import type { Booking, BookingCreator } from '../../utils/bookings'
 
 export type BookingCreatorLookup = (booking: Booking) => BookingCreator | undefined
@@ -25,17 +25,7 @@ export const bookingCreatorLabel = (creator: BookingCreator | undefined): string
  */
 export const useBookingCreatorLookup = (isAdmin: boolean): BookingCreatorLookup => {
   const [fromActivity, setFromActivity] = useState<Map<string, BookingCreator>>(new Map())
-  const [names, setNames] = useState<Map<string, string>>(new Map())
-
-  useEffect(() => {
-    let cancelled = false
-    void fetchStaffDirectory().then((directory) => {
-      if (!cancelled) setNames(directory)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const names = useStaffDirectory()
 
   useEffect(() => {
     if (!isAdmin) return

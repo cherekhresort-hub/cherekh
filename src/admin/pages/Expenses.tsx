@@ -9,6 +9,7 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { useAuth } from '../../contexts/AuthProvider'
 import { useFinanceData } from '../hooks/useFinanceData'
 import { useStaffData } from '../hooks/useStaffData'
+import { staffNameForEmail, useStaffDirectory } from '../hooks/useStaffDirectory'
 import {
   ApprovalBadge,
   EmptyRow,
@@ -43,6 +44,7 @@ const Expenses = () => {
   const { data, available, error, loading } = useFinanceData()
   const { staff } = useStaffData()
   const lookups = useFinanceLookups(data)
+  const staffDirectory = useStaffDirectory()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = (searchParams.get('tab') as Tab) || 'register'
   const setTab = (t: Tab) =>
@@ -121,7 +123,14 @@ const Expenses = () => {
             {loading && data.expenses.length === 0 ? (
               <div className="rounded-2xl border border-stone-200 bg-white/80 px-6 py-12 text-center text-sm text-stone-500">Loading finance records…</div>
             ) : tab === 'register' ? (
-              <ExpenseRegister index={index} lookups={lookups} data={data} onOpen={setSelectedId} onAdd={() => setFormMode('quick')} />
+              <ExpenseRegister
+                index={index}
+                lookups={lookups}
+                data={data}
+                staffDirectory={staffDirectory}
+                onOpen={setSelectedId}
+                onAdd={() => setFormMode('quick')}
+              />
             ) : tab === 'suppliers' ? (
               <SuppliersPanel data={data} index={index} onOpenExpense={setSelectedId} />
             ) : tab === 'deposits' ? (
@@ -149,6 +158,7 @@ const Expenses = () => {
         data={data}
         lookups={lookups}
         deposits={deposits}
+        staffDirectory={staffDirectory}
         onClose={() => setSelectedId(null)}
       />
     </>
@@ -163,11 +173,12 @@ interface RegisterProps {
   index: Map<string, ExpenseFigures>
   lookups: ReturnType<typeof useFinanceLookups>
   data: ReturnType<typeof useFinanceData>['data']
+  staffDirectory: Map<string, string>
   onOpen: (id: string) => void
   onAdd: () => void
 }
 
-const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps) => {
+const ExpenseRegister = ({ index, lookups, data, staffDirectory, onOpen, onAdd }: RegisterProps) => {
   const [search, setSearch] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -176,6 +187,7 @@ const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps)
   const [supplier, setSupplier] = useState('all')
   const [payStatus, setPayStatus] = useState<'all' | PaymentStatus | 'owed'>('all')
   const [approval, setApproval] = useState<'all' | ApprovalStatus>('all')
+  const [addedBy, setAddedBy] = useState('all')
   const [showVoid, setShowVoid] = useState(false)
   const [sort, setSort] = useState<SortKey>('date_desc')
 
@@ -191,6 +203,17 @@ const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps)
   }, [data.ledger])
 
   const supplierLabel = (f: ExpenseFigures) => (f.expense.supplierId && lookups.supplier.get(f.expense.supplierId)) || f.expense.payeeName || '—'
+  const addedByLabel = (f: ExpenseFigures) => staffNameForEmail(staffDirectory, f.expense.createdBy) ?? '—'
+  const creatorKey = (f: ExpenseFigures) => f.expense.createdBy?.trim().toLowerCase() ?? ''
+  const creators = useMemo(() => {
+    const emails = new Map<string, string>()
+    index.forEach((f) => {
+      const key = creatorKey(f)
+      if (key) emails.set(key, staffNameForEmail(staffDirectory, key) ?? key)
+    })
+    return [...emails].sort((a, b) => a[1].localeCompare(b[1]))
+  }, [index, staffDirectory])
+
   const categorySummary = (f: ExpenseFigures) => {
     const tops = [...new Set(f.lines.map((l) => lookups.categories.get(l.categoryId)?.parentId ?? l.categoryId))]
     return tops.length === 1 ? lookups.categoryLabel(f.lines[0]?.categoryId) : `${tops.length} categories`
@@ -206,10 +229,11 @@ const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps)
       if (department !== 'all' && e.departmentId !== department) return false
       if (supplier !== 'all' && e.supplierId !== supplier) return false
       if (approval !== 'all' && e.approvalStatus !== approval) return false
+      if (addedBy !== 'all' && creatorKey(f) !== addedBy) return false
       if (payStatus === 'owed' ? f.reimbursementOutstanding <= 0.005 : payStatus !== 'all' && f.paymentStatus !== payStatus) return false
       if (category !== 'all' && !f.lines.some((l) => l.categoryId === category || lookups.categories.get(l.categoryId)?.parentId === category)) return false
       if (q) {
-        const hay = [e.code, e.title, e.description, e.payeeName, e.employeeName, e.notes, e.tags.join(' '), supplierLabel(f), ...f.lines.map((l) => l.description)]
+        const hay = [e.code, e.title, e.description, e.payeeName, e.employeeName, e.notes, e.tags.join(' '), supplierLabel(f), e.createdBy, addedByLabel(f), ...f.lines.map((l) => l.description)]
           .join(' ')
           .toLowerCase()
         if (!hay.includes(q)) return false
@@ -224,7 +248,7 @@ const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps)
     }
     return list.sort(sorters[sort])
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, search, from, to, category, department, supplier, payStatus, approval, showVoid, sort, lookups])
+  }, [index, search, from, to, category, department, supplier, payStatus, approval, addedBy, showVoid, sort, lookups, staffDirectory])
 
   const paged = usePaged(rows, 25)
   const totals = rows.reduce(
@@ -254,6 +278,7 @@ const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps)
     { header: 'Paid by', value: (f) => (f.expense.paidByType === 'employee' ? `Employee: ${f.expense.employeeName ?? ''}` : 'Company') },
     { header: 'Approval', value: (f) => APPROVAL_LABELS[f.expense.approvalStatus] },
     { header: 'Status', value: (f) => f.expense.status },
+    { header: 'Added by', value: (f) => (f.expense.createdBy ? `${addedByLabel(f)} (${f.expense.createdBy})` : ''), width: 30 },
   ]
 
   const filterLabels = {
@@ -265,6 +290,7 @@ const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps)
     Supplier: supplier !== 'all' ? lookups.supplier.get(supplier) : undefined,
     'Payment status': payStatus !== 'all' ? payStatus : undefined,
     Approval: approval !== 'all' ? approval : undefined,
+    'Added by': addedBy !== 'all' ? creators.find(([email]) => email === addedBy)?.[1] : undefined,
     'Including void': showVoid ? 'yes' : undefined,
   }
 
@@ -337,6 +363,14 @@ const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps)
           <option value="rejected">Rejected</option>
           <option value="not_required">Not required</option>
         </Select>
+        <Select value={addedBy} onChange={(e) => setAddedBy(e.target.value)} aria-label="Added by">
+          <option value="all">Added by anyone</option>
+          {creators.map(([email, name]) => (
+            <option key={email} value={email}>
+              {name}
+            </option>
+          ))}
+        </Select>
         <Select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Sort">
           <option value="date_desc">Newest first</option>
           <option value="date_asc">Oldest first</option>
@@ -372,11 +406,12 @@ const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps)
             <Th right>Paid</Th>
             <Th right>Outstanding</Th>
             <Th>Status</Th>
+            <Th className="hidden md:table-cell">Added by</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-stone-100">
           {paged.slice.length === 0 ? (
-            <EmptyRow colSpan={9}>No expenses match these filters.</EmptyRow>
+            <EmptyRow colSpan={10}>No expenses match these filters.</EmptyRow>
           ) : (
             paged.slice.map((f) => (
               <tr
@@ -392,6 +427,9 @@ const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps)
                     {(f.expense.departmentId && lookups.department.get(f.expense.departmentId)) || ''}
                     {f.expense.paidByType === 'employee' ? ` · paid by ${f.expense.employeeName ?? 'employee'}` : ''}
                   </p>
+                  {f.expense.createdBy && (
+                    <p className="md:hidden text-xs text-stone-400">Added by {addedByLabel(f)}</p>
+                  )}
                 </Td>
                 <Td className="hidden lg:table-cell text-xs text-stone-600 max-w-[220px]">{categorySummary(f)}</Td>
                 <Td className="hidden md:table-cell text-stone-600">{supplierLabel(f)}</Td>
@@ -406,6 +444,9 @@ const ExpenseRegister = ({ index, lookups, data, onOpen, onAdd }: RegisterProps)
                     <ReimbursementBadge status={f.reimbursementStatus} />
                     <ApprovalBadge status={f.expense.approvalStatus} />
                   </div>
+                </Td>
+                <Td className="hidden md:table-cell text-stone-600 whitespace-nowrap">
+                  <span title={f.expense.createdBy ?? undefined}>{addedByLabel(f)}</span>
                 </Td>
               </tr>
             ))

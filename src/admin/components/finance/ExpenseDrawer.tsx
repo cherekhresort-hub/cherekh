@@ -7,6 +7,7 @@ import { Badge } from '../ui/Badge'
 import { Field, Input, Select, Textarea } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../../contexts/AuthProvider'
+import { staffNameForEmail } from '../../hooks/useStaffDirectory'
 import { AttachmentsSection } from './AttachmentsSection'
 import { ApprovalBadge, FinanceNotice, MoneyFieldsForm, PaymentStatusBadge, ReimbursementBadge } from './shared'
 import {
@@ -55,10 +56,11 @@ interface ExpenseDrawerProps {
   data: FinanceData
   lookups: FinanceLookups
   deposits: DepositPosition[]
+  staffDirectory: Map<string, string>
   onClose: () => void
 }
 
-export const ExpenseDrawer = ({ figures, data, lookups, deposits, onClose }: ExpenseDrawerProps) => {
+export const ExpenseDrawer = ({ figures, data, lookups, deposits, staffDirectory, onClose }: ExpenseDrawerProps) => {
   const { isAdmin } = useAuth()
   const [action, setAction] = useState<Action | null>(null)
   const [editing, setEditing] = useState(false)
@@ -191,7 +193,10 @@ export const ExpenseDrawer = ({ figures, data, lookups, deposits, onClose }: Exp
             {e.purchasedBy && <Row label="Purchased by" value={e.purchasedBy} />}
             {e.requestedBy && <Row label="Requested by" value={e.requestedBy} />}
             {e.approvedBy && <Row label={e.approvalStatus === 'rejected' ? 'Rejected by' : 'Approved by'} value={`${e.approvedBy} · ${formatDay(e.approvedAt)}`} />}
-            <Row label="Recorded by" value={`${e.createdBy ?? '—'} · ${formatDay(e.createdAt)}`} />
+            <Row
+              label="Added by"
+              value={`${staffNameForEmail(staffDirectory, e.createdBy) ?? '—'}${e.createdBy ? ` (${e.createdBy})` : ''} · ${formatDay(e.createdAt)}`}
+            />
             {e.tags.length > 0 && <Row label="Tags" value={e.tags.join(', ')} />}
           </dl>
           {e.description && <p className="text-sm text-stone-700 whitespace-pre-line">{e.description}</p>}
