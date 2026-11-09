@@ -15,6 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const distIndex = path.join(root, 'dist', 'index.html')
 const HOME_FILE = 'home.html'
+const MISSING_ASSET_FILE = 'missing-asset.txt'
 
 if (!fs.existsSync(distIndex)) {
   console.warn('[seo] dist/index.html not found - skip prerender')
@@ -147,9 +148,13 @@ const writeNetlifyRedirects = (routeList) => {
     '/contact/thank-you/  /contact/thank-you  301',
     '/contact/thank-you  /index.html  200',
     '',
+    '# Old hashed files from a previous deploy: a real 404, not the SPA shell with a 200',
+    `/assets/*  /${MISSING_ASSET_FILE}  404`,
+    '',
     '# SPA fallback for other client routes (e.g. 404 page)',
     '/*  /index.html  200'
   )
+  fs.writeFileSync(path.join(root, 'dist', MISSING_ASSET_FILE), 'Not found\n', 'utf8')
   fs.writeFileSync(path.join(root, 'dist', '_redirects'), `${lines.join('\n')}\n`, 'utf8')
 }
 

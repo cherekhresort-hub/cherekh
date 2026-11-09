@@ -20,6 +20,27 @@ const isChunkLoadError = (error: Error | null): boolean =>
     error.message
   )
 
+/**
+ * The cached service worker can still serve the old app shell, so fetch the new
+ * worker first (bounded wait) before reloading.
+ */
+const updateServiceWorker = async (): Promise<void> => {
+  if (!('serviceWorker' in navigator)) return
+  const registration = await navigator.serviceWorker.getRegistration()
+  if (!registration) return
+  const activated = (async () => {
+    await registration.update()
+    const worker = registration.installing ?? registration.waiting
+    if (!worker || worker.state === 'activated') return
+    await new Promise<void>((resolve) => {
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'activated' || worker.state === 'redundant') resolve()
+      })
+    })
+  })()
+  await Promise.race([activated, new Promise((resolve) => window.setTimeout(resolve, 3_000))])
+}
+
 /** Reload once to pick up the new files; the time guard stops a reload loop if the server is down. */
 const reloadForNewDeploy = (): boolean => {
   try {
@@ -29,7 +50,9 @@ const reloadForNewDeploy = (): boolean => {
   } catch {
     return false
   }
-  window.location.reload()
+  void updateServiceWorker()
+    .catch(() => undefined)
+    .finally(() => window.location.reload())
   return true
 }
 
