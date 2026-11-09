@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { loadRoomRates } from '../lib/roomRatesDb'
+import { loadRoomRatesAfterPageLoad } from '../lib/roomRatesDb'
 import { dismissHeroSplashForRoute } from '../utils/heroSplash'
 import { scrollToTop } from '../utils/scrollRestoration'
 import { RoomSelectionProvider } from '../contexts/RoomSelectionProvider'
@@ -26,12 +26,7 @@ const Layout = ({ children }: LayoutProps) => {
     dismissHeroSplashForRoute(location.pathname)
   }, [location.pathname])
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadRoomRates()
-    }, 8000)
-    return () => window.clearTimeout(timer)
-  }, [])
+  useEffect(() => loadRoomRatesAfterPageLoad(), [])
 
   return (
     <RoomSelectionProvider>

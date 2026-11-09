@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthProvider'
 import { SiteSettingsProvider } from './contexts/SiteSettingsProvider'
 
 export { buildRouteSchema } from './utils/routeSchema'
+export { setInitialRoomRates } from './lib/roomRatesDb'
 
 /**
  * Build-time only (scripts/prerender-meta.mjs): resolves once every lazy page for `url`

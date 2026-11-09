@@ -95,6 +95,38 @@ const mergeConfig = (
   return next
 }
 
+/** Must match the element scripts/prerender-meta.mjs writes into every prerendered page. */
+export const INITIAL_ROOM_RATES_ELEMENT_ID = 'room-rates-data'
+
+let initialRates: Record<string, RoomRateConfig> | null | undefined
+
+const readEmbeddedRates = (): Record<string, RoomRateConfig> | null => {
+  if (typeof document === 'undefined') return null
+  const raw = document.getElementById(INITIAL_ROOM_RATES_ELEMENT_ID)?.textContent
+  if (!raw) return null
+  try {
+    return parseCache(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Rates the page was prerendered with (fetched from room_rates at build time). The first
+ * client render must use these exact values or hydration fails.
+ */
+export const getInitialRoomRates = (): Record<string, RoomRateConfig> | null => {
+  if (initialRates === undefined) initialRates = readEmbeddedRates()
+  return initialRates
+}
+
+const fallbackRates = (): Record<string, RoomRateConfig> | null => getInitialRoomRates() ?? readLocalCache()
+
+/** Build-time only: called by scripts/prerender-meta.mjs before rendering pages. */
+export const setInitialRoomRates = (config: unknown): void => {
+  initialRates = parseCache(config)
+}
+
 export const getCachedRoomRates = (): Record<string, number> | null => {
   if (!memoryCache) return null
   return Object.fromEntries(Object.entries(memoryCache).map(([id, row]) => [id, row.price]))
@@ -115,16 +147,15 @@ export const notifyRoomRatesChanged = (): void => {
   window.dispatchEvent(new CustomEvent(ROOM_RATES_CHANGED_EVENT))
 }
 
-/** Load published room rates and inventory from Supabase (or local cache when offline). */
-export const loadRoomRates = async (): Promise<Record<string, number>> => {
+const fetchRoomRates = async (): Promise<Record<string, number>> => {
   if (!isSupabaseConfigured()) {
-    memoryCache = readLocalCache()
+    memoryCache = fallbackRates()
     return getCachedRoomRates() ?? {}
   }
 
   const supabase = getSupabase()
   if (!supabase) {
-    memoryCache = readLocalCache()
+    memoryCache = fallbackRates()
     return getCachedRoomRates() ?? {}
   }
 
@@ -132,7 +163,7 @@ export const loadRoomRates = async (): Promise<Record<string, number>> => {
 
   if (error) {
     console.error('[Supabase] fetch room_rates:', error.message)
-    memoryCache = readLocalCache()
+    memoryCache = fallbackRates()
     return getCachedRoomRates() ?? {}
   }
 
@@ -150,6 +181,40 @@ export const loadRoomRates = async (): Promise<Record<string, number>> => {
   memoryCache = config
   writeLocalCache(config)
   return getCachedRoomRates() ?? {}
+}
+
+let inFlightLoad: Promise<Record<string, number>> | null = null
+
+/** Load published room rates and inventory from Supabase (or local cache when offline). */
+export const loadRoomRates = (): Promise<Record<string, number>> => {
+  inFlightLoad ??= fetchRoomRates().finally(() => {
+    inFlightLoad = null
+  })
+  return inFlightLoad
+}
+
+/** Loads live rates once the page has finished loading, keeping the request off the critical path. */
+export const loadRoomRatesAfterPageLoad = (onLoaded?: () => void): (() => void) => {
+  if (typeof window === 'undefined') return () => {}
+  let cancelled = false
+  const run = () => {
+    if (cancelled) return
+    void loadRoomRates().then(() => {
+      if (!cancelled) onLoaded?.()
+    })
+  }
+  if (document.readyState === 'complete') {
+    const timer = window.setTimeout(run, 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }
+  window.addEventListener('load', run, { once: true })
+  return () => {
+    cancelled = true
+    window.removeEventListener('load', run)
+  }
 }
 
 const persistRoomConfig = async (

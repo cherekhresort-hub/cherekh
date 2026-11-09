@@ -2,7 +2,7 @@ import { getBookings, getBookingRooms, type Booking } from './bookings'
 import { availabilityRowsToBookings } from '../lib/bookingsDb'
 import { getAvailabilityRowsCached } from '../lib/availabilityCache'
 import { canEditPricing } from '../lib/permissions'
-import { getCachedRoomRates, getCachedRoomInventory, getCachedRoomListPrices, notifyRoomRatesChanged, upsertRoomInventory, upsertRoomPricing, upsertRoomRate } from '../lib/roomRatesDb'
+import { getCachedRoomRates, getInitialRoomRates, getCachedRoomInventory, getCachedRoomListPrices, notifyRoomRatesChanged, upsertRoomInventory, upsertRoomPricing, upsertRoomRate } from '../lib/roomRatesDb'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { CONFERENCE_ROOM_ID, roomCatalog } from '../data/roomCatalog'
 import { AvailabilityLoadError } from '../lib/bookingsDb'
@@ -156,6 +156,18 @@ const needsCatalogResync = (rooms: Room[]): boolean =>
       room.extraGuestPrice === undefined
   )
 
+/** Rooms as the build-time prerender saw them: catalog defaults with the rates embedded in the page. */
+export const getPrerenderedRooms = (): Room[] => {
+  const rates = getInitialRoomRates()
+  if (!rates) return defaultRooms
+  return defaultRooms.map((room) => {
+    const rate = rates[room.id]
+    return rate
+      ? { ...room, price: rate.price, listPrice: rate.listPrice, totalRooms: rate.totalRooms }
+      : room
+  })
+}
+
 export const getRooms = (): Room[] => {
   if (typeof window === 'undefined') return defaultRooms
 
@@ -194,8 +206,9 @@ export const getRooms = (): Room[] => {
     }
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultRooms))
-  return defaultRooms
+  const syncedRooms = syncRoomsWithCatalog([])
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedRooms))
+  return syncedRooms
 }
 
 export const updateRoomPrice = async (

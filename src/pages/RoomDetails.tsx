@@ -7,7 +7,7 @@ import StayDatesPicker from '../components/StayDatesPicker'
 import ResponsiveImage from '../components/ResponsiveImage'
 import { cardImageSources, heroImageSources } from '../utils/responsiveImage'
 import { getRoomById, formatCurrency, getAvailableRooms } from '../utils/rooms'
-import { loadRoomRates, ROOM_RATES_CHANGED_EVENT } from '../lib/roomRatesDb'
+import { getInitialRoomRates, loadRoomRates, ROOM_RATES_CHANGED_EVENT } from '../lib/roomRatesDb'
 import {
   facilityCatalog,
   getPublicCatalogRoomById,
@@ -46,8 +46,10 @@ const RoomDetails = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const roomId = id?.trim() ?? ''
-  const [roomPrice, setRoomPrice] = useState<number | null>(null)
-  const [roomListPrice, setRoomListPrice] = useState<number | null>(null)
+  const [roomPrice, setRoomPrice] = useState<number | null>(() => getInitialRoomRates()?.[roomId]?.price ?? null)
+  const [roomListPrice, setRoomListPrice] = useState<number | null>(
+    () => getInitialRoomRates()?.[roomId]?.listPrice ?? null
+  )
   const [selectedImage, setSelectedImage] = useState(0)
   const [bookingData, setBookingData] = useState({
     checkIn: '',
@@ -71,7 +73,7 @@ const RoomDetails = () => {
       }
     }
 
-    syncPrice()
+    if (!getInitialRoomRates()) syncPrice()
     void loadRoomRates().then(syncPrice)
     window.addEventListener(ROOM_RATES_CHANGED_EVENT, syncPrice)
     return () => window.removeEventListener(ROOM_RATES_CHANGED_EVENT, syncPrice)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { publicRoomCatalog } from '../data/roomCatalog'
-import { loadRoomRates, ROOM_RATES_CHANGED_EVENT } from '../lib/roomRatesDb'
-import { getRooms } from '../utils/rooms'
+import { getInitialRoomRates, loadRoomRatesAfterPageLoad, ROOM_RATES_CHANGED_EVENT } from '../lib/roomRatesDb'
+import { getPrerenderedRooms, getRooms, type Room } from '../utils/rooms'
 
 export interface RoomCardData {
   id: string
@@ -16,8 +16,7 @@ export interface RoomCardData {
   maxGuests: number
 }
 
-export const buildRoomCardList = (): RoomCardData[] => {
-  const storedRooms = getRooms()
+export const buildRoomCardList = (storedRooms: Room[] = getRooms()): RoomCardData[] => {
   return publicRoomCatalog.map((room) => {
     const stored = storedRooms.find((entry) => entry.id === room.id)
     const price = stored?.price ?? room.price
@@ -49,19 +48,20 @@ export const useRoomCardList = (featuredIds?: string[]) => {
     [featuredKey]
   )
 
-  const [rooms, setRooms] = useState<RoomCardData[]>(() => pickRooms(buildRoomCardList()))
+  // The first render must match the prerendered HTML, so locally cached rates are applied after mount.
+  const [rooms, setRooms] = useState<RoomCardData[]>(() => pickRooms(buildRoomCardList(getPrerenderedRooms())))
 
   const refresh = useCallback(() => {
     setRooms(pickRooms(buildRoomCardList()))
   }, [pickRooms])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadRoomRates().then(refresh)
-    }, 8000)
+    // Build-time rates are newer than a cache left by an earlier visit, so only fall back to it without them.
+    if (!getInitialRoomRates()) refresh()
+    const cancelLoad = loadRoomRatesAfterPageLoad(refresh)
     window.addEventListener(ROOM_RATES_CHANGED_EVENT, refresh)
     return () => {
-      window.clearTimeout(timer)
+      cancelLoad()
       window.removeEventListener(ROOM_RATES_CHANGED_EVENT, refresh)
     }
   }, [refresh])

@@ -4,6 +4,7 @@ import { FAQ_HOMEPAGE_ITEMS, faqSchemaJsonLd } from '../data/faqCatalog'
 import { siteAssetUrl, siteUrl } from '../data/siteConfig'
 import { resortContact, resortEntitySameAs, resortLocation } from '../data/contactInfo'
 import { getPageMeta } from './meta'
+import { getInitialRoomRates } from '../lib/roomRatesDb'
 
 type SchemaNode = Record<string, unknown>
 
@@ -123,6 +124,7 @@ const webPageSchema = (pathname: string): SchemaNode => {
 const roomSchemas = (pathname: string, roomId: string): SchemaNode[] => {
   const room = getPublicCatalogRoomById(roomId)
   if (!room) return []
+  const price = getInitialRoomRates()?.[room.id]?.price ?? room.price
   return [
     breadcrumbSchema([
       { name: 'Home', path: '/' },
@@ -157,10 +159,10 @@ const roomSchemas = (pathname: string, roomId: string): SchemaNode[] => {
         '@type': 'Offer',
         url: siteUrl('/booking'),
         priceCurrency: 'BDT',
-        price: room.price,
+        price,
         priceSpecification: {
           '@type': 'UnitPriceSpecification',
-          price: room.price,
+          price,
           priceCurrency: 'BDT',
           unitCode: 'DAY',
           unitText: 'per night',

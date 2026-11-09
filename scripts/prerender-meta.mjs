@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -22,7 +23,57 @@ if (!fs.existsSync(distIndex)) {
   process.exit(0)
 }
 
-const baseHtml = fs.readFileSync(distIndex, 'utf8')
+/** Must match INITIAL_ROOM_RATES_ELEMENT_ID in src/lib/roomRatesDb.ts */
+const ROOM_RATES_ELEMENT_ID = 'room-rates-data'
+const ROOM_RATES_TIMEOUT_MS = 10_000
+
+/** Published rates from room_rates (public read), so prerendered prices match the live site. */
+const fetchRoomRates = async () => {
+  const env = loadEnv('production', root, 'VITE_')
+  const supabaseUrl = env.VITE_SUPABASE_URL?.trim().replace(/\/+$/, '')
+  const anonKey = env.VITE_SUPABASE_ANON_KEY?.trim()
+  if (!supabaseUrl || !anonKey) {
+    console.warn('[seo] Supabase env not set - prerendering catalog room prices')
+    return null
+  }
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/room_rates?select=room_id,price,list_price,total_rooms`,
+      {
+        headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+        signal: AbortSignal.timeout(ROOM_RATES_TIMEOUT_MS),
+      }
+    )
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const rows = await response.json()
+    const rates = Object.fromEntries(
+      rows
+        .filter((row) => typeof row.price === 'number')
+        .map((row) => [
+          row.room_id,
+          {
+            price: row.price,
+            listPrice: row.list_price ?? 0,
+            ...(typeof row.total_rooms === 'number' ? { totalRooms: row.total_rooms } : {}),
+          },
+        ])
+    )
+    return Object.keys(rates).length > 0 ? rates : null
+  } catch (error) {
+    console.warn(`[seo] could not load room_rates (${error.message}) - prerendering catalog room prices`)
+    return null
+  }
+}
+
+const injectRoomRates = (html, rates) => {
+  if (!rates) return html
+  const json = JSON.stringify(rates).replace(/</g, '\\u003c')
+  const tag = `<script type="application/json" id="${ROOM_RATES_ELEMENT_ID}">${json}</script>`
+  return html.replace('</body>', () => `    ${tag}\n  </body>`)
+}
+
+const roomRates = await fetchRoomRates()
+const baseHtml = injectRoomRates(fs.readFileSync(distIndex, 'utf8'), roomRates)
 const routes = getIndexableRoutes()
 
 const escapeHtml = (value) =>
@@ -197,14 +248,14 @@ const RENDER_TIMEOUT_MS = 15_000
 
 const streamToString = (stream) =>
   new Promise((resolve, reject) => {
-    let html = ''
+    const chunks = []
     const sink = new Writable({
       write(chunk, _encoding, done) {
-        html += chunk.toString()
+        chunks.push(Buffer.from(chunk))
         done()
       },
     })
-    sink.on('finish', () => resolve(html))
+    sink.on('finish', () => resolve(Buffer.concat(chunks).toString('utf8')))
     sink.on('error', reject)
     stream.pipe(sink)
   })
@@ -216,7 +267,8 @@ const loadSsrModule = async () => {
     )
     return { renderPage: null, buildRouteSchema: null }
   }
-  const { render, buildRouteSchema } = await import(pathToFileURL(ssrEntry).href)
+  const { render, buildRouteSchema, setInitialRoomRates } = await import(pathToFileURL(ssrEntry).href)
+  setInitialRoomRates(roomRates)
   const renderPage = async (routePath) => {
     let timer
     const timeout = new Promise((_, reject) => {
@@ -276,5 +328,10 @@ for (const route of routes) {
 writeNetlifyRedirects(routes)
 
 console.log(`[seo] prerendered meta for ${routes.length} routes, full page HTML for ${rendered}`)
+console.log(
+  roomRates
+    ? `[seo] prerendered live room_rates for ${Object.keys(roomRates).length} rooms`
+    : '[seo] prerendered catalog room prices (room_rates unavailable)'
+)
 console.log(`[seo] wrote dist/_redirects with ${routes.length} prerendered paths`)
 process.exit(0)
