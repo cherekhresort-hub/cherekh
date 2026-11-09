@@ -10,21 +10,52 @@ interface State {
   error: Error | null
 }
 
+const CHUNK_RELOAD_KEY = 'cherekh:chunk-reload-at'
+const CHUNK_RELOAD_WINDOW_MS = 30_000
+
+/** A lazily loaded page file is gone, usually because a new deploy replaced it. */
+const isChunkLoadError = (error: Error | null): boolean =>
+  !!error &&
+  /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed/i.test(
+    error.message
+  )
+
+/** Reload once to pick up the new files; the time guard stops a reload loop if the server is down. */
+const reloadForNewDeploy = (): boolean => {
+  try {
+    const last = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0)
+    if (Date.now() - last < CHUNK_RELOAD_WINDOW_MS) return false
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()))
+  } catch {
+    return false
+  }
+  window.location.reload()
+  return true
+}
+
 class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
   }
 
+  private reloading = false
+
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error }
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    if (isChunkLoadError(error) && reloadForNewDeploy()) {
+      this.reloading = true
+      this.forceUpdate()
+      return
+    }
     console.error('Uncaught error:', error, errorInfo)
   }
 
   public render() {
+    if (this.state.hasError && this.reloading) return null
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-resort-bg px-4">
