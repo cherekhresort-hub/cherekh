@@ -1,5 +1,6 @@
 import type { StaffRole } from './roles'
 import {
+  roleCanChangeBookingRooms,
   roleCanDelete,
   roleCanEditPricing,
   roleCanManageBills,
@@ -36,3 +37,5 @@ export const isManagerUser = (): boolean => activeRole === 'manager'
 export const isBookingOfficerUser = (): boolean => activeRole === 'booking_officer'
 
 export const canManageBills = (): boolean => roleCanManageBills(activeRole)
+
+export const canChangeBookingRooms = (): boolean => roleCanChangeBookingRooms(activeRole)

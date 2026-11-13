@@ -62,6 +62,9 @@ export const roleCanModifyBooking = (
 export const roleCanManageBills = (role: StaffRole | null): boolean =>
   role === 'admin' || role === 'manager'
 
+export const roleCanChangeBookingRooms = (role: StaffRole | null): boolean =>
+  role === 'admin' || role === 'manager'
+
 export const roleLabel = (role: StaffRole | null): string => {
   if (role === 'admin') return 'Admin'
   if (role === 'manager') return 'Manager'

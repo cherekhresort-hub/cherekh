@@ -18,6 +18,7 @@ export type BookingDrawerTab = (typeof BOOKING_DRAWER_TABS)[number]
 export const BOOKING_HIGHLIGHT = {
   status: 'booking-status',
   stay: 'booking-stay',
+  rooms: 'booking-rooms',
   paymentSummary: 'booking-payment-summary',
   transactions: 'booking-transactions',
   bills: 'booking-bills',
@@ -54,6 +55,8 @@ const bookingFocus = (entry: StaffActivityEntry): BookingFocus | null => {
       return { tab: 'overview', highlight: [BOOKING_HIGHLIGHT.status], label: 'View status' }
     case 'booking.updated':
       return { tab: 'overview', highlight: [BOOKING_HIGHLIGHT.stay], label: 'View reservation' }
+    case 'booking.rooms_changed':
+      return { tab: 'overview', highlight: [BOOKING_HIGHLIGHT.rooms], label: 'View rooms' }
     case 'booking.total_updated':
     case 'booking.discount':
     case 'booking.discount_removed':

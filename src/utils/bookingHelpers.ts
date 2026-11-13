@@ -8,7 +8,7 @@ import {
 } from '../data/roomCatalog'
 import { addDaysToDateString, formatDisplayDate } from './dates'
 import { getRooms, type Room } from './rooms'
-import type { Booking } from './bookings'
+import type { Booking, BookingRoomLine } from './bookings'
 
 export const ARRIVAL_TIME_OPTIONS = [
   { value: 'before-12', label: 'Before 12:00 PM (early arrival)' },
@@ -367,6 +367,43 @@ export const calculateBookingTotal = (
     )
     return sum + (nightlyPrice + extraGuests * ref.extraGuestPrice) * nights
   }, 0)
+}
+
+/** Rooms added to and removed from a booking, by room id. */
+export const diffBookingRooms = (
+  before: Pick<BookingRoomLine, 'roomType'>[],
+  after: Pick<BookingRoomLine, 'roomType'>[]
+): { added: string[]; removed: string[] } => {
+  const beforeIds = before.map((line) => line.roomType)
+  const afterIds = after.map((line) => line.roomType)
+  return {
+    added: afterIds.filter((id) => !beforeIds.includes(id)),
+    removed: beforeIds.filter((id) => !afterIds.includes(id)),
+  }
+}
+
+/**
+ * Suggested room charge after a room change: the current charge moved by the rate-card difference,
+ * so any custom price already agreed for the unchanged rooms is kept.
+ */
+export const suggestRoomChangeAmount = (
+  booking: Pick<Booking, 'checkIn' | 'checkOut' | 'eventDates' | 'payment'>,
+  before: BookingRoomLine[],
+  after: BookingRoomLine[]
+): number => {
+  const total = (rooms: BookingRoomLine[]) =>
+    calculateBookingTotal({
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      eventDates: booking.eventDates,
+      rooms,
+      roomType: rooms[0]?.roomType ?? '',
+      adults: rooms.reduce((sum, line) => sum + line.adults, 0),
+      children: rooms.reduce((sum, line) => sum + line.children, 0),
+      totalGuests: rooms.reduce((sum, line) => sum + line.totalGuests, 0),
+    })
+  const current = Math.round(Number(booking.payment?.amount) || 0)
+  return Math.max(0, current + total(after) - total(before))
 }
 
 export const calculateBookingEstimate = (

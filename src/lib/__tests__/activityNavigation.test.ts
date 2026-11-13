@@ -37,6 +37,11 @@ describe('getActivityDestination', () => {
     expect(query(url)).toEqual({ id: 'CC-1', tab: 'payment', highlight: 'booking-transactions' })
   })
 
+  it('opens the rooms card after a room change', () => {
+    const url = getActivityDestination(entry({ action: 'booking.rooms_changed', entityId: 'CC-1' }))
+    expect(query(url)).toEqual({ id: 'CC-1', highlight: 'booking-rooms' })
+  })
+
   it('opens the bills tab on the billed food lines', () => {
     const url = getActivityDestination(
       entry({ action: 'booking.extra_added', entityId: 'CC-1', metadata: { extraIds: ['x1', 'x2'] } })

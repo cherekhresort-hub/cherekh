@@ -1,7 +1,12 @@
-import { calculateBookingTotal } from './bookingHelpers'
+import { calculateBookingTotal, diffBookingRooms, suggestRoomChangeAmount } from './bookingHelpers'
 import { generateBookingId } from './bookingId'
 import { getTodayDate, resolveBookingCreatedAt } from './dates'
-import { areRoomsAvailableForBooking } from './rooms'
+import {
+  areRoomsAvailableForBooking,
+  getRoomAvailabilityIssues,
+  type RoomAvailabilityIssue,
+} from './rooms'
+import { getBookableRoomRef } from '../data/roomCatalog'
 import {
   applyBookingToCache,
   BookingDuplicateIdError,
@@ -16,6 +21,7 @@ import { invalidateAvailabilityCache } from '../lib/availabilityCache'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import { notifyAdminOfManagerAction } from '../lib/adminNotifications'
 import {
+  canChangeBookingRooms,
   canDeleteRecords,
   canEditPricing,
   canManageBills,
@@ -771,6 +777,98 @@ export const setBookingTotalAmount = async (
     entityId: id,
   })
   return next
+}
+
+/** Statuses whose rooms can still be added or removed. */
+export const ROOM_CHANGE_STATUSES: Booking['status'][] = BLOCKING_INVENTORY_STATUSES
+
+export type BookingRoomsUpdateResult =
+  | { ok: true; booking: Booking }
+  | {
+      ok: false
+      reason: 'not_found' | 'forbidden' | 'status' | 'empty' | 'unavailable'
+      issues?: RoomAvailabilityIssue[]
+    }
+
+/**
+ * Replaces a booking's rooms. New rooms must be free for the stay (the booking's own rooms are
+ * ignored), and the database re-checks under lock on save. The room charge moves by the rate-card
+ * difference unless an admin sets `amount`. Throws `BookingInventoryConflictError` if a room was
+ * taken in the meantime.
+ */
+export const updateBookingRooms = async (
+  id: string,
+  rooms: BookingRoomLine[],
+  options: { amount?: number } = {}
+): Promise<BookingRoomsUpdateResult> => {
+  if (!canChangeBookingRooms()) return { ok: false, reason: 'forbidden' }
+
+  const existing = getBookings().find((b) => b.id === id)
+  if (!existing) return { ok: false, reason: 'not_found' }
+  const bookingRef = (await ensureBookingDetail(id)) ?? existing
+  if (!ROOM_CHANGE_STATUSES.includes(bookingRef.status)) return { ok: false, reason: 'status' }
+
+  const nextRooms: BookingRoomLine[] = rooms
+    .filter((line) => line.roomType)
+    .map((line) => {
+      const adults = Math.max(1, Math.round(Number(line.adults) || 1))
+      const children = Math.max(0, Math.round(Number(line.children) || 0))
+      return {
+        roomType: line.roomType,
+        roomName: getBookableRoomRef(line.roomType)?.name ?? line.roomName,
+        adults,
+        children,
+        totalGuests: adults + children,
+      }
+    })
+  if (nextRooms.length === 0) return { ok: false, reason: 'empty' }
+
+  const issues = await getRoomAvailabilityIssues(
+    bookingRef.checkIn,
+    bookingRef.checkOut,
+    nextRooms.map((line) => line.roomType),
+    {
+      excludeBookingId: id,
+      lines: nextRooms.map(({ roomType, adults, children }) => ({ roomType, adults, children })),
+      conferenceEventDates: bookingRef.eventDates,
+    }
+  )
+  if (issues.length > 0) return { ok: false, reason: 'unavailable', issues }
+
+  const previousRooms = getBookingRooms(bookingRef)
+  const previousAmount = Math.round(Number(bookingRef.payment?.amount) || 0)
+  const amount =
+    options.amount !== undefined && canEditPricing()
+      ? Math.max(0, Math.round(Number(options.amount) || 0))
+      : suggestRoomChangeAmount(bookingRef, previousRooms, nextRooms)
+
+  const next: Booking = recomputePaymentStatus({
+    ...bookingRef,
+    rooms: nextRooms,
+    roomType: nextRooms[0].roomType,
+    roomName: buildRoomNameSummary(nextRooms.map((line) => line.roomName)),
+    adults: nextRooms.reduce((sum, line) => sum + line.adults, 0),
+    children: nextRooms.reduce((sum, line) => sum + line.children, 0),
+    totalGuests: nextRooms.reduce((sum, line) => sum + line.totalGuests, 0),
+    payment: { ...bookingRef.payment, amount },
+    updatedAt: new Date().toISOString(),
+  })
+  await persistBooking(next)
+
+  const { added, removed } = diffBookingRooms(previousRooms, nextRooms)
+  const roomLabel = (roomType: string) => getBookableRoomRef(roomType)?.name ?? roomType
+  const changes = [
+    added.length > 0 ? `added ${added.map(roomLabel).join(', ')}` : '',
+    removed.length > 0 ? `removed ${removed.map(roomLabel).join(', ')}` : '',
+  ].filter(Boolean)
+  void notifyAdminOfManagerAction({
+    category: 'booking',
+    action: 'booking.rooms_changed',
+    title: 'Booking rooms changed',
+    message: `${bookingRef.name}: ${changes.join('; ') || 'room guests updated'} · room charge ৳${previousAmount} → ৳${amount}`,
+    entityId: id,
+  })
+  return { ok: true, booking: next }
 }
 
 export const setBookingDiscount = async (

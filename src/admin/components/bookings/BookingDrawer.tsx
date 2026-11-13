@@ -22,6 +22,7 @@ import {
   Receipt,
   ArrowRight,
   UtensilsCrossed,
+  BedDouble,
 } from 'lucide-react'
 import { Drawer } from '../ui/Drawer'
 import { BookingStatusBadge } from '../ui/StatusBadge'
@@ -34,6 +35,7 @@ import { GuestDetailsSection } from './GuestDetailsSection'
 import { PaymentSection } from './PaymentSection'
 import { ExtraChargesSection } from './ExtraChargesSection'
 import { BookingActions } from './BookingActions'
+import { EditBookingRoomsModal } from './EditBookingRoomsModal'
 import { confirmDelete } from '../../utils/confirmDelete'
 import { explainBookingUnavailable } from '../../utils/roomAvailabilityMessage'
 import {
@@ -41,6 +43,7 @@ import {
   computeBookingFinancials,
   deleteBooking,
   getBookingRooms,
+  ROOM_CHANGE_STATUSES,
   updateBookingStatus,
   type Booking,
   type BookingCreator,
@@ -49,7 +52,11 @@ import { bookingCreatorLabel } from '../../utils/bookingCreator'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../../contexts/AuthProvider'
 import { isBookingDetailLoaded } from '../../../lib/bookingsStore'
-import { roleCanManageBills, roleCanModifyBooking } from '../../../lib/roles'
+import {
+  roleCanChangeBookingRooms,
+  roleCanManageBills,
+  roleCanModifyBooking,
+} from '../../../lib/roles'
 import { formatDateTime, formatShortDate } from '../../utils/date'
 import { parseRoomLabel } from '../../utils/roomLabel'
 import { formatBookingId } from '../../../utils/bookingId'
@@ -104,6 +111,7 @@ export const BookingDrawer = ({
   const { canDelete, role, user } = useAuth()
   const [tab, setTab] = useState<TabKey>('overview')
   const [note, setNote] = useState('')
+  const [roomsModalOpen, setRoomsModalOpen] = useState(false)
   const shownDetailFor = useRef<string | null>(null)
   const focusTabApplied = useRef<number | null>(null)
   const focusHighlighted = useRef<number | null>(null)
@@ -114,6 +122,7 @@ export const BookingDrawer = ({
   useEffect(() => {
     setNote('')
     setTab('overview')
+    setRoomsModalOpen(false)
     clearHighlight()
   }, [booking?.id, clearHighlight])
 
@@ -177,6 +186,12 @@ export const BookingDrawer = ({
   const lines = getBookingRooms(booking)
   const readOnly = !roleCanModifyBooking(role, user?.email, booking)
   const billsReadOnly = readOnly || !roleCanManageBills(role)
+  const canChangeRooms =
+    !readOnly &&
+    detailLoaded &&
+    roleCanChangeBookingRooms(role) &&
+    ROOM_CHANGE_STATUSES.includes(booking.status) &&
+    !bookingIsConferenceOnly(booking)
 
   const setStatus = async (status: Booking['status'], label: string) => {
     const updated = await updateBookingStatus(booking.id, status)
@@ -386,7 +401,16 @@ export const BookingDrawer = ({
               isConferenceOnly={isConferenceOnly}
               eventDatesLabel={eventDatesLabel}
               onChangeStatus={changeStatusInline}
+              onChangeRooms={canChangeRooms ? () => setRoomsModalOpen(true) : undefined}
               readOnly={readOnly}
+            />
+          )}
+          {canChangeRooms && (
+            <EditBookingRoomsModal
+              open={roomsModalOpen}
+              booking={booking}
+              onClose={() => setRoomsModalOpen(false)}
+              onSaved={() => onChanged()}
             />
           )}
           {tab === 'payment' && <PaymentSection booking={booking} onChanged={onChanged} readOnly={readOnly} />}
@@ -450,6 +474,7 @@ interface OverviewTabProps {
   isConferenceOnly: boolean
   eventDatesLabel: string
   onChangeStatus: (status: Booking['status']) => void
+  onChangeRooms?: () => void
   readOnly: boolean
 }
 
@@ -460,6 +485,7 @@ const OverviewTab = ({
   isConferenceOnly,
   eventDatesLabel,
   onChangeStatus,
+  onChangeRooms,
   readOnly,
 }: OverviewTabProps) => (
   <div className="space-y-4 text-sm">
@@ -560,10 +586,23 @@ const OverviewTab = ({
       </Card>
     </div>
 
-    <Card padded={false} className="p-5">
-      <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium mb-3 inline-flex items-center gap-1.5">
-        <Sparkles className="w-3 h-3" /> Rooms ({lines.length})
-      </h3>
+    <Card padded={false} className="p-5" data-highlight-id={BOOKING_HIGHLIGHT.rooms}>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3" /> Rooms ({lines.length})
+        </h3>
+        {onChangeRooms && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            leftIcon={<BedDouble className="w-3.5 h-3.5" />}
+            onClick={onChangeRooms}
+          >
+            Change rooms
+          </Button>
+        )}
+      </div>
       <ul className="space-y-2">
         {lines.map((line) => {
           const parsed = parseRoomLabel(line.roomName)
