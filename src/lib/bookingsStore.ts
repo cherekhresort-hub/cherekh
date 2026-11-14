@@ -134,6 +134,9 @@ const detailIsStale = (existing: Booking, stub: Booking): boolean => {
   const extras = (existing.extras ?? []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
   if (roundMoney(stub.listExtrasTotal ?? 0) !== roundMoney(extras)) return true
   if (roundMoney(stub.payment.amount) !== roundMoney(existing.payment?.amount ?? 0)) return true
+  if (stub.listNotesCount !== undefined && stub.listNotesCount !== (existing.notes?.length ?? 0)) return true
+  if (Boolean(stub.paymentHidden) !== Boolean(existing.paymentHidden)) return true
+  if (Boolean(stub.guestHidden) !== Boolean(existing.guestHidden)) return true
   return false
 }
 
@@ -179,6 +182,10 @@ const mergeListStubOntoDetail = (existing: Booking, stub: Booking): Booking => (
   },
   extras: existing.extras,
   listExtrasTotal: stub.listExtrasTotal,
+  listNotesCount: stub.listNotesCount,
+  listLatestNote: stub.listLatestNote,
+  paymentHidden: stub.paymentHidden,
+  guestHidden: stub.guestHidden,
   bookedBy: existing.bookedBy ?? stub.bookedBy,
   createdAt: stub.createdAt,
   updatedAt: stub.updatedAt,
@@ -263,6 +270,8 @@ export const persistBooking = async (
     allowEmptyTransactions?: boolean
   } = {}
 ): Promise<void> => {
+  // Payment, bills or guest details were withheld, so saving would overwrite them with blanks.
+  if (booking.paymentHidden || booking.guestHidden) throw new BookingPersistError()
   const index = bookingsCache.findIndex((b) => b.id === booking.id)
   const cacheBefore = [...bookingsCache]
   const previousAtIndex = index === -1 ? null : bookingsCache[index]

@@ -14,6 +14,7 @@ import {
 import {
   computeDiscountAmount,
   getBookingById,
+  getBookings,
   PAYMENT_METHOD_LABELS,
   recordPaymentTransaction,
   saveBooking,
@@ -49,6 +50,7 @@ import StayDatesPicker, { type StayDates } from '../../../components/StayDatesPi
 import { formatBDT } from '../../utils/format'
 import { toISODate } from '../../utils/date'
 import { cn } from '../../utils/cn'
+import { findPreviousGuests, phoneDigits, type PreviousGuest } from '../../utils/previousGuests'
 
 const maxBookingDate = () => {
   const d = new Date()
@@ -133,6 +135,42 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
     setError(null)
     totalManuallyEdited.current = false
   }, [open])
+
+  const [phoneSuggestOpen, setPhoneSuggestOpen] = useState(false)
+  const [activeSuggestion, setActiveSuggestion] = useState(0)
+  const pastBookings = useMemo(() => (open ? getBookings() : []), [open])
+  const suggestions = useMemo(
+    () =>
+      findPreviousGuests(pastBookings, guest.phone).filter(
+        (s) => !(phoneDigits(s.phone) === phoneDigits(guest.phone) && s.name === guest.name)
+      ),
+    [pastBookings, guest.phone, guest.name]
+  )
+  const showSuggestions = phoneSuggestOpen && suggestions.length > 0
+
+  const pickPreviousGuest = (s: PreviousGuest) => {
+    setGuest((g) => ({ ...g, phone: s.phone, name: s.name || g.name, email: s.email || g.email }))
+    setPhoneSuggestOpen(false)
+  }
+
+  const onPhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveSuggestion((i) => (i + 1) % suggestions.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveSuggestion((i) => (i - 1 + suggestions.length) % suggestions.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const picked = suggestions[Math.min(activeSuggestion, suggestions.length - 1)]
+      if (picked) pickPreviousGuest(picked)
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      setPhoneSuggestOpen(false)
+    }
+  }
 
   const bookingRooms = useMemo(() => linesToBookingRooms(roomLines), [roomLines])
 
@@ -505,11 +543,62 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
             />
           </Field>
           <Field label="Phone" required>
-            <Input
-              value={guest.phone}
-              onChange={(e) => updateGuest('phone', e.target.value)}
-              placeholder="+880 …"
-            />
+            <div className="relative">
+              <Input
+                value={guest.phone}
+                onChange={(e) => {
+                  updateGuest('phone', e.target.value)
+                  setPhoneSuggestOpen(true)
+                  setActiveSuggestion(0)
+                }}
+                onFocus={() => setPhoneSuggestOpen(true)}
+                onBlur={() => setPhoneSuggestOpen(false)}
+                onKeyDown={onPhoneKeyDown}
+                placeholder="+880 …"
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={showSuggestions}
+                aria-controls="previous-guest-list"
+                aria-autocomplete="list"
+              />
+              {showSuggestions && (
+                <ul
+                  id="previous-guest-list"
+                  role="listbox"
+                  className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-stone-200 bg-white shadow-card"
+                >
+                  <li className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-stone-400 bg-stone-50">
+                    Previous guests
+                  </li>
+                  {suggestions.map((s, idx) => (
+                    <li
+                      key={s.phone}
+                      role="option"
+                      aria-selected={idx === activeSuggestion}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        pickPreviousGuest(s)
+                      }}
+                      onMouseEnter={() => setActiveSuggestion(idx)}
+                      className={cn(
+                        'cursor-pointer px-3 py-2 text-sm',
+                        idx === activeSuggestion ? 'bg-forest-50' : 'bg-white'
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-medium text-forest-700">{s.name || 'Guest'}</span>
+                        <span className="shrink-0 text-xs text-stone-500">{s.phone}</span>
+                      </div>
+                      <p className="truncate text-[11px] text-stone-400">
+                        {[s.email, `${s.stays} booking${s.stays === 1 ? '' : 's'}`, s.lastCheckIn ? `last stay ${s.lastCheckIn}` : '']
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </Field>
           <Field
             label="Email"

@@ -88,4 +88,31 @@ describe('refreshBookingsList', () => {
     await store.refreshBookingsList()
     expect(store.isBookingDetailLoaded('B1')).toBe(false)
   })
+
+  it('refuses to save a booking whose payment was withheld', async () => {
+    const store = await import('../bookingsStore')
+    await expect(store.persistBooking(base({ paymentHidden: true }))).rejects.toThrow()
+  })
+
+  it('refuses to save a booking whose guest details were withheld', async () => {
+    const store = await import('../bookingsStore')
+    await expect(store.persistBooking(base({ guestHidden: true }))).rejects.toThrow()
+  })
+
+  it('drops the cached detail when another device added an internal note', async () => {
+    const store = await import('../bookingsStore')
+    store.applyBookingToCache(detail)
+    listRows.push(
+      base({
+        payment: { amount: 5000, status: 'partial', listNetPaid: 2000, listTxCount: 1 },
+        listNotesCount: 2,
+        listLatestNote: { id: 'n2', note: 'Late arrival', createdBy: 'Desk', createdAt: '2026-10-02T00:00:00Z' },
+      })
+    )
+
+    const [merged] = await store.refreshBookingsList()
+    expect(merged.notes).toEqual([])
+    expect(merged.listLatestNote?.note).toBe('Late arrival')
+    expect(store.isBookingDetailLoaded('B1')).toBe(false)
+  })
 })

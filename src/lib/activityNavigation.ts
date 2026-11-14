@@ -73,6 +73,8 @@ const bookingFocus = (entry: StaffActivityEntry): BookingFocus | null => {
       return { tab: 'guests', highlight: [BOOKING_HIGHLIGHT.guests], label: 'View guest details' }
     case 'booking.note':
       return { tab: 'notes', highlight: row('noteId', BOOKING_HIGHLIGHT.notes), label: 'View note' }
+    case 'booking.note_deleted':
+      return { tab: 'notes', highlight: [BOOKING_HIGHLIGHT.notes], label: 'View notes' }
     default:
       return null
   }

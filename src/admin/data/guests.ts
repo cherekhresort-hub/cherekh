@@ -1,5 +1,10 @@
 import type { Guest, GuestTag } from '../types'
-import { computeBookingFinancials, getBookings, countsTowardRevenue } from '../../utils/bookings'
+import {
+  computeBookingFinancials,
+  getBookings,
+  countsTowardRevenue,
+  type Booking,
+} from '../../utils/bookings'
 import { applyTagOverride, getGuestOverrides, hasOverride } from './guestOverrides'
 
 const TAG_BY_STAYS = (stays: number): GuestTag[] => {
@@ -76,4 +81,17 @@ export const getGuests = (): Guest[] => {
   })
 
   return [...map.values()].map(finalize)
+}
+
+/** The bookings behind each guest profile, keyed by `Guest.id`. */
+export const getBookingsByGuestId = (): Map<string, Booking[]> => {
+  const map = new Map<string, Booking[]>()
+  getBookings().forEach((booking) => {
+    if (!countsTowardRevenue(booking)) return
+    const id = buildId(guestIdentityKey(booking))
+    const list = map.get(id)
+    if (list) list.push(booking)
+    else map.set(id, [booking])
+  })
+  return map
 }

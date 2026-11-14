@@ -1,7 +1,9 @@
-import { useEffect, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { cn } from '../../utils/cn'
+import { useOverlay } from '../../utils/overlay'
 
 interface ModalProps {
   open: boolean
@@ -21,21 +23,15 @@ const sizeMap = {
 }
 
 export const Modal = ({ open, onClose, title, description, children, footer, size = 'md' }: ModalProps) => {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
-  }, [open, onClose])
+  const layerRef = useOverlay(open, onClose)
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  // Portaled so a modal opened from a drawer is not confined by the drawer's transform.
+  return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-x-hidden">
+        <div key="modal" ref={layerRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-x-hidden">
           <motion.div
             className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
             onClick={onClose}
@@ -83,6 +79,7 @@ export const Modal = ({ open, onClose, title, description, children, footer, siz
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }

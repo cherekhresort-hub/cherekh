@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowUpDown, ChevronRight, Phone } from 'lucide-react'
+import { ArrowUpDown, ChevronRight, Lock, Phone } from 'lucide-react'
 import { FaFilePdf, FaPrint, FaSpinner, FaWhatsapp } from 'react-icons/fa'
 import { Avatar } from '../ui/Avatar'
 import { BookingStatusBadge } from '../ui/StatusBadge'
@@ -10,7 +10,10 @@ import { BookingStaySummary } from './BookingStaySummary'
 import { formatBookingId } from '../../../utils/bookingId'
 import { formatBDT, truncate } from '../../utils/format'
 import {
+  bookingGuestHidden,
+  bookingMoneyHidden,
   computeBookingFinancials,
+  internalNotesSummary,
   PAYMENT_METHOD_LABELS,
   type Booking,
   type BookingCreator,
@@ -85,8 +88,31 @@ const columns: Column[] = [
   { key: 'totalGuests', label: 'Guests', sortable: true },
           { key: 'status', label: 'Status', sortable: true },
   { key: 'payment', label: 'Payment' },
-  { key: 'specialRequests', label: 'Notes' },
+  { key: 'notes', label: 'Internal notes' },
+  { key: 'specialRequests', label: 'Requests' },
 ]
+
+const noteAuthor = (createdBy: string): string =>
+  createdBy.includes('@') ? createdBy.split('@')[0] : createdBy
+
+const InternalNotesCell = ({ booking }: { booking: Booking }) => {
+  const { latest, count } = internalNotesSummary(booking)
+  if (!latest) return <span className="text-xs text-stone-400">-</span>
+  const author = noteAuthor(latest.createdBy)
+  return (
+    <div
+      className="w-[14rem] rounded-md border-l-2 border-amber-400 bg-amber-50 px-2 py-1.5"
+      title={`${latest.note}${latest.createdBy ? `\n- ${latest.createdBy}` : ''}`}
+    >
+      <p className="line-clamp-2 whitespace-pre-line break-words text-xs text-stone-700">{latest.note}</p>
+      <p className="mt-0.5 truncate text-[10px] text-stone-500">
+        {[author, latest.createdAt ? formatShortDate(latest.createdAt) : '', count > 1 ? `+${count - 1} more` : '']
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
+    </div>
+  )
+}
 
 export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, creatorFor }: BookingTableProps) => {
   const toast = useToast()
@@ -178,19 +204,27 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                   <BookedByCell creator={creatorFor?.(booking)} />
                 </td>
                 <td className="py-3 px-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={booking.name} size="sm" color="#367E7E" />
-                    <div className="min-w-0">
-                      <p className="font-medium text-forest-700 truncate">{booking.name}</p>
-                      <p className="text-xs text-stone-500 truncate">{booking.email || booking.phone}</p>
+                  {bookingGuestHidden(booking) ? (
+                    <HiddenValue title="Guest details are visible only on bookings you created" />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <Avatar name={booking.name} size="sm" color="#367E7E" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-forest-700 truncate">{booking.name}</p>
+                        <p className="text-xs text-stone-500 truncate">{booking.email || booking.phone}</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </td>
                 <td className="py-3 px-4">
-                  <span className="text-forest-700 inline-flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-stone-400" />
-                    {booking.phone}
-                  </span>
+                  {bookingGuestHidden(booking) ? (
+                    <HiddenValue title="Contact details are visible only on bookings you created" />
+                  ) : (
+                    <span className="text-forest-700 inline-flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-stone-400" />
+                      {booking.phone}
+                    </span>
+                  )}
                 </td>
                 <td className="py-3 px-4">
                   <BookingStaySummary booking={booking} />
@@ -207,6 +241,9 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                 <td className="py-3 px-4">
                   <BookingPaymentCell booking={booking} />
                 </td>
+                <td className="py-3 px-4">
+                  <InternalNotesCell booking={booking} />
+                </td>
                 <td className="py-3 px-4 max-w-[12rem]">
                   <p className="text-xs text-stone-500 truncate">
                     {truncate(booking.specialRequests || '-', 48)}
@@ -214,6 +251,8 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                 </td>
                 <td className="py-3 px-4 text-right">
                   <div className="inline-flex items-center gap-1.5" onClick={stop}>
+                    {!bookingMoneyHidden(booking) && (
+                    <>
                     <button
                       type="button"
                       onClick={() => print(booking)}
@@ -237,6 +276,8 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                         <FaFilePdf className="w-3.5 h-3.5" />
                       )}
                     </button>
+                    </>
+                    )}
                     {booking.phone && (
                       <a
                         href={whatsappHref(booking.phone, buildBookingMessages(booking).whatsappBody)}
@@ -275,7 +316,16 @@ const paymentBadge = (status: string) => {
   return { tone: 'neutral' as const, label: 'Unpaid' }
 }
 
+const HiddenValue = ({ title }: { title: string }) => (
+  <span className="inline-flex items-center gap-1 text-[11px] text-stone-400" title={title}>
+    <Lock className="w-3 h-3" /> Hidden
+  </span>
+)
+
 const BookingPaymentCell = ({ booking }: { booking: Booking }) => {
+  if (bookingMoneyHidden(booking)) {
+    return <HiddenValue title="Payment details are visible only on bookings you created" />
+  }
   const fin = computeBookingFinancials(booking)
   const txs = [...(booking.payment?.transactions ?? [])].sort((a, b) =>
     a.recordedAt < b.recordedAt ? 1 : -1

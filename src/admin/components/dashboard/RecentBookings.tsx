@@ -8,7 +8,7 @@ import { Avatar } from '../ui/Avatar'
 import { EmptyState } from '../ui/EmptyState'
 import { formatBDT } from '../../utils/format'
 import type { Booking } from '../../../utils/bookings'
-import { computeBookingFinancials } from '../../../utils/bookings'
+import { bookingMoneyHidden, computeBookingFinancials } from '../../../utils/bookings'
 import { BookingStaySummary } from '../bookings/BookingStaySummary'
 
 interface RecentBookingsProps {
@@ -87,6 +87,9 @@ export const RecentBookings = ({ bookings }: RecentBookingsProps) => {
                     </td>
                     <td className="py-3 px-6 text-right">
                       {(() => {
+                        if (bookingMoneyHidden(b)) {
+                          return <p className="text-xs text-stone-400">Hidden</p>
+                        }
                         const fin = computeBookingFinancials(b)
                         return (
                           <>

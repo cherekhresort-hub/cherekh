@@ -23,6 +23,7 @@ import {
   ArrowRight,
   UtensilsCrossed,
   BedDouble,
+  Lock,
 } from 'lucide-react'
 import { Drawer } from '../ui/Drawer'
 import { BookingStatusBadge } from '../ui/StatusBadge'
@@ -40,6 +41,9 @@ import { confirmDelete } from '../../utils/confirmDelete'
 import { explainBookingUnavailable } from '../../utils/roomAvailabilityMessage'
 import {
   addBookingNote,
+  deleteBookingNote,
+  bookingGuestHidden,
+  bookingMoneyHidden,
   computeBookingFinancials,
   deleteBooking,
   getBookingRooms,
@@ -241,6 +245,26 @@ export const BookingDrawer = ({
     onChanged()
   }
 
+  const removeNote = async (noteId: string) => {
+    if (!canDelete) return
+    if (!(await confirmDelete({
+      title: 'Delete note?',
+      text: 'Remove this internal note? It stays in the activity log.',
+    }))) return
+    const updated = await deleteBookingNote(booking.id, noteId)
+    if (!updated) {
+      toast.error('Could not delete note')
+      return
+    }
+    toast.success('Note deleted')
+    onChanged()
+  }
+
+  const moneyHidden = bookingMoneyHidden(booking)
+  const guestHidden = bookingGuestHidden(booking)
+  const tabHidden =
+    (moneyHidden && (tab === 'payment' || tab === 'bills')) || (guestHidden && tab === 'guests')
+  const activeTab: TabKey = tabHidden ? 'overview' : tab
   const noteCount = booking.notes?.length ?? 0
   const extraCount = booking.extras?.length ?? 0
   const filledGuestCount = (booking.guests ?? []).filter(
@@ -295,12 +319,16 @@ export const BookingDrawer = ({
           label="Guests"
           value={`${booking.totalGuests}`}
         />
-        <HeaderStat
-          icon={<Wallet className="w-3.5 h-3.5" />}
-          label={fin.outstanding > 0 ? 'Outstanding' : 'Total'}
-          value={formatBDT(fin.outstanding > 0 ? fin.outstanding : fin.total)}
-          accent={fin.outstanding > 0 ? 'warning' : 'default'}
-        />
+        {moneyHidden ? (
+          <HeaderStat icon={<Lock className="w-3.5 h-3.5" />} label="Payment" value="Hidden" />
+        ) : (
+          <HeaderStat
+            icon={<Wallet className="w-3.5 h-3.5" />}
+            label={fin.outstanding > 0 ? 'Outstanding' : 'Total'}
+            value={formatBDT(fin.outstanding > 0 ? fin.outstanding : fin.total)}
+            accent={fin.outstanding > 0 ? 'warning' : 'default'}
+          />
+        )}
       </div>
     </div>
   )
@@ -308,14 +336,20 @@ export const BookingDrawer = ({
   const toolbar = (
     <Tabs<TabKey>
       layoutId="booking-drawer-tabs"
-      value={tab}
+      value={activeTab}
       onChange={setTab}
       className="w-full justify-start flex-wrap"
       items={[
         { value: 'overview', label: <span className="inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Overview</span> },
-        { value: 'payment', label: <span className="inline-flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5" /> Payment</span> },
-        { value: 'bills', label: <span className="inline-flex items-center gap-1.5"><UtensilsCrossed className="w-3.5 h-3.5" /> Bills</span>, count: extraCount || undefined },
-        { value: 'guests', label: <span className="inline-flex items-center gap-1.5"><IdCard className="w-3.5 h-3.5" /> Guests</span>, count: filledGuestCount || undefined },
+        ...(moneyHidden
+          ? []
+          : [
+              { value: 'payment' as const, label: <span className="inline-flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5" /> Payment</span> },
+              { value: 'bills' as const, label: <span className="inline-flex items-center gap-1.5"><UtensilsCrossed className="w-3.5 h-3.5" /> Bills</span>, count: extraCount || undefined },
+            ]),
+        ...(guestHidden
+          ? []
+          : [{ value: 'guests' as const, label: <span className="inline-flex items-center gap-1.5"><IdCard className="w-3.5 h-3.5" /> Guests</span>, count: filledGuestCount || undefined }]),
         { value: 'notes', label: <span className="inline-flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> Notes</span>, count: noteCount || undefined },
       ]}
     />
@@ -381,7 +415,7 @@ export const BookingDrawer = ({
     >
       <AnimatePresence mode="wait">
         <motion.div
-          key={tab}
+          key={activeTab}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
@@ -393,7 +427,7 @@ export const BookingDrawer = ({
               View only. Booking officers can change only the bookings they created.
             </p>
           )}
-          {tab === 'overview' && (
+          {activeTab === 'overview' && (
             <OverviewTab
               booking={booking}
               lines={lines}
@@ -413,21 +447,22 @@ export const BookingDrawer = ({
               onSaved={() => onChanged()}
             />
           )}
-          {tab === 'payment' && <PaymentSection booking={booking} onChanged={onChanged} readOnly={readOnly} />}
-          {tab === 'bills' && (
+          {activeTab === 'payment' && <PaymentSection booking={booking} onChanged={onChanged} readOnly={readOnly} />}
+          {activeTab === 'bills' && (
             <ExtraChargesSection booking={booking} onChanged={onChanged} readOnly={billsReadOnly} />
           )}
-          {tab === 'guests' && (
+          {activeTab === 'guests' && (
             <div data-highlight-id={BOOKING_HIGHLIGHT.guests} className="rounded-2xl">
               <GuestDetailsSection booking={booking} onSaved={onChanged} readOnly={readOnly} />
             </div>
           )}
-          {tab === 'notes' && (
+          {activeTab === 'notes' && (
             <NotesTab
               booking={booking}
               note={note}
               onChangeNote={setNote}
               onSave={saveNote}
+              onDelete={canDelete && detailLoaded ? removeNote : undefined}
               readOnly={readOnly}
             />
           )}
@@ -512,6 +547,13 @@ const OverviewTab = ({
           <Phone className="w-3 h-3" /> Guest contact
         </h3>
         <ul className="space-y-2.5">
+          {booking.guestHidden ? (
+            <li className="flex items-center gap-2 text-stone-400">
+              <Lock className="w-4 h-4 shrink-0" />
+              <span className="text-xs">Guest name and contact are visible only on bookings you created.</span>
+            </li>
+          ) : (
+          <>
           <li className="flex items-center gap-2 text-stone-700">
             <Mail className="w-4 h-4 text-stone-400 shrink-0" />
             {booking.email ? (
@@ -534,6 +576,8 @@ const OverviewTab = ({
               {booking.phone}
             </a>
           </li>
+          </>
+          )}
           {getBookingArrivalTime(booking) && (
             <li className="flex items-center gap-2 text-stone-700">
               <ClipboardList className="w-4 h-4 text-stone-400 shrink-0" />
@@ -651,10 +695,12 @@ interface NotesTabProps {
   note: string
   onChangeNote: (v: string) => void
   onSave: () => void
+  /** Present only for admins. */
+  onDelete?: (noteId: string) => void
   readOnly: boolean
 }
 
-const NotesTab = ({ booking, note, onChangeNote, onSave, readOnly }: NotesTabProps) => (
+const NotesTab = ({ booking, note, onChangeNote, onSave, onDelete, readOnly }: NotesTabProps) => (
   <Card padded={false} className="p-5" data-highlight-id={BOOKING_HIGHLIGHT.notes}>
     <div className="flex items-center justify-between mb-3">
       <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
@@ -673,9 +719,22 @@ const NotesTab = ({ booking, note, onChangeNote, onSave, readOnly }: NotesTabPro
           .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
           .map((n) => (
             <li key={n.id} data-highlight-id={n.id} className="bg-stone-50 rounded-xl px-3 py-2.5">
-              <div className="flex items-center justify-between text-xs text-stone-500">
-                <span className="font-medium text-forest-700">{n.createdBy}</span>
-                <span>{formatDateTime(n.createdAt)}</span>
+              <div className="flex items-center justify-between gap-2 text-xs text-stone-500">
+                <span className="font-medium text-forest-700 truncate">{n.createdBy}</span>
+                <span className="inline-flex items-center gap-1.5 shrink-0">
+                  {formatDateTime(n.createdAt)}
+                  {onDelete && (
+                    <button
+                      type="button"
+                      onClick={() => onDelete(n.id)}
+                      className="rounded-md p-1 text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                      aria-label="Delete note"
+                      title="Delete note"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </span>
               </div>
               <p className="text-sm text-stone-700 mt-1 whitespace-pre-wrap">{n.note}</p>
             </li>

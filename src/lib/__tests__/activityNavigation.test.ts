@@ -50,6 +50,11 @@ describe('getActivityDestination', () => {
     expect(getActivityDestinationLabel(entry({ action: 'booking.extra_added', entityId: 'CC-1' }))).toBe('View bill')
   })
 
+  it('opens the notes tab for a deleted note', () => {
+    const url = getActivityDestination(entry({ action: 'booking.note_deleted', entityId: 'CC-1' }))
+    expect(query(url)).toEqual({ id: 'CC-1', tab: 'notes', highlight: 'booking-notes' })
+  })
+
   it('sends deleted bookings to the list', () => {
     expect(getActivityDestination(entry({ action: 'booking.deleted', entityId: 'CC-1' }))).toBe('/admin/bookings')
   })

@@ -25,17 +25,17 @@ export type AvailabilityRow = {
 }
 
 const persistableBooking = (booking: Booking): Booking => {
-  const {
-    listNetPaid: _listNetPaid,
-    listTxCount: _listTxCount,
-    listLastTransaction: _listLastTransaction,
-    ...payment
-  } = booking.payment ?? {
-    amount: 0,
-    status: 'pending' as const,
-  }
-  const { listExtrasTotal: _listExtrasTotal, ...rest } = booking
-  return { ...rest, payment }
+  const payment = { ...(booking.payment ?? { amount: 0, status: 'pending' as const }) }
+  delete payment.listNetPaid
+  delete payment.listTxCount
+  delete payment.listLastTransaction
+  const rest = { ...booking, payment }
+  delete rest.listExtrasTotal
+  delete rest.listNotesCount
+  delete rest.listLatestNote
+  delete rest.paymentHidden
+  delete rest.guestHidden
+  return rest
 }
 
 export const toPersistedBooking = persistableBooking

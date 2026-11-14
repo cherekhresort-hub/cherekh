@@ -1,7 +1,8 @@
-import { useEffect, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { cn } from '../../utils/cn'
+import { useOverlay } from '../../utils/overlay'
 
 interface DrawerProps {
   open: boolean
@@ -40,23 +41,14 @@ export const Drawer = ({
   footer,
   contentPadding = true,
 }: DrawerProps) => {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
-  }, [open, onClose])
+  const layerRef = useOverlay(open, onClose)
 
   const isLeft = side === 'left'
 
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50">
+        <div key="drawer" ref={layerRef} className="fixed inset-0 z-50">
           <motion.div
             className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
             onClick={onClose}

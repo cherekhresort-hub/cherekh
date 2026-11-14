@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Download, Plus } from 'lucide-react'
+import { Download, FileText, Plus } from 'lucide-react'
 import { TopBar } from '../components/layout/TopBar'
 import { Card } from '../components/ui/Card'
 import { Tabs } from '../components/ui/Tabs'
@@ -14,7 +14,11 @@ import { useBookingsData } from '../hooks/useBookingsData'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../../contexts/AuthProvider'
 import { useBookingCreatorLookup } from '../utils/bookingCreator'
-import { exportBookingsToExcel } from '../../utils/exportExcel'
+import {
+  exportableBookings,
+  exportBookingsToExcel,
+  exportGuestRegisterToExcel,
+} from '../../utils/exportExcel'
 import {
   ensureBookingDetails,
   getBookingsCache,
@@ -115,10 +119,8 @@ const Bookings = () => {
   useEffect(() => {
     if (!selected) return
     const fresh = bookings.find((b) => b.id === selected.id)
-    if (!fresh) {
-      setSelected(null)
-      return
-    }
+    // A refresh can briefly omit the open booking; only deleting it closes the drawer.
+    if (!fresh) return
     if (!isBookingDetailLoaded(selected.id)) {
       if (detailLoading) return
       // Another device changed this booking; keep showing the current detail until the fresh one arrives.
@@ -248,16 +250,32 @@ const Bookings = () => {
   }
 
   const exportNow = async () => {
-    if (filtered.length === 0) {
-      toast.info('No bookings to export')
+    const toExport = exportableBookings(filtered)
+    if (toExport.length === 0) {
+      toast.info('No bookings to export', 'Cancelled bookings are not exported.')
       return
     }
     try {
-      const detailed = await ensureBookingDetails(filtered)
+      const detailed = await ensureBookingDetails(toExport)
       await exportBookingsToExcel(
         detailed.map((booking) => ({ ...booking, bookedBy: creatorFor(booking) }))
       )
-      toast.success('Export complete', `${filtered.length} bookings`)
+      toast.success('Export complete', `${toExport.length} bookings`)
+    } catch {
+      toast.error('Export failed', 'Please try again.')
+    }
+  }
+
+  const exportGuestRegister = async () => {
+    const toExport = exportableBookings(filtered)
+    if (toExport.length === 0) {
+      toast.info('No bookings to export', 'Cancelled bookings are not exported.')
+      return
+    }
+    try {
+      const detailed = await ensureBookingDetails(toExport)
+      await exportGuestRegisterToExcel(detailed)
+      toast.success('Guest register exported', `${toExport.length} bookings`)
     } catch {
       toast.error('Export failed', 'Please try again.')
     }
@@ -278,10 +296,20 @@ const Bookings = () => {
         description="Manage reservations across all rooms and stays"
         actions={
           <>
-            <Button variant="outline" size="md" leftIcon={<Download className="w-4 h-4" />} onClick={exportNow}>
+            <Button variant="outline" size="md" leftIcon={<Download className="w-4 h-4" />} onClick={exportNow} className="whitespace-nowrap">
               Export
             </Button>
-            <Button size="md" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setAddOpen(true)}>
+            <Button
+              variant="outline"
+              size="md"
+              leftIcon={<FileText className="w-4 h-4" />}
+              onClick={exportGuestRegister}
+              className="whitespace-nowrap"
+              title="Guest name, contact, rooms, dates and guest counts only - for government and other reports"
+            >
+              Guest register
+            </Button>
+            <Button size="md" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setAddOpen(true)} className="whitespace-nowrap">
               Add booking
             </Button>
           </>

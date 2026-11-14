@@ -3,6 +3,7 @@ import type {
   Booking,
   BookingCreator,
   BookingDiscount,
+  BookingNote,
   BookingRoomLine,
   Payment,
   PaymentMethod,
@@ -37,6 +38,29 @@ export type BookingListRow = {
   payment_last_at?: string | null
   extras_total?: number | string | null
   booked_by?: unknown
+  notes_count?: number | string | null
+  latest_note?: unknown
+  payment_hidden?: boolean | null
+  guest_hidden?: boolean | null
+}
+
+const parseNote = (raw: unknown): BookingNote | undefined => {
+  if (!raw || typeof raw !== 'object') return undefined
+  const n = raw as Record<string, unknown>
+  if (typeof n.note !== 'string' || !n.note.trim()) return undefined
+  return {
+    id: typeof n.id === 'string' ? n.id : '',
+    note: n.note,
+    createdBy: typeof n.createdBy === 'string' ? n.createdBy : '',
+    createdAt: typeof n.createdAt === 'string' ? n.createdAt : '',
+  }
+}
+
+/** Undefined when the view predates migration 060, so callers fall back to loaded notes. */
+const parseNotesCount = (raw: BookingListRow['notes_count']): number | undefined => {
+  if (raw === undefined || raw === null || raw === '') return undefined
+  const count = Number(raw)
+  return Number.isFinite(count) && count >= 0 ? count : undefined
 }
 
 const parseBookedBy = (raw: unknown): BookingCreator | undefined => {
@@ -130,6 +154,10 @@ export const bookingFromListRow = (row: BookingListRow): Booking => {
     notes: [],
     payment: buildPayment(row),
     listExtrasTotal: Number(row.extras_total) || undefined,
+    listNotesCount: parseNotesCount(row.notes_count),
+    listLatestNote: parseNote(row.latest_note),
+    ...(row.payment_hidden === true ? { paymentHidden: true } : {}),
+    ...(row.guest_hidden === true ? { guestHidden: true } : {}),
     bookedBy: parseBookedBy(row.booked_by),
     createdAt: row.created_at,
     updatedAt: row.updated_at,

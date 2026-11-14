@@ -18,6 +18,7 @@ import { Badge } from '../ui/Badge'
 import { useToast } from '../ui/Toast'
 import {
   getBookingGuestInfo,
+  GUEST_ID_TYPE_LABELS,
   updateBookingGuestInfo,
   type Booking,
   type EmergencyContact,
@@ -30,13 +31,7 @@ import {
 } from '../../../utils/bookingHelpers'
 import { cn } from '../../utils/cn'
 
-const ID_TYPE_LABELS: Record<GuestIdType, string> = {
-  nid: 'National ID (NID)',
-  passport: 'Passport',
-  'driving-license': 'Driving License',
-  'birth-certificate': 'Birth Certificate',
-  other: 'Other',
-}
+const ID_TYPE_LABELS = GUEST_ID_TYPE_LABELS
 
 const emptyGuest = (): GuestRecord => ({
   name: '',

@@ -153,6 +153,7 @@ export const matchesDatePreset = (
 
 export const matchesPaymentFilter = (booking: Booking, filter: PaymentFilter): boolean => {
   if (filter === 'all') return true
+  if (booking.paymentHidden) return false
 
   const fin = computeBookingFinancials(booking)
 

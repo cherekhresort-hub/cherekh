@@ -117,6 +117,14 @@ export interface BookingRoomLine {
 
 export type GuestIdType = 'nid' | 'passport' | 'driving-license' | 'birth-certificate' | 'other'
 
+export const GUEST_ID_TYPE_LABELS: Record<GuestIdType, string> = {
+  nid: 'National ID (NID)',
+  passport: 'Passport',
+  'driving-license': 'Driving License',
+  'birth-certificate': 'Birth Certificate',
+  other: 'Other',
+}
+
 export interface GuestRecord {
   name?: string
   idType?: GuestIdType
@@ -214,6 +222,20 @@ export interface Booking {
   extras?: ExtraCharge[]
   /** List-row extra charges total when full extras are not loaded. Never persist. */
   listExtrasTotal?: number
+  /** List-row internal note count when full notes are not loaded. Never persist. */
+  listNotesCount?: number
+  /** List-row latest internal note when full notes are not loaded. Never persist. */
+  listLatestNote?: BookingNote
+  /**
+   * Set by the server when the signed-in booking officer did not create this booking;
+   * payment and bills are withheld. Never persist.
+   */
+  paymentHidden?: boolean
+  /**
+   * Set by the server when the signed-in booking officer did not create this booking;
+   * guest name, contact and ID records are withheld. Never persist.
+   */
+  guestHidden?: boolean
   /** Who created the booking. Absent on bookings made before this was recorded. */
   bookedBy?: BookingCreator
   createdAt: string
@@ -223,6 +245,26 @@ export interface Booking {
 export type BookingCreator =
   | { type: 'staff'; email: string; role?: StaffRole; name?: string }
   | { type: 'website' }
+
+export const bookingMoneyHidden = (booking: Pick<Booking, 'paymentHidden'>): boolean =>
+  booking.paymentHidden === true
+
+export const bookingGuestHidden = (booking: Pick<Booking, 'guestHidden'>): boolean =>
+  booking.guestHidden === true
+/** Latest internal note and total count, from loaded notes or the list row. */
+export const internalNotesSummary = (
+  booking: Pick<Booking, 'notes' | 'listNotesCount' | 'listLatestNote'>
+): { latest?: BookingNote; count: number } => {
+  const notes = Array.isArray(booking.notes) ? booking.notes : []
+  if (notes.length > 0 || booking.listNotesCount === undefined) {
+    const latest = notes.reduce<BookingNote | undefined>(
+      (best, note) => (!best || (note.createdAt ?? '') > (best.createdAt ?? '') ? note : best),
+      undefined
+    )
+    return { latest, count: notes.length }
+  }
+  return { latest: booking.listLatestNote, count: booking.listNotesCount }
+}
 
 /** Cancelled bookings are excluded from revenue and financial reports. */
 export const countsTowardRevenue = (booking: Pick<Booking, 'status'>): boolean =>
@@ -554,6 +596,33 @@ export const addBookingNote = async (
     message: `${bookingRef.name}: ${note.slice(0, 120)}${note.length > 120 ? '…' : ''}`,
     entityId: id,
     metadata: { noteId: newNote.id },
+  })
+  return updated
+}
+
+/** Admin only. The activity log keeps the removed text and author. */
+export const deleteBookingNote = async (id: string, noteId: string): Promise<Booking | null> => {
+  if (!canDeleteRecords()) return null
+  const existing = getBookings().find((b) => b.id === id)
+  if (!existing) return null
+  const bookingRef = (await ensureBookingDetail(id)) ?? existing
+  const notes = bookingRef.notes || []
+  const removed = notes.find((n) => n.id === noteId)
+  if (!removed) return bookingRef
+
+  const updated: Booking = {
+    ...bookingRef,
+    notes: notes.filter((n) => n.id !== noteId),
+    updatedAt: new Date().toISOString(),
+  }
+  await persistBooking(updated)
+  void notifyAdminOfManagerAction({
+    category: 'booking',
+    action: 'booking.note_deleted',
+    title: 'Booking note deleted',
+    message: `${bookingRef.name}: ${removed.note.slice(0, 120)}${removed.note.length > 120 ? '…' : ''}`,
+    entityId: id,
+    metadata: { noteId, note: removed.note, createdBy: removed.createdBy, createdAt: removed.createdAt },
   })
   return updated
 }

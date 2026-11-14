@@ -155,6 +155,7 @@ export const BookingCalendar = ({ bookings }: BookingCalendarProps) => {
             </div>
 
             {(() => {
+              if (selected.paymentHidden) return null
               const fin = computeBookingFinancials(selected)
               if (fin.subtotal <= 0 && fin.total <= 0) return null
               return (

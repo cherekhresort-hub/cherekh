@@ -1,20 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Users } from 'lucide-react'
+import { Download, Users } from 'lucide-react'
 import { TopBar } from '../components/layout/TopBar'
 import { Tabs } from '../components/ui/Tabs'
 import { Card } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
 import { GuestDrawer } from '../components/guests/GuestDrawer'
 import { GuestTable, type GuestSortKey } from '../components/guests/GuestTable'
-import { getGuests } from '../data/guests'
+import { getBookingsByGuestId, getGuests } from '../data/guests'
 import { useBookingsData } from '../hooks/useBookingsData'
+import { useToast } from '../components/ui/Toast'
+import { ensureBookingDetails } from '../../lib/bookingsStore'
+import { exportGuestsToExcel } from '../../utils/exportExcel'
 import type { Guest, GuestTag } from '../types'
 
 type TagFilter = 'all' | GuestTag
 
 const Guests = () => {
   const { bookings } = useBookingsData()
+  const toast = useToast()
+  const [exporting, setExporting] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const deepLinkHandled = useRef<string | null>(null)
   const [search, setSearch] = useState('')
@@ -106,12 +112,48 @@ const Guests = () => {
     }
   }
 
+  const exportNow = async () => {
+    if (filtered.length === 0) {
+      toast.info('No guests to export')
+      return
+    }
+    setExporting(true)
+    try {
+      const byGuest = getBookingsByGuestId()
+      const profiles = await Promise.all(
+        filtered.map(async (guest) => ({
+          ...guest,
+          bookings: await ensureBookingDetails(byGuest.get(guest.id) ?? []),
+        }))
+      )
+      await exportGuestsToExcel(profiles)
+      toast.success('Export complete', `${profiles.length} guests`)
+    } catch {
+      toast.error('Export failed', 'Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <>
       <TopBar
         title="Guests"
         description="Track loyalty, history, and preferences"
         search={{ value: search, onChange: setSearch, placeholder: 'Search name, email, phone…' }}
+        actions={
+          <Button
+            variant="outline"
+            size="md"
+            leftIcon={<Download className="w-4 h-4" />}
+            onClick={exportNow}
+            disabled={exporting}
+            className="whitespace-nowrap"
+            title="Guest profiles, ID and emergency details, plus everyone recorded on their bookings"
+          >
+            {exporting ? 'Exporting…' : 'Export'}
+          </Button>
+        }
       />
       <main className="px-4 lg:px-8 py-6 space-y-4">
         <Tabs<TagFilter>

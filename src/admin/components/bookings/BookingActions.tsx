@@ -10,7 +10,7 @@ import {
 } from 'react-icons/fa'
 import { Card } from '../ui/Card'
 import { useToast } from '../ui/Toast'
-import type { Booking } from '../../../utils/bookings'
+import { bookingGuestHidden, bookingMoneyHidden, type Booking } from '../../../utils/bookings'
 import {
   buildBookingMessages,
   telHref,
@@ -83,7 +83,7 @@ export const BookingActions = ({ booking }: BookingActionsProps) => {
     }
   }
 
-  const actions: ActionItem[] = [
+  const billActions: ActionItem[] = [
     {
       key: 'print',
       label: 'Print on pad',
@@ -101,6 +101,9 @@ export const BookingActions = ({ booking }: BookingActionsProps) => {
       onClick: () => void exportPdf(),
       disabled: exporting,
     },
+  ]
+
+  const contactActions: ActionItem[] = [
     {
       key: 'whatsapp',
       label: 'WhatsApp',
@@ -119,6 +122,11 @@ export const BookingActions = ({ booking }: BookingActionsProps) => {
       onClick: () => openExternal(telHref(phone)),
       disabled: !phone,
     },
+  ]
+
+  const actions: ActionItem[] = [
+    ...(bookingMoneyHidden(booking) ? [] : billActions),
+    ...(bookingGuestHidden(booking) ? [] : contactActions),
     {
       key: 'copy',
       label: 'Copy summary',
