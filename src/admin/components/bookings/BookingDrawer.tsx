@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 import {
   CalendarDays,
   Mail,
@@ -76,6 +77,9 @@ import {
 } from '../../../utils/bookingHelpers'
 import { cn } from '../../utils/cn'
 import { useFlashHighlight } from '../../hooks/useFlashHighlight'
+import { useHousekeepingData } from '../../hooks/useHousekeepingData'
+import { CLEANING_STATUS_LABELS, roomsNotReadyForArrival } from '../../data/housekeeping'
+import { businessToday } from '../../../lib/finance/dates'
 import {
   BOOKING_HIGHLIGHT,
   BOOKING_TAB_FALLBACK,
@@ -113,6 +117,9 @@ export const BookingDrawer = ({
 }: BookingDrawerProps) => {
   const toast = useToast()
   const { canDelete, role, user } = useAuth()
+  const { tasks: housekeepingTasks } = useHousekeepingData({
+    enabled: Boolean(booking) && (role === 'admin' || role === 'manager'),
+  })
   const [tab, setTab] = useState<TabKey>('overview')
   const [note, setNote] = useState('')
   const [roomsModalOpen, setRoomsModalOpen] = useState(false)
@@ -188,6 +195,7 @@ export const BookingDrawer = ({
   if (!fin) return <Drawer open={false} onClose={onClose}>{null}</Drawer>
 
   const lines = getBookingRooms(booking)
+  const unreadyRooms = roomsNotReadyForArrival(booking, housekeepingTasks, businessToday())
   const readOnly = !roleCanModifyBooking(role, user?.email, booking)
   const billsReadOnly = readOnly || !roleCanManageBills(role)
   const canChangeRooms =
@@ -426,6 +434,21 @@ export const BookingDrawer = ({
             <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               View only. Booking officers can change only the bookings they created.
             </p>
+          )}
+          {activeTab === 'overview' && unreadyRooms.length > 0 && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 flex flex-wrap items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                Arriving today, but{' '}
+                {unreadyRooms
+                  .map((task) => `Room ${task.roomNumber} is ${CLEANING_STATUS_LABELS[task.status].toLowerCase()}`)
+                  .join(', ')}
+                .
+              </span>
+              <Link to="/admin/housekeeping" className="font-medium underline underline-offset-2">
+                Open housekeeping
+              </Link>
+            </div>
           )}
           {activeTab === 'overview' && (
             <OverviewTab

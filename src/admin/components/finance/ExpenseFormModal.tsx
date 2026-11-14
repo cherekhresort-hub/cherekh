@@ -13,6 +13,7 @@ import { CLASSIFICATION_HELP, CLASSIFICATION_LABELS, DOC_TYPE_LABELS, PHASE_LABE
 import { createExpense, saveSupplier, uploadAttachment, type ExpenseLineInput } from '../../../lib/finance/financeDb'
 import { businessToday } from '../../../lib/finance/dates'
 import { logStaffActivity } from '../../../lib/staffActivityLog'
+import { currentStaff } from '../../data/staff'
 import type { AttachmentDocType, Classification, FinanceData } from '../../../lib/finance/types'
 import { cn } from '../../utils/cn'
 
@@ -528,7 +529,7 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
               <Field label="Lent to" required>
                 <Select value={borrowerStaffId} onChange={(e) => setBorrowerStaffId(e.target.value)}>
                   <option value="">Choose staff member…</option>
-                  {staff.map((s) => (
+                  {currentStaff(staff).map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
                     </option>
@@ -581,7 +582,7 @@ export const ExpenseFormModal = ({ open, initialMode = 'quick', data, onClose, o
               <Field label="Employee" required>
                 <Select value={employeeStaffId} onChange={(e) => setEmployeeStaffId(e.target.value)}>
                   <option value="">Choose staff member…</option>
-                  {staff.map((s) => (
+                  {currentStaff(staff).map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
                     </option>

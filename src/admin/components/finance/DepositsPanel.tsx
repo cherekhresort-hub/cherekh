@@ -22,7 +22,7 @@ import {
   type MoneyFields,
 } from './financeHelpers'
 
-type SettleKind = 'refund_received' | 'applied' | 'written_off'
+export type SettleKind = 'refund_received' | 'applied' | 'written_off'
 
 /** H · Salaries, Wages and Human Resources (subcategories are `cat-h-…`). */
 const SALARY_CATEGORY_ID = 'cat-h'
@@ -218,7 +218,7 @@ export const DepositsPanel = ({
 
 const hasUnpaidDeposits = (deposits: DepositPosition[]) => deposits.some((d) => d.base + 0.005 < d.figures.classTotals.deposit_advance)
 
-const SettleModal = ({
+export const SettleModal = ({
   state,
   data,
   index,

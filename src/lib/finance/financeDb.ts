@@ -9,7 +9,11 @@ import {
   type FinAuditRow,
   type FinCategory,
   type FinDepartment,
+  type FinPayroll,
   type FinProject,
+  type PayrollDeduction,
+  type PayrollEarning,
+  type StaffSalary,
   type FinSupplier,
   type FinanceData,
 } from './types'
@@ -52,6 +56,7 @@ const NUMERIC_KEYS = new Set([
   'subtotal', 'discount', 'tax', 'additional_charges', 'total', 'quantity', 'unit_price', 'line_total',
   'cost', 'salvage_value', 'amount', 'opening_balance', 'budget', 'approval_threshold',
   'size_bytes', 'sort_order', 'line_no', 'useful_life_months',
+  'monthly_salary', 'base_salary', 'gross', 'total_deductions', 'advance_recovered', 'net_pay',
 ])
 
 const mapRow = <T>(row: Row): T => {
@@ -343,6 +348,70 @@ export const recordAdjustment = (input: {
 
 export const reverseLedgerEntry = (entryId: string, reason: string) =>
   rpc<number>('fin_reverse_ledger_entry', { p_entry_id: entryId, p_reason: reason })
+
+// ---------------------------------------------------------------------------
+// Payroll (migration 062). Loaded apart from FinanceData so finance pages keep
+// working before the migration is applied.
+// ---------------------------------------------------------------------------
+
+export interface PayrollLoadResult {
+  salaries: StaffSalary[]
+  payrolls: FinPayroll[]
+  available: boolean
+  error?: string
+}
+
+export const loadPayrollData = async (): Promise<PayrollLoadResult> => {
+  if (!isSupabaseConfigured() || !getSupabase()) {
+    return { salaries: [], payrolls: [], available: false, error: 'Supabase is not configured.' }
+  }
+  try {
+    const [salaries, payrolls] = await Promise.all([
+      fetchAll<StaffSalary>('staff_salaries', 'id'),
+      fetchAll<FinPayroll>('fin_payroll', 'period', false),
+    ])
+    return { salaries, payrolls, available: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return {
+      salaries: [],
+      payrolls: [],
+      available: false,
+      error: isMissingTable(message) ? 'Payroll is not set up yet. Apply migration 062 (supabase db push).' : message,
+    }
+  }
+}
+
+/** Admin only (RLS). */
+export const setStaffSalary = (staffId: string, monthlySalary: number, updatedBy?: string) =>
+  upsert('staff_salaries', { id: staffId, monthly_salary: monthlySalary, updated_by: updatedBy ?? null })
+
+export interface CreatePayrollInput {
+  staffId: string
+  /** YYYY-MM */
+  period: string
+  baseSalary: number
+  earnings: PayrollEarning[]
+  deductions: PayrollDeduction[]
+  /** Staff advances to recover from this salary. */
+  advances: { expenseId: string; amount: number }[]
+  payment?: ExpensePaymentInput | null
+  notes?: string
+}
+
+export const createPayroll = (input: CreatePayrollInput) =>
+  rpc<{ id: string; expense_id: string; code: string }>('fin_create_payroll', {
+    p: {
+      staff_id: input.staffId,
+      period: input.period,
+      base_salary: input.baseSalary,
+      earnings: input.earnings,
+      deductions: input.deductions,
+      advances: input.advances.map((a) => ({ expense_id: a.expenseId, amount: a.amount })),
+      payment: input.payment ? paymentToRpc(input.payment) : null,
+      notes: input.notes ?? null,
+    },
+  })
 
 // ---------------------------------------------------------------------------
 // Reference data (direct writes, RLS-protected)

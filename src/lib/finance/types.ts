@@ -232,6 +232,46 @@ export interface FinAuditRow {
   createdAt: string
 }
 
+export type PayrollEarningType = 'allowance' | 'overtime' | 'bonus' | 'other'
+
+export interface PayrollEarning {
+  type: PayrollEarningType
+  label: string
+  amount: number
+}
+
+export interface PayrollDeduction {
+  label: string
+  amount: number
+}
+
+export interface StaffSalary {
+  /** Staff member id. */
+  id: string
+  monthlySalary: number
+  updatedBy: string | null
+  updatedAt: string
+}
+
+export interface FinPayroll {
+  id: string
+  staffId: string | null
+  staffName: string
+  /** YYYY-MM */
+  period: string
+  expenseId: string
+  baseSalary: number
+  earnings: PayrollEarning[]
+  deductions: PayrollDeduction[]
+  gross: number
+  totalDeductions: number
+  advanceRecovered: number
+  netPay: number
+  notes: string | null
+  createdBy: string | null
+  createdAt: string
+}
+
 /** Everything the finance pages and reports read, loaded in one pass. */
 export interface FinanceData {
   departments: FinDepartment[]

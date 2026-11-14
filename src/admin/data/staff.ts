@@ -3,9 +3,11 @@ import {
   deleteStaffMember,
   getCachedStaff,
   notifyStaffChanged,
+  setStaffTermination,
   upsertStaffMember,
 } from '../../lib/staffDb'
-import { canDeleteRecords } from '../../lib/permissions'
+import { canDeleteRecords, isAdminUser } from '../../lib/permissions'
+import { logStaffActivity } from '../../lib/staffActivityLog'
 import type { StaffMember, StaffShift, StaffStatus } from '../types'
 
 export const STAFF_COLORS = [
@@ -121,6 +123,49 @@ export const deleteStaff = async (id: string): Promise<{ ok: boolean; synced: bo
   return { ok: synced, synced }
 }
 
+export const isFormerStaff = (member: Pick<StaffMember, 'terminatedOn'>): boolean => Boolean(member.terminatedOn)
+
+/** Staff still employed; use for pickers that assign new work or money. */
+export const currentStaff = (members: StaffMember[]): StaffMember[] => members.filter((m) => !isFormerStaff(m))
+
+export const fireStaff = async (
+  member: StaffMember,
+  input: { terminatedOn: string; reason: string; firedBy?: string }
+): Promise<{ ok: boolean; error?: string }> => {
+  if (!isAdminUser()) return { ok: false, error: 'Only admins can fire staff.' }
+  if (!input.reason.trim()) return { ok: false, error: 'Give a reason.' }
+  const result = await setStaffTermination(member.id, {
+    terminatedOn: input.terminatedOn,
+    reason: input.reason,
+    terminatedBy: input.firedBy,
+  })
+  if (!result.ok) return result
+  notifyStaffChanged()
+  void logStaffActivity({
+    category: 'staff',
+    action: 'staff.fired',
+    title: `Staff fired · ${member.name}`,
+    message: `${input.terminatedOn} · ${input.reason.trim()}`,
+    entityId: member.id,
+  })
+  return result
+}
+
+export const reinstateStaff = async (member: StaffMember): Promise<{ ok: boolean; error?: string }> => {
+  if (!isAdminUser()) return { ok: false, error: 'Only admins can reinstate staff.' }
+  const result = await setStaffTermination(member.id, null)
+  if (!result.ok) return result
+  notifyStaffChanged()
+  void logStaffActivity({
+    category: 'staff',
+    action: 'staff.reinstated',
+    title: `Staff reinstated · ${member.name}`,
+    message: member.terminatedOn ? `Was fired on ${member.terminatedOn}` : member.role,
+    entityId: member.id,
+  })
+  return result
+}
+
 /** Convenience role-based selector for the housekeeping assignee dropdown. */
 export const getHousekeepingStaff = (): StaffMember[] =>
-  getCachedStaff().filter((s) => s.role.toLowerCase().includes('housekeep'))
+  currentStaff(getCachedStaff()).filter((s) => s.role.toLowerCase().includes('housekeep'))

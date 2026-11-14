@@ -32,12 +32,18 @@ export interface StaffMember {
   shift: StaffShift
   status: StaffStatus
   avatarColor: string
+  /** Set when the staff member was fired; the record is kept for history. */
+  terminatedOn?: string
+  terminationReason?: string
+  terminatedBy?: string
 }
 
 export interface HousekeepingTask {
   id: string
   roomId: string
   roomNumber: string
+  /** Staff record id; `assignedTo` keeps the name as saved at assignment time. */
+  assignedStaffId?: string
   assignedTo?: string
   status: CleaningStatus
   priority: CleaningPriority
@@ -45,6 +51,26 @@ export interface HousekeepingTask {
   startedAt?: string
   completedAt?: string
   notes?: string
+  updatedAt?: string
+}
+
+export interface HousekeepingLogEntry {
+  id: number
+  taskId: string
+  roomId: string
+  roomNumber: string
+  event: 'status' | 'assigned'
+  fromStatus?: CleaningStatus
+  toStatus?: CleaningStatus
+  assignedStaffId?: string
+  assignedTo?: string
+  startedAt?: string
+  completedAt?: string
+  durationMinutes?: number
+  reason?: string
+  bookingId?: string
+  actorEmail?: string
+  createdAt: string
 }
 
 export interface ResortSettings {

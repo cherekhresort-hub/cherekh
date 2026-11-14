@@ -14,6 +14,9 @@ type StaffMemberRow = {
   status: StaffMember['status']
   avatar_color: string
   updated_at: string
+  terminated_on?: string | null
+  termination_reason?: string | null
+  terminated_by?: string | null
 }
 
 let memoryCache: StaffMember[] | null = null
@@ -27,9 +30,13 @@ const rowToMember = (row: StaffMemberRow): StaffMember => ({
   shift: row.shift,
   status: row.status,
   avatarColor: row.avatar_color,
+  terminatedOn: row.terminated_on ?? undefined,
+  terminationReason: row.termination_reason ?? undefined,
+  terminatedBy: row.terminated_by ?? undefined,
 })
 
-const memberToRow = (member: StaffMember): Omit<StaffMemberRow, 'updated_at'> => ({
+/** Termination columns are left out so ordinary edits never touch them (see setStaffTermination). */
+const memberToRow = (member: StaffMember): Omit<StaffMemberRow, 'updated_at' | 'terminated_on' | 'termination_reason' | 'terminated_by'> => ({
   id: member.id,
   name: member.name.trim(),
   role: member.role.trim(),
@@ -161,6 +168,51 @@ export const upsertStaffMembers = async (members: StaffMember[]): Promise<boolea
   }
 
   return true
+}
+
+export interface StaffTermination {
+  terminatedOn: string
+  reason: string
+  terminatedBy?: string
+}
+
+/** Fire (termination set) or reinstate (null). The database allows this for admins only. */
+export const setStaffTermination = async (
+  id: string,
+  termination: StaffTermination | null
+): Promise<{ ok: boolean; error?: string }> => {
+  const supabase = isSupabaseConfigured() ? getSupabase() : null
+  if (!supabase) return { ok: false, error: 'Supabase is not configured.' }
+
+  const { error } = await supabase
+    .from('staff_members')
+    .update({
+      terminated_on: termination?.terminatedOn ?? null,
+      termination_reason: termination?.reason.trim() ?? null,
+      terminated_by: termination?.terminatedBy ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+
+  if (error) {
+    console.error('[Supabase] update staff termination:', error.message)
+    return { ok: false, error: error.message }
+  }
+
+  const base = memoryCache ?? readLocalCache() ?? []
+  const next = base.map((member) =>
+    member.id === id
+      ? {
+          ...member,
+          terminatedOn: termination?.terminatedOn,
+          terminationReason: termination?.reason.trim(),
+          terminatedBy: termination?.terminatedBy,
+        }
+      : member
+  )
+  memoryCache = next
+  writeLocalCache(next)
+  return { ok: true }
 }
 
 export const deleteStaffMember = async (id: string): Promise<boolean> => {
