@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { calculateBookingTotal, diffBookingRooms, suggestRoomChangeAmount } from '../bookingHelpers'
+import {
+  calculateBookingTotal,
+  diffBookingRooms,
+  suggestDateChangeAmount,
+  suggestRoomChangeAmount,
+} from '../bookingHelpers'
 import type { BookingRoomLine } from '../bookings'
 
 const line = (roomType: string, adults = 2, children = 0): BookingRoomLine => ({
@@ -63,6 +68,52 @@ describe('suggestRoomChangeAmount', () => {
         { ...stay, payment: { amount: 100, status: 'pending' } },
         [line('103'), line('205')],
         [line('103')]
+      )
+    ).toBe(0)
+  })
+})
+
+describe('suggestDateChangeAmount', () => {
+  const rooms = [line('103')]
+  const booking = {
+    ...stay,
+    rooms,
+    roomType: '103',
+    adults: 2,
+    children: 0,
+    totalGuests: 2,
+    payment: { amount: 0, status: 'pending' as const },
+  }
+
+  it('moves the charge by the rate-card difference for longer stays', () => {
+    const current = calculateBookingTotal(booking)
+    const amount = suggestDateChangeAmount(
+      { ...booking, payment: { amount: current, status: 'pending' } },
+      { checkIn: '2026-12-01', checkOut: '2026-12-04' }
+    )
+    expect(amount).toBe(
+      calculateBookingTotal({ ...booking, checkIn: '2026-12-01', checkOut: '2026-12-04' })
+    )
+    expect(amount).toBeGreaterThan(current)
+  })
+
+  it('keeps a custom price when shortening the stay', () => {
+    const custom = 5000
+    const rateBefore = calculateBookingTotal(booking)
+    const rateAfter = calculateBookingTotal({ ...booking, checkOut: '2026-12-02' })
+    expect(
+      suggestDateChangeAmount(
+        { ...booking, payment: { amount: custom, status: 'pending' } },
+        { checkIn: '2026-12-01', checkOut: '2026-12-02' }
+      )
+    ).toBe(Math.max(0, custom + rateAfter - rateBefore))
+  })
+
+  it('never goes below zero', () => {
+    expect(
+      suggestDateChangeAmount(
+        { ...booking, payment: { amount: 50, status: 'pending' } },
+        { checkIn: '2026-12-01', checkOut: '2026-12-02' }
       )
     ).toBe(0)
   })

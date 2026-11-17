@@ -11,6 +11,7 @@ import {
   groupFoodExtras,
   parseFoodSlotKey,
   sortExtrasForInvoice,
+  extrasOutsideStay,
   stayServiceDates,
   type FoodDraft,
 } from '../foodBill'
@@ -54,6 +55,17 @@ describe('stay service dates', () => {
   it('falls back to check-in when check-out is missing or earlier', () => {
     expect(stayServiceDates({ checkIn: '2026-10-17', checkOut: '' })).toEqual(['2026-10-17'])
     expect(stayServiceDates({ checkIn: '2026-10-17', checkOut: '2026-10-10' })).toEqual(['2026-10-17'])
+  })
+
+  it('lists extras whose service day falls outside the new stay', () => {
+    const extras = [
+      extra({ serviceDate: '2026-10-17', name: 'In stay' }),
+      extra({ serviceDate: '2026-10-20', name: 'Outside' }),
+      extra({ name: 'No date' }),
+    ]
+    expect(
+      extrasOutsideStay({ extras }, { checkIn: '2026-10-17', checkOut: '2026-10-18' }).map((e) => e.name)
+    ).toEqual(['Outside'])
   })
 
   it('pre-selects today inside the stay, otherwise the first day', () => {

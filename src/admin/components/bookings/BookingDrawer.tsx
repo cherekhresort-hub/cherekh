@@ -38,6 +38,7 @@ import { PaymentSection } from './PaymentSection'
 import { ExtraChargesSection } from './ExtraChargesSection'
 import { BookingActions } from './BookingActions'
 import { EditBookingRoomsModal } from './EditBookingRoomsModal'
+import { EditBookingDatesModal } from './EditBookingDatesModal'
 import { confirmDelete } from '../../utils/confirmDelete'
 import { explainBookingUnavailable } from '../../utils/roomAvailabilityMessage'
 import {
@@ -48,6 +49,7 @@ import {
   computeBookingFinancials,
   deleteBooking,
   getBookingRooms,
+  DATE_CHANGE_STATUSES,
   ROOM_CHANGE_STATUSES,
   updateBookingStatus,
   type Booking,
@@ -123,6 +125,7 @@ export const BookingDrawer = ({
   const [tab, setTab] = useState<TabKey>('overview')
   const [note, setNote] = useState('')
   const [roomsModalOpen, setRoomsModalOpen] = useState(false)
+  const [datesModalOpen, setDatesModalOpen] = useState(false)
   const shownDetailFor = useRef<string | null>(null)
   const focusTabApplied = useRef<number | null>(null)
   const focusHighlighted = useRef<number | null>(null)
@@ -134,6 +137,7 @@ export const BookingDrawer = ({
     setNote('')
     setTab('overview')
     setRoomsModalOpen(false)
+    setDatesModalOpen(false)
     clearHighlight()
   }, [booking?.id, clearHighlight])
 
@@ -204,6 +208,11 @@ export const BookingDrawer = ({
     roleCanChangeBookingRooms(role) &&
     ROOM_CHANGE_STATUSES.includes(booking.status) &&
     !bookingIsConferenceOnly(booking)
+  const canChangeDates =
+    !readOnly &&
+    detailLoaded &&
+    roleCanChangeBookingRooms(role) &&
+    DATE_CHANGE_STATUSES.includes(booking.status)
 
   const setStatus = async (status: Booking['status'], label: string) => {
     const updated = await updateBookingStatus(booking.id, status)
@@ -459,6 +468,7 @@ export const BookingDrawer = ({
               eventDatesLabel={eventDatesLabel}
               onChangeStatus={changeStatusInline}
               onChangeRooms={canChangeRooms ? () => setRoomsModalOpen(true) : undefined}
+              onChangeDates={canChangeDates ? () => setDatesModalOpen(true) : undefined}
               readOnly={readOnly}
             />
           )}
@@ -467,6 +477,14 @@ export const BookingDrawer = ({
               open={roomsModalOpen}
               booking={booking}
               onClose={() => setRoomsModalOpen(false)}
+              onSaved={() => onChanged()}
+            />
+          )}
+          {canChangeDates && (
+            <EditBookingDatesModal
+              open={datesModalOpen}
+              booking={booking}
+              onClose={() => setDatesModalOpen(false)}
               onSaved={() => onChanged()}
             />
           )}
@@ -533,6 +551,7 @@ interface OverviewTabProps {
   eventDatesLabel: string
   onChangeStatus: (status: Booking['status']) => void
   onChangeRooms?: () => void
+  onChangeDates?: () => void
   readOnly: boolean
 }
 
@@ -544,6 +563,7 @@ const OverviewTab = ({
   eventDatesLabel,
   onChangeStatus,
   onChangeRooms,
+  onChangeDates,
   readOnly,
 }: OverviewTabProps) => (
   <div className="space-y-4 text-sm">
@@ -621,9 +641,22 @@ const OverviewTab = ({
       </Card>
 
       <Card padded={false} className="p-5" data-highlight-id={BOOKING_HIGHLIGHT.stay}>
-        <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium mb-3 inline-flex items-center gap-1.5">
-          <CalendarDays className="w-3 h-3" /> {isConferenceOnly ? 'Event' : 'Stay'}
-        </h3>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
+            <CalendarDays className="w-3 h-3" /> {isConferenceOnly ? 'Event' : 'Stay'}
+          </h3>
+          {onChangeDates && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              leftIcon={<CalendarDays className="w-3.5 h-3.5" />}
+              onClick={onChangeDates}
+            >
+              {isConferenceOnly ? 'Change event dates' : 'Change dates'}
+            </Button>
+          )}
+        </div>
         {isConferenceOnly ? (
           <div>
             <p className="text-[10px] uppercase tracking-wide text-stone-500">Event dates</p>

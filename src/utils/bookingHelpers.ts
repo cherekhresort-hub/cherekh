@@ -406,6 +406,48 @@ export const suggestRoomChangeAmount = (
   return Math.max(0, current + total(after) - total(before))
 }
 
+/**
+ * Suggested room charge after a date change: current charge moved by the rate-card difference for
+ * the same rooms on the new stay / event dates (keeps any custom price already agreed).
+ */
+export const suggestDateChangeAmount = (
+  booking: Pick<
+    Booking,
+    | 'checkIn'
+    | 'checkOut'
+    | 'eventDates'
+    | 'rooms'
+    | 'roomType'
+    | 'adults'
+    | 'children'
+    | 'totalGuests'
+    | 'payment'
+  >,
+  next: Pick<Booking, 'checkIn' | 'checkOut' | 'eventDates'>
+): number => {
+  const base = {
+    rooms: booking.rooms,
+    roomType: booking.roomType,
+    adults: booking.adults,
+    children: booking.children,
+    totalGuests: booking.totalGuests,
+  }
+  const before = calculateBookingTotal({
+    ...base,
+    checkIn: booking.checkIn,
+    checkOut: booking.checkOut,
+    eventDates: booking.eventDates,
+  })
+  const after = calculateBookingTotal({
+    ...base,
+    checkIn: next.checkIn,
+    checkOut: next.checkOut,
+    eventDates: next.eventDates,
+  })
+  const current = Math.round(Number(booking.payment?.amount) || 0)
+  return Math.max(0, current + after - before)
+}
+
 export const calculateBookingEstimate = (
   lines: RoomBookingLine[],
   roomOptions: RoomOption[],

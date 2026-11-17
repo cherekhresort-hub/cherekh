@@ -1,4 +1,12 @@
-import { calculateBookingTotal, diffBookingRooms, suggestRoomChangeAmount } from './bookingHelpers'
+import {
+  bookingIsConferenceOnly,
+  calculateBookingTotal,
+  deriveConferenceBounds,
+  diffBookingRooms,
+  normalizeEventDates,
+  suggestDateChangeAmount,
+  suggestRoomChangeAmount,
+} from './bookingHelpers'
 import { generateBookingId } from './bookingId'
 import { getTodayDate, resolveBookingCreatedAt } from './dates'
 import {
@@ -935,6 +943,110 @@ export const updateBookingRooms = async (
     action: 'booking.rooms_changed',
     title: 'Booking rooms changed',
     message: `${bookingRef.name}: ${changes.join('; ') || 'room guests updated'} · room charge ৳${previousAmount} → ৳${amount}`,
+    entityId: id,
+  })
+  return { ok: true, booking: next }
+}
+
+/** Statuses whose stay / event dates can still be changed (same as room changes). */
+export const DATE_CHANGE_STATUSES: Booking['status'][] = ROOM_CHANGE_STATUSES
+
+export type BookingDatesInput = {
+  checkIn?: string
+  checkOut?: string
+  eventDates?: string[]
+}
+
+export type BookingDatesUpdateResult =
+  | { ok: true; booking: Booking }
+  | {
+      ok: false
+      reason: 'not_found' | 'forbidden' | 'status' | 'empty' | 'unavailable'
+      issues?: RoomAvailabilityIssue[]
+    }
+
+/**
+ * Updates a booking's stay or conference event dates. Rooms stay the same and must be free for
+ * the new dates (this booking is ignored). The room charge moves by the rate-card difference
+ * unless an admin sets `amount`. Throws `BookingInventoryConflictError` if a room was taken in
+ * the meantime.
+ */
+export const updateBookingDates = async (
+  id: string,
+  dates: BookingDatesInput,
+  options: { amount?: number } = {}
+): Promise<BookingDatesUpdateResult> => {
+  if (!canChangeBookingRooms()) return { ok: false, reason: 'forbidden' }
+
+  const existing = getBookings().find((b) => b.id === id)
+  if (!existing) return { ok: false, reason: 'not_found' }
+  const bookingRef = (await ensureBookingDetail(id)) ?? existing
+  if (!DATE_CHANGE_STATUSES.includes(bookingRef.status)) return { ok: false, reason: 'status' }
+
+  const conferenceOnly = bookingIsConferenceOnly(bookingRef)
+  let checkIn: string
+  let checkOut: string
+  let eventDates: string[] | undefined
+
+  if (conferenceOnly) {
+    const normalized = normalizeEventDates(dates.eventDates ?? [])
+    if (normalized.length === 0) return { ok: false, reason: 'empty' }
+    const bounds = deriveConferenceBounds(normalized)
+    checkIn = bounds.checkIn
+    checkOut = bounds.checkOut
+    eventDates = normalized
+  } else {
+    checkIn = (dates.checkIn ?? '').trim()
+    checkOut = (dates.checkOut ?? '').trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(checkIn) || !/^\d{4}-\d{2}-\d{2}$/.test(checkOut) || checkOut <= checkIn) {
+      return { ok: false, reason: 'empty' }
+    }
+    eventDates =
+      bookingRef.eventDates && bookingRef.eventDates.length > 0
+        ? normalizeEventDates(bookingRef.eventDates)
+        : undefined
+  }
+
+  const rooms = getBookingRooms(bookingRef)
+  const issues = await getRoomAvailabilityIssues(
+    checkIn,
+    checkOut,
+    rooms.map((line) => line.roomType),
+    {
+      excludeBookingId: id,
+      lines: rooms.map(({ roomType, adults, children }) => ({ roomType, adults, children })),
+      conferenceEventDates: eventDates,
+    }
+  )
+  if (issues.length > 0) return { ok: false, reason: 'unavailable', issues }
+
+  const previousAmount = Math.round(Number(bookingRef.payment?.amount) || 0)
+  const amount =
+    options.amount !== undefined && canEditPricing()
+      ? Math.max(0, Math.round(Number(options.amount) || 0))
+      : suggestDateChangeAmount(bookingRef, { checkIn, checkOut, eventDates })
+
+  const next: Booking = recomputePaymentStatus({
+    ...bookingRef,
+    checkIn,
+    checkOut,
+    eventDates,
+    payment: { ...bookingRef.payment, amount },
+    updatedAt: new Date().toISOString(),
+  })
+  await persistBooking(next)
+
+  const beforeLabel = conferenceOnly
+    ? (bookingRef.eventDates ?? []).join(', ') || `${bookingRef.checkIn} → ${bookingRef.checkOut}`
+    : `${bookingRef.checkIn} → ${bookingRef.checkOut}`
+  const afterLabel = conferenceOnly
+    ? (eventDates ?? []).join(', ')
+    : `${checkIn} → ${checkOut}`
+  void notifyAdminOfManagerAction({
+    category: 'booking',
+    action: 'booking.dates_changed',
+    title: 'Booking dates changed',
+    message: `${bookingRef.name}: ${beforeLabel} → ${afterLabel} · room charge ৳${previousAmount} → ৳${amount}`,
     entityId: id,
   })
   return { ok: true, booking: next }

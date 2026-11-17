@@ -44,6 +44,17 @@ export const stayServiceDates = (booking: Pick<Booking, 'checkIn' | 'checkOut' |
   return eachDay(checkIn, checkOut).slice(0, MAX_STAY_DAYS)
 }
 
+/** Extra charges whose service day falls outside the proposed stay / event dates. */
+export const extrasOutsideStay = (
+  booking: Pick<Booking, 'extras'>,
+  next: Pick<Booking, 'checkIn' | 'checkOut' | 'eventDates'>
+): NonNullable<Booking['extras']> => {
+  const allowed = new Set(stayServiceDates(next))
+  return (booking.extras ?? []).filter(
+    (extra) => Boolean(extra.serviceDate) && !allowed.has(extra.serviceDate as string)
+  )
+}
+
 /** e.g. "Sat, 17 Oct" */
 export const formatServiceDate = (day: string, withYear = false): string =>
   ISO_DAY.test(day)
