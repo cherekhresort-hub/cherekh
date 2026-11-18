@@ -135,6 +135,11 @@ export const bookingFromListRow = (row: BookingListRow): Booking => {
   const adults = Number(row.adults) || 0
   const children = Number(row.children) || 0
   const totalGuests = Number(row.total_guests) || adults + children
+  const roomType = row.room_type || rooms?.[0]?.roomType || ''
+  const roomName = row.room_name || rooms?.[0]?.roomName || ''
+  // List view has no bookingKind column; infer walk-in food bills from Walk-in + no rooms.
+  const foodOnly =
+    !roomType && !(rooms?.some((line) => line.roomType)) && roomName === 'Walk-in'
 
   return {
     id: row.id,
@@ -144,12 +149,13 @@ export const bookingFromListRow = (row: BookingListRow): Booking => {
     name: row.guest_name || 'Guest',
     email: row.guest_email ?? '',
     phone: row.guest_phone ?? '',
-    roomType: row.room_type || rooms?.[0]?.roomType || '',
-    roomName: row.room_name || rooms?.[0]?.roomName || '',
+    roomType,
+    roomName,
     rooms,
     adults,
     children,
     totalGuests,
+    ...(foodOnly ? { bookingKind: 'food' as const } : {}),
     specialRequests: row.special_requests ?? '',
     notes: [],
     payment: buildPayment(row),

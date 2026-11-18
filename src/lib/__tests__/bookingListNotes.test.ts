@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { bookingFromListRow, type BookingListRow } from '../bookingList'
 import { internalNotesSummary } from '../../utils/bookings'
+import { isFoodOnlyBooking } from '../../utils/bookingHelpers'
 import { toPersistedBooking } from '../bookingsDb'
 
 const row = (overrides: Partial<BookingListRow> = {}): BookingListRow => ({
@@ -64,5 +65,21 @@ describe('internal notes on list rows', () => {
     const persisted = toPersistedBooking(booking)
     expect(persisted).not.toHaveProperty('listNotesCount')
     expect(persisted).not.toHaveProperty('listLatestNote')
+  })
+
+  it('infers food-only bookingKind from Walk-in list rows', () => {
+    const booking = bookingFromListRow(
+      row({
+        room_name: 'Walk-in',
+        room_type: '',
+        rooms: [],
+        adults: 0,
+        children: 0,
+        total_guests: 1,
+        payment_amount: 0,
+      })
+    )
+    expect(booking.bookingKind).toBe('food')
+    expect(isFoodOnlyBooking(booking)).toBe(true)
   })
 })

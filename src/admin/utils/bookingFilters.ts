@@ -1,6 +1,10 @@
 import type { Booking } from '../../utils/bookings'
 import { computeBookingFinancials } from '../../utils/bookings'
-import { getBookingEventDates, bookingIncludesConference } from '../../utils/bookingHelpers'
+import {
+  getBookingEventDates,
+  bookingIncludesConference,
+  isFoodOnlyBooking,
+} from '../../utils/bookingHelpers'
 import { addDaysToDateString } from '../../utils/dates'
 import { toISODate } from './date'
 
@@ -122,22 +126,23 @@ export const matchesDatePreset = (
 
   switch (preset) {
     case 'arrivals-today':
-      if (booking.status === 'cancelled') return false
+      if (booking.status === 'cancelled' || isFoodOnlyBooking(booking)) return false
       if (hasEventDates) return eventDates.includes(today)
       return booking.checkIn === today
 
     case 'departures-today':
-      if (booking.status === 'cancelled') return false
+      if (booking.status === 'cancelled' || isFoodOnlyBooking(booking)) return false
       if (hasEventDates) return eventDates.includes(today)
       return booking.checkOut === today
 
     case 'in-house':
-      if (!isActiveStayStatus(booking.status)) return false
+      if (!isActiveStayStatus(booking.status) || isFoodOnlyBooking(booking)) return false
       if (hasEventDates) return eventDates.includes(today)
       return booking.checkIn <= today && booking.checkOut > today
 
     case 'upcoming':
       if (booking.status === 'cancelled' || booking.status === 'checked-out') return false
+      if (isFoodOnlyBooking(booking)) return false
       if (hasEventDates) return eventDates.some((d) => d > today)
       return booking.checkIn > today
 

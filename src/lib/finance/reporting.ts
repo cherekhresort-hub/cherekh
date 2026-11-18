@@ -352,7 +352,7 @@ export const profitAndLoss = (
   const financingCosts = incurred.financing
   const operatingResult = earned.total - incurred.operating
   const notes: string[] = [
-    'Revenue covers room bookings (rooms, booking food extras, other extras). Restaurant walk-in sales are not recorded in the system.',
+    'Revenue covers room bookings (rooms, food extras, other extras) and walk-in food bills created as food-only bookings.',
     'Inventory purchases are expensed when bought (periodic method); stock on hand is not tracked.',
     'Depreciation includes only assets with a useful life entered in the asset register.',
     'Result before tax excludes income tax, which is not calculated.',

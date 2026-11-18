@@ -3,6 +3,8 @@ import {
   calculateBookingTotal,
   deriveConferenceBounds,
   diffBookingRooms,
+  foodServiceBounds,
+  isFoodOnlyBooking,
   normalizeEventDates,
   suggestDateChangeAmount,
   suggestRoomChangeAmount,
@@ -201,12 +203,17 @@ export const sumExtras = (
     .filter((extra) => !category || extra.category === category)
     .reduce((sum, extra) => sum + extraLineTotal(extra), 0)
 
+/** Stay/conference booking (default) or walk-in food bill with no rooms. */
+export type BookingKind = 'stay' | 'food'
+
 export interface Booking {
   id: string
   checkIn: string
   checkOut: string
   /** Discrete event dates for conference bookings (YYYY-MM-DD). */
   eventDates?: string[]
+  /** Absent or `stay` = normal booking; `food` = walk-in food bill (no inventory). */
+  bookingKind?: BookingKind
   adults: number
   children: number
   totalGuests: number
@@ -294,10 +301,9 @@ const assertBookingInventory = async (
   excludeBookingId: string
 ): Promise<boolean> => {
   if (!bookingHoldsInventory(booking.status)) return true
+  if (bookingSkipsInventory(booking)) return true
 
   const lines = getBookingRooms(booking).filter((line) => line.roomType)
-  if (lines.length === 0) return true
-
   const roomTypes = lines.map((line) => line.roomType)
   return areRoomsAvailableForBooking(booking.checkIn, booking.checkOut, roomTypes, {
     excludeBookingId,
@@ -333,6 +339,7 @@ type SaveBookingInput = {
   checkIn: string
   checkOut: string
   eventDates?: string[]
+  bookingKind?: BookingKind
   name: string
   email: string
   phone: string
@@ -352,13 +359,18 @@ type SaveBookingInput = {
     }
 )
 
-const normalizeBookingInput = (
+/** True when the booking has no room lines that would hold inventory (food-only / empty rooms). */
+export const bookingSkipsInventory = (booking: Booking): boolean =>
+  getBookingRooms(booking).every((line) => !line.roomType)
+
+export const normalizeBookingInput = (
   input: SaveBookingInput
 ): Pick<
   Booking,
   | 'checkIn'
   | 'checkOut'
   | 'eventDates'
+  | 'bookingKind'
   | 'adults'
   | 'children'
   | 'totalGuests'
@@ -372,12 +384,31 @@ const normalizeBookingInput = (
   | 'eventTimeline'
   | 'specialRequests'
 > => {
+  if (input.bookingKind === 'food') {
+    return {
+      checkIn: input.checkIn,
+      checkOut: input.checkOut,
+      bookingKind: 'food',
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      specialRequests: input.specialRequests || '',
+      rooms: [],
+      adults: 0,
+      children: 0,
+      totalGuests: 1,
+      roomType: '',
+      roomName: 'Walk-in',
+    }
+  }
+
   if ('rooms' in input) {
     const rooms = input.rooms
     return {
       checkIn: input.checkIn,
       checkOut: input.checkOut,
       eventDates: input.eventDates?.length ? input.eventDates : undefined,
+      bookingKind: input.bookingKind === 'stay' ? 'stay' : undefined,
       name: input.name,
       email: input.email,
       phone: input.phone,
@@ -397,6 +428,7 @@ const normalizeBookingInput = (
     checkIn: input.checkIn,
     checkOut: input.checkOut,
     eventDates: input.eventDates?.length ? input.eventDates : undefined,
+    bookingKind: input.bookingKind === 'stay' ? 'stay' : undefined,
     name: input.name,
     email: input.email,
     phone: input.phone,
@@ -444,11 +476,12 @@ export const resolveStaffLabel = async (): Promise<string> => {
 
 export const saveBooking = async (
   booking: SaveBookingInput,
-  options: { sendEmails?: boolean } = {}
+  options: { sendEmails?: boolean; status?: Booking['status']; amount?: number } = {}
 ): Promise<Booking> => {
-  const { sendEmails = true } = options
+  const { sendEmails = true, status = 'pending' } = options
   const normalized = normalizeBookingInput(booking)
-  const derivedTotal = calculateBookingTotal(normalized)
+  const derivedTotal =
+    options.amount !== undefined ? Math.max(0, Math.round(Number(options.amount) || 0)) : calculateBookingTotal(normalized)
   const bookedBy = await resolveBookingCreator()
 
   for (let attempt = 0; attempt < 25; attempt++) {
@@ -456,7 +489,7 @@ export const saveBooking = async (
     const newBooking: Booking = {
       ...normalized,
       id: generateBookingId(getBookings().map((b) => b.id)),
-      status: 'pending',
+      status,
       notes: [],
       payment: {
         amount: derivedTotal,
@@ -474,9 +507,12 @@ export const saveBooking = async (
       }
       void notifyAdminOfManagerAction({
         category: 'booking',
-        action: 'booking.created',
-        title: 'New booking',
-        message: `${newBooking.name} · ${newBooking.roomName || 'rooms'} · ${newBooking.checkIn} → ${newBooking.checkOut}`,
+        action: newBooking.bookingKind === 'food' ? 'booking.food_created' : 'booking.created',
+        title: newBooking.bookingKind === 'food' ? 'Food bill created' : 'New booking',
+        message:
+          newBooking.bookingKind === 'food'
+            ? `${newBooking.name} · food bill · ${newBooking.checkIn}`
+            : `${newBooking.name} · ${newBooking.roomName || 'rooms'} · ${newBooking.checkIn} → ${newBooking.checkOut}`,
         entityId: newBooking.id,
       })
       return newBooking
@@ -984,11 +1020,17 @@ export const updateBookingDates = async (
   if (!DATE_CHANGE_STATUSES.includes(bookingRef.status)) return { ok: false, reason: 'status' }
 
   const conferenceOnly = bookingIsConferenceOnly(bookingRef)
+  const foodOnly = isFoodOnlyBooking(bookingRef)
   let checkIn: string
   let checkOut: string
   let eventDates: string[] | undefined
 
-  if (conferenceOnly) {
+  if (foodOnly) {
+    const serviceDay = (dates.checkIn ?? '').trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(serviceDay)) return { ok: false, reason: 'empty' }
+    ;({ checkIn, checkOut } = foodServiceBounds(serviceDay))
+    eventDates = undefined
+  } else if (conferenceOnly) {
     const normalized = normalizeEventDates(dates.eventDates ?? [])
     if (normalized.length === 0) return { ok: false, reason: 'empty' }
     const bounds = deriveConferenceBounds(normalized)
@@ -1008,23 +1050,27 @@ export const updateBookingDates = async (
   }
 
   const rooms = getBookingRooms(bookingRef)
-  const issues = await getRoomAvailabilityIssues(
-    checkIn,
-    checkOut,
-    rooms.map((line) => line.roomType),
-    {
-      excludeBookingId: id,
-      lines: rooms.map(({ roomType, adults, children }) => ({ roomType, adults, children })),
-      conferenceEventDates: eventDates,
-    }
-  )
-  if (issues.length > 0) return { ok: false, reason: 'unavailable', issues }
+  if (!foodOnly) {
+    const issues = await getRoomAvailabilityIssues(
+      checkIn,
+      checkOut,
+      rooms.map((line) => line.roomType),
+      {
+        excludeBookingId: id,
+        lines: rooms.map(({ roomType, adults, children }) => ({ roomType, adults, children })),
+        conferenceEventDates: eventDates,
+      }
+    )
+    if (issues.length > 0) return { ok: false, reason: 'unavailable', issues }
+  }
 
   const previousAmount = Math.round(Number(bookingRef.payment?.amount) || 0)
   const amount =
     options.amount !== undefined && canEditPricing()
       ? Math.max(0, Math.round(Number(options.amount) || 0))
-      : suggestDateChangeAmount(bookingRef, { checkIn, checkOut, eventDates })
+      : foodOnly
+        ? previousAmount
+        : suggestDateChangeAmount(bookingRef, { checkIn, checkOut, eventDates })
 
   const next: Booking = recomputePaymentStatus({
     ...bookingRef,
@@ -1036,17 +1082,19 @@ export const updateBookingDates = async (
   })
   await persistBooking(next)
 
-  const beforeLabel = conferenceOnly
-    ? (bookingRef.eventDates ?? []).join(', ') || `${bookingRef.checkIn} → ${bookingRef.checkOut}`
-    : `${bookingRef.checkIn} → ${bookingRef.checkOut}`
-  const afterLabel = conferenceOnly
-    ? (eventDates ?? []).join(', ')
-    : `${checkIn} → ${checkOut}`
+  const beforeLabel = foodOnly
+    ? bookingRef.checkIn
+    : conferenceOnly
+      ? (bookingRef.eventDates ?? []).join(', ') || `${bookingRef.checkIn} → ${bookingRef.checkOut}`
+      : `${bookingRef.checkIn} → ${bookingRef.checkOut}`
+  const afterLabel = foodOnly ? checkIn : conferenceOnly ? (eventDates ?? []).join(', ') : `${checkIn} → ${checkOut}`
   void notifyAdminOfManagerAction({
     category: 'booking',
     action: 'booking.dates_changed',
-    title: 'Booking dates changed',
-    message: `${bookingRef.name}: ${beforeLabel} → ${afterLabel} · room charge ৳${previousAmount} → ৳${amount}`,
+    title: foodOnly ? 'Food bill date changed' : 'Booking dates changed',
+    message: foodOnly
+      ? `${bookingRef.name}: ${beforeLabel} → ${afterLabel}`
+      : `${bookingRef.name}: ${beforeLabel} → ${afterLabel} · room charge ৳${previousAmount} → ৳${amount}`,
     entityId: id,
   })
   return { ok: true, booking: next }

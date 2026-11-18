@@ -8,6 +8,7 @@ import {
   type ExtraChargeInput,
   type FoodMeal,
 } from './bookings'
+import { isFoodOnlyBooking } from './bookingHelpers'
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
 const MAX_STAY_DAYS = 62
@@ -34,8 +35,14 @@ export const parseFoodSlotKey = (key: string): FoodSlot | null => {
   return { date, meal, room: key.slice(second + 1) }
 }
 
-/** Days food can be billed for: conference event dates, or check-in through check-out inclusive. */
-export const stayServiceDates = (booking: Pick<Booking, 'checkIn' | 'checkOut' | 'eventDates'>): string[] => {
+type StayDatesBooking = Pick<Booking, 'checkIn' | 'checkOut'> &
+  Partial<Pick<Booking, 'eventDates' | 'bookingKind' | 'roomType' | 'rooms' | 'roomName'>>
+
+/** Days food can be billed for: food-only service day, conference event dates, or stay inclusive. */
+export const stayServiceDates = (booking: StayDatesBooking): string[] => {
+  if (isFoodOnlyBooking(booking)) {
+    return ISO_DAY.test(booking.checkIn ?? '') ? [booking.checkIn] : []
+  }
   const eventDates = (booking.eventDates ?? []).filter((day) => ISO_DAY.test(day))
   if (eventDates.length > 0) return [...new Set(eventDates)].sort()
   const { checkIn, checkOut } = booking
@@ -47,7 +54,7 @@ export const stayServiceDates = (booking: Pick<Booking, 'checkIn' | 'checkOut' |
 /** Extra charges whose service day falls outside the proposed stay / event dates. */
 export const extrasOutsideStay = (
   booking: Pick<Booking, 'extras'>,
-  next: Pick<Booking, 'checkIn' | 'checkOut' | 'eventDates'>
+  next: StayDatesBooking
 ): NonNullable<Booking['extras']> => {
   const allowed = new Set(stayServiceDates(next))
   return (booking.extras ?? []).filter(

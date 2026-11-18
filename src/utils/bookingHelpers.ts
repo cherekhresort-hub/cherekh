@@ -72,11 +72,22 @@ export const bookingIsConferenceOnly = (
   booking: Pick<Booking, 'roomType' | 'rooms'>
 ): boolean => bookingIncludesConference(booking) && !bookingHasGuestRooms(booking)
 
+/** Walk-in food bill: no rooms, no inventory hold. */
+export const isFoodOnlyBooking = (
+  booking: Partial<Pick<Booking, 'bookingKind' | 'roomType' | 'rooms' | 'roomName'>>
+): boolean => {
+  if (booking.bookingKind === 'food') return true
+  if (booking.bookingKind === 'stay') return false
+  const hasRoomLines = Boolean(booking.rooms?.some((line) => line.roomType)) || Boolean(booking.roomType)
+  // Only infer from the Walk-in label used when creating food bills (not from missing fields).
+  return !hasRoomLines && booking.roomName === 'Walk-in'
+}
+
 /** Admin guest-ID slots - one host for conference-only; headcount for guest rooms only. */
 export const getGuestDetailSlotCount = (
-  booking: Pick<Booking, 'roomType' | 'rooms' | 'totalGuests' | 'adults' | 'children'>
+  booking: Pick<Booking, 'bookingKind' | 'roomType' | 'rooms' | 'roomName' | 'totalGuests' | 'adults' | 'children'>
 ): number => {
-  if (bookingIsConferenceOnly(booking)) return 1
+  if (isFoodOnlyBooking(booking) || bookingIsConferenceOnly(booking)) return 1
 
   const lines =
     booking.rooms && booking.rooms.length > 0
@@ -260,13 +271,20 @@ export const getConferenceEventDayCount = (
 ): number => getBookingEventDates(booking).length
 
 export const getBookingDurationCount = (
-  booking: Pick<Booking, 'checkIn' | 'checkOut' | 'eventDates' | 'roomType' | 'rooms'>
+  booking: Pick<Booking, 'checkIn' | 'checkOut' | 'eventDates' | 'bookingKind' | 'roomType' | 'rooms' | 'roomName'>
 ): number => {
+  if (isFoodOnlyBooking(booking)) return 1
   if (bookingIsConferenceOnly(booking) || (booking.eventDates?.length ?? 0) > 0) {
     return getConferenceEventDayCount(booking)
   }
   return calculateStayNights(booking.checkIn, booking.checkOut)
 }
+
+/** Service day for a food-only booking; keeps checkOut = checkIn + 1 for SQL helpers. */
+export const foodServiceBounds = (serviceDay: string): { checkIn: string; checkOut: string } => ({
+  checkIn: serviceDay,
+  checkOut: addDaysToDateString(serviceDay, 1),
+})
 
 export const formatEventDatesDisplay = (dates: string[]): string => {
   const normalized = normalizeEventDates(dates)

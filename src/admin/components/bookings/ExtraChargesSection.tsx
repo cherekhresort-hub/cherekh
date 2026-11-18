@@ -14,6 +14,7 @@ import {
   type Booking,
   type ExtraCharge,
 } from '../../../utils/bookings'
+import { isFoodOnlyBooking } from '../../../utils/bookingHelpers'
 import { formatBDT } from '../../utils/format'
 import { confirmDelete } from '../../utils/confirmDelete'
 import { FoodBillComposer } from './FoodBillComposer'
@@ -28,6 +29,7 @@ interface ExtraChargesSectionProps {
 export const ExtraChargesSection = ({ booking, onChanged, readOnly = false }: ExtraChargesSectionProps) => {
   const toast = useToast()
   const { user } = useAuth()
+  const foodOnly = isFoodOnlyBooking(booking)
   const rooms = getBookingRooms(booking)
   const multiRoom = rooms.length > 1
   const [otherRoom, setOtherRoom] = useState(rooms[0]?.roomName ?? booking.roomName ?? '')
@@ -90,7 +92,9 @@ export const ExtraChargesSection = ({ booking, onChanged, readOnly = false }: Ex
       <p className="text-sm text-stone-600">
         {readOnly
           ? 'Food and other charges on this booking. Only admins and managers can add or remove bills.'
-          : "Food and other charges are added to this booking's total due. Discount still applies to room rent only."}
+          : foodOnly
+            ? 'Add food for this walk-in guest. The total due is the food bill (no room rent).'
+            : "Food and other charges are added to this booking's total due. Discount still applies to room rent only."}
       </p>
 
       <Card padded={false} className="p-5 space-y-4">
@@ -101,8 +105,9 @@ export const ExtraChargesSection = ({ booking, onChanged, readOnly = false }: Ex
             </h3>
             {!readOnly && (
               <p className="text-xs text-stone-500 mt-0.5">
-                Pick a date, a meal{multiRoom ? ' and a room' : ''}, then tick items. Repeat for other days or
-                meals, then add them together.
+                {foodOnly
+                  ? 'Pick a meal, then tick items. Add them when the order is ready.'
+                  : `Pick a date, a meal${multiRoom ? ' and a room' : ''}, then tick items. Repeat for other days or meals, then add them together.`}
               </p>
             )}
           </div>

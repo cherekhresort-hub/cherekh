@@ -162,7 +162,7 @@ export const FinancialStatementsReport = ({ data, revenueBookings, range, rangeL
         actions={<ExportButtons options={{ title: 'Financial statements', filenameBase: 'cherekh-financial-statements', period: periodLabel }} sheets={sheets} />}
       />
       <FinanceNotice title="These statements are management figures, not audited accounts" tone="sky">
-        Revenue comes from bookings only (restaurant walk-in sales aren’t recorded yet), inventory is expensed when bought, and income tax isn’t calculated, so the bottom line is shown as
+        Revenue comes from room bookings and walk-in food bills, inventory is expensed when bought, and income tax isn’t calculated, so the bottom line is shown as
         profit or loss before tax.
       </FinanceNotice>
 

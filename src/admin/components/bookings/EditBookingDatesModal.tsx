@@ -16,9 +16,11 @@ import {
   bookingIsConferenceOnly,
   calculateStayNights,
   deriveConferenceBounds,
+  foodServiceBounds,
   formatBookingDurationLabel,
   formatEventDatesDisplay,
   getBookingEventDates,
+  isFoodOnlyBooking,
   normalizeEventDates,
   suggestDateChangeAmount,
 } from '../../../utils/bookingHelpers'
@@ -52,6 +54,7 @@ export const EditBookingDatesModal = ({
   const toast = useToast()
   const { canEditPricing } = useAuth()
   const conferenceOnly = bookingIsConferenceOnly(booking)
+  const foodOnly = isFoodOnlyBooking(booking)
 
   const [checkIn, setCheckIn] = useState(booking.checkIn)
   const [checkOut, setCheckOut] = useState(booking.checkOut)
@@ -72,6 +75,10 @@ export const EditBookingDatesModal = ({
   }, [open])
 
   const nextDates = useMemo(() => {
+    if (foodOnly) {
+      const bounds = foodServiceBounds(checkIn)
+      return { checkIn: bounds.checkIn, checkOut: bounds.checkOut, eventDates: undefined }
+    }
     if (conferenceOnly) {
       const normalized = normalizeEventDates(eventDates)
       const bounds = deriveConferenceBounds(normalized)
@@ -85,16 +92,23 @@ export const EditBookingDatesModal = ({
           ? normalizeEventDates(booking.eventDates)
           : undefined,
     }
-  }, [conferenceOnly, eventDates, checkIn, checkOut, booking.eventDates])
+  }, [foodOnly, conferenceOnly, eventDates, checkIn, checkOut, booking.eventDates])
 
-  const datesValid = conferenceOnly
-    ? nextDates.eventDates!.length > 0
-    : Boolean(checkIn && checkOut && checkOut > checkIn)
+  const datesValid = foodOnly
+    ? Boolean(checkIn && /^\d{4}-\d{2}-\d{2}$/.test(checkIn))
+    : conferenceOnly
+      ? nextDates.eventDates!.length > 0
+      : Boolean(checkIn && checkOut && checkOut > checkIn)
 
   const currentAmount = Math.round(Number(booking.payment?.amount) || 0)
   const suggestedAmount = useMemo(
-    () => (datesValid ? suggestDateChangeAmount(booking, nextDates) : currentAmount),
-    [booking, nextDates, datesValid, currentAmount]
+    () =>
+      foodOnly
+        ? currentAmount
+        : datesValid
+          ? suggestDateChangeAmount(booking, nextDates)
+          : currentAmount,
+    [foodOnly, booking, nextDates, datesValid, currentAmount]
   )
   const newAmount = canEditPricing && amountOverride !== null ? amountOverride : suggestedAmount
 
@@ -111,27 +125,35 @@ export const EditBookingDatesModal = ({
   const netPaid = after.paid - after.refunded
   const overpaid = Math.max(0, netPaid - after.total)
 
-  const datesChanged = conferenceOnly
-    ? normalizeEventDates(getBookingEventDates(booking)).join(',') !==
-      normalizeEventDates(eventDates).join(',')
-    : checkIn !== booking.checkIn || checkOut !== booking.checkOut
-  const hasChanges = datesChanged || newAmount !== currentAmount
+  const datesChanged = foodOnly
+    ? checkIn !== booking.checkIn
+    : conferenceOnly
+      ? normalizeEventDates(getBookingEventDates(booking)).join(',') !==
+        normalizeEventDates(eventDates).join(',')
+      : checkIn !== booking.checkIn || checkOut !== booking.checkOut
+  const hasChanges = datesChanged || (!foodOnly && newAmount !== currentAmount)
 
   const outOfRangeExtras = useMemo(
-    () => (datesValid ? extrasOutsideStay(booking, nextDates) : []),
+    () => (datesValid ? extrasOutsideStay(booking, { ...booking, ...nextDates }) : []),
     [booking, nextDates, datesValid]
   )
 
-  const nextDuration = conferenceOnly
-    ? normalizeEventDates(eventDates).length
-    : calculateStayNights(checkIn, checkOut)
-  const previousDurationLabel = formatBookingDurationLabel(
-    conferenceOnly
-      ? getBookingEventDates(booking).length
-      : calculateStayNights(booking.checkIn, booking.checkOut),
-    conferenceOnly
-  )
-  const nextDurationLabel = formatBookingDurationLabel(nextDuration, conferenceOnly)
+  const nextDuration = foodOnly
+    ? 1
+    : conferenceOnly
+      ? normalizeEventDates(eventDates).length
+      : calculateStayNights(checkIn, checkOut)
+  const previousDurationLabel = foodOnly
+    ? '1 service day'
+    : formatBookingDurationLabel(
+        conferenceOnly
+          ? getBookingEventDates(booking).length
+          : calculateStayNights(booking.checkIn, booking.checkOut),
+        conferenceOnly
+      )
+  const nextDurationLabel = foodOnly
+    ? '1 service day'
+    : formatBookingDurationLabel(nextDuration, conferenceOnly)
   const roomsLabel = getBookingRooms(booking)
     .map((line) => line.roomName)
     .join(', ')
@@ -151,9 +173,11 @@ export const EditBookingDatesModal = ({
     setError(null)
     if (!datesValid) {
       setError(
-        conferenceOnly
-          ? 'Add at least one event date.'
-          : 'Choose a check-out date after check-in.'
+        foodOnly
+          ? 'Choose a service date.'
+          : conferenceOnly
+            ? 'Add at least one event date.'
+            : 'Choose a check-out date after check-in.'
       )
       return
     }
@@ -162,9 +186,11 @@ export const EditBookingDatesModal = ({
     try {
       const result = await updateBookingDates(
         booking.id,
-        conferenceOnly
-          ? { eventDates: nextDates.eventDates }
-          : { checkIn: nextDates.checkIn, checkOut: nextDates.checkOut },
+        foodOnly
+          ? { checkIn: nextDates.checkIn }
+          : conferenceOnly
+            ? { eventDates: nextDates.eventDates }
+            : { checkIn: nextDates.checkIn, checkOut: nextDates.checkOut },
         { amount: canEditPricing && amountOverride !== null ? amountOverride : undefined }
       )
       if (!result.ok) {
@@ -176,18 +202,22 @@ export const EditBookingDatesModal = ({
               : result.reason === 'forbidden'
                 ? 'Only admins and managers can change booking dates.'
                 : result.reason === 'empty'
-                  ? conferenceOnly
-                    ? 'Add at least one event date.'
-                    : 'Choose valid check-in and check-out dates.'
+                  ? foodOnly
+                    ? 'Choose a service date.'
+                    : conferenceOnly
+                      ? 'Add at least one event date.'
+                      : 'Choose valid check-in and check-out dates.'
                   : 'Could not change dates. Please try again.'
         )
         return
       }
       toast.success(
-        'Dates updated',
-        conferenceOnly
-          ? `${booking.name} · ${formatEventDatesDisplay(result.booking.eventDates ?? [])}`
-          : `${booking.name} · ${formatShortDate(result.booking.checkIn)} → ${formatShortDate(result.booking.checkOut)}`
+        foodOnly ? 'Service date updated' : 'Dates updated',
+        foodOnly
+          ? `${booking.name} · ${formatShortDate(result.booking.checkIn)}`
+          : conferenceOnly
+            ? `${booking.name} · ${formatEventDatesDisplay(result.booking.eventDates ?? [])}`
+            : `${booking.name} · ${formatShortDate(result.booking.checkIn)} → ${formatShortDate(result.booking.checkOut)}`
       )
       onSaved(result.booking)
       onClose()
@@ -209,13 +239,15 @@ export const EditBookingDatesModal = ({
     <Modal
       open={open}
       onClose={closeIfIdle}
-      title={conferenceOnly ? 'Change event dates' : 'Change dates'}
+      title={foodOnly ? 'Change service date' : conferenceOnly ? 'Change event dates' : 'Change dates'}
       description={
-        conferenceOnly
-          ? 'Update the conference event days. The room must be free on every selected day.'
-          : `Update the stay dates for ${roomsLabel || 'this booking'}. Rooms must be free for the new dates.`
+        foodOnly
+          ? 'Update the day this food bill is for. No room inventory is held.'
+          : conferenceOnly
+            ? 'Update the conference event days. The room must be free on every selected day.'
+            : `Update the stay dates for ${roomsLabel || 'this booking'}. Rooms must be free for the new dates.`
       }
-      size="lg"
+      size={foodOnly ? 'sm' : 'lg'}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={closeIfIdle} disabled={saving}>
@@ -228,7 +260,19 @@ export const EditBookingDatesModal = ({
       }
     >
       <div className="space-y-5 max-h-[min(70vh,720px)] overflow-y-auto pr-1">
-        {conferenceOnly ? (
+        {foodOnly ? (
+          <Field label="Service date" required>
+            <Input
+              type="date"
+              value={checkIn}
+              max={maxBookingDate()}
+              onChange={(e) => {
+                setError(null)
+                setCheckIn(e.target.value)
+              }}
+            />
+          </Field>
+        ) : conferenceOnly ? (
           <EventDatesPicker
             dates={eventDates}
             onChange={(next) => {
@@ -267,11 +311,13 @@ export const EditBookingDatesModal = ({
 
         <div className="rounded-2xl border border-stone-200/80 bg-cream/40 px-4 py-3 text-sm text-stone-600 flex flex-wrap items-center justify-between gap-2">
           <span>
-            {conferenceOnly ? 'Previous event dates' : 'Previous stay'}:{' '}
+            {foodOnly ? 'Previous service date' : conferenceOnly ? 'Previous event dates' : 'Previous stay'}:{' '}
             <span className="font-medium text-forest-700">
-              {conferenceOnly
-                ? formatEventDatesDisplay(getBookingEventDates(booking)) || '—'
-                : `${formatShortDate(booking.checkIn)} → ${formatShortDate(booking.checkOut)}`}
+              {foodOnly
+                ? formatShortDate(booking.checkIn)
+                : conferenceOnly
+                  ? formatEventDatesDisplay(getBookingEventDates(booking)) || '—'
+                  : `${formatShortDate(booking.checkIn)} → ${formatShortDate(booking.checkOut)}`}
             </span>
           </span>
           <span className="text-xs text-stone-500">
@@ -280,6 +326,7 @@ export const EditBookingDatesModal = ({
           </span>
         </div>
 
+        {!foodOnly && (
         <div className="rounded-2xl border border-stone-200/80 bg-cream/40 p-4 space-y-3 text-sm">
           <p className="text-xs uppercase tracking-wide text-stone-500 font-medium">Room charge</p>
           <div className="flex justify-between text-stone-600">
@@ -351,6 +398,15 @@ export const EditBookingDatesModal = ({
             </p>
           )}
         </div>
+        )}
+
+        {foodOnly && outOfRangeExtras.length > 0 && (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            {outOfRangeExtras.length} food line
+            {outOfRangeExtras.length === 1 ? '' : 's'} fall outside {formatShortDate(checkIn)}. They
+            stay on the bill — move or remove them from the Bills tab if needed.
+          </p>
+        )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>

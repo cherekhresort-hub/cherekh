@@ -2,10 +2,14 @@ import type { PDFFont, PDFPage, PDFEmbeddedPage, RGB } from 'pdf-lib'
 import {
   computeBookingFinancials,
   FOOD_MEAL_LABELS,
+  GUEST_ID_TYPE_LABELS,
   getAdvanceTransactions,
+  getBookingGuestInfo,
   getBookingRooms,
   PAYMENT_METHOD_LABELS,
+  sumExtras,
   type Booking,
+  type GuestRecord,
 } from '../../utils/bookings'
 import { formatShortDate, formatDateTime } from './date'
 import { formatBookingId } from '../../utils/bookingId'
@@ -16,6 +20,7 @@ import {
   formatEventDatesDisplay,
   getBookingDurationCount,
   getBookingEventDates,
+  isFoodOnlyBooking,
 } from '../../utils/bookingHelpers'
 import { paidSealDate } from './bookingInvoice'
 
@@ -69,7 +74,27 @@ const makeSanitizer = (font: PDFFont) => {
 const safeFileName = (value: string): string =>
   value.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'guest'
 
-export const buildBookingInvoicePdf = async (booking: Booking): Promise<Uint8Array> => {
+export type BookingInvoicePdfMode = 'full' | 'food'
+
+const guestRecordFilled = (guest: GuestRecord): boolean =>
+  Boolean(guest.name?.trim() || guest.idNumber?.trim())
+
+const guestAddressLine = (guest: GuestRecord): string =>
+  [guest.address, guest.city, guest.country].map((part) => part?.trim()).filter(Boolean).join(', ')
+
+/** Guests for a food-bill export: recorded guest details, or the booker when none were entered. */
+export const guestsForFoodBill = (booking: Booking): GuestRecord[] => {
+  const recorded = getBookingGuestInfo(booking)
+    .guests.map((guest, idx) => (idx === 0 && !guest.name?.trim() ? { ...guest, name: booking.name } : guest))
+    .filter(guestRecordFilled)
+  return recorded.length > 0 ? recorded : [{ name: booking.name }]
+}
+
+export const buildBookingInvoicePdf = async (
+  booking: Booking,
+  options: { mode?: BookingInvoicePdfMode } = {}
+): Promise<Uint8Array> => {
+  const mode = options.mode ?? 'full'
   const { PDFDocument, StandardFonts, rgb, degrees } = await import('pdf-lib')
 
   const padBytes = await fetch(PAD_URL).then((res) => {
@@ -98,7 +123,7 @@ export const buildBookingInvoicePdf = async (booking: Booking): Promise<Uint8Arr
   }
 
   const fin = computeBookingFinancials(booking)
-  const isPaid = fin.status === 'paid'
+  const isPaid = mode === 'full' && fin.status === 'paid'
   const sealDate = isPaid ? paidSealDate(booking) : ''
 
   const drawSeal = (page: PDFPage) => {
@@ -292,7 +317,7 @@ export const buildBookingInvoicePdf = async (booking: Booking): Promise<Uint8Arr
 
   // Header
   const bookingShort = formatBookingId(booking.id)
-  text('INVOICE', MARGIN_X, y, { size: 7.5, color: color.muted })
+  text(mode === 'food' ? 'FOOD BILL' : 'INVOICE', MARGIN_X, y, { size: 7.5, color: color.muted })
   text(`Issued ${new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', dateStyle: 'medium', timeStyle: 'short' })}`, MARGIN_X, y, {
     size: 8,
     color: color.muted,
@@ -306,12 +331,15 @@ export const buildBookingInvoicePdf = async (booking: Booking): Promise<Uint8Arr
   rule(y)
 
   // Guest / stay panels
+  const foodOnly = isFoodOnlyBooking(booking)
   const isConferenceOnly = bookingIsConferenceOnly(booking)
   const nights = getBookingDurationCount(booking)
-  const durationUnit = isConferenceOnly ? 'event day' : 'night'
-  const stayLabel = isConferenceOnly
-    ? formatEventDatesDisplay(getBookingEventDates(booking))
-    : `${formatShortDate(booking.checkIn)} - ${formatShortDate(booking.checkOut)}`
+  const durationUnit = foodOnly ? 'service day' : isConferenceOnly ? 'event day' : 'night'
+  const stayLabel = foodOnly
+    ? formatShortDate(booking.checkIn)
+    : isConferenceOnly
+      ? formatEventDatesDisplay(getBookingEventDates(booking))
+      : `${formatShortDate(booking.checkIn)} - ${formatShortDate(booking.checkOut)}`
   const panelH = 62
   const gap = 10
   const panelW = (CONTENT_WIDTH - gap) / 2
@@ -327,11 +355,13 @@ export const buildBookingInvoicePdf = async (booking: Booking): Promise<Uint8Arr
       ],
     },
     {
-      label: isConferenceOnly ? 'EVENT' : 'STAY',
+      label: foodOnly ? 'SERVICE' : isConferenceOnly ? 'EVENT' : 'STAY',
       lines: [
         { value: stayLabel, bold: true },
         {
-          value: `${nights} ${durationUnit}${nights === 1 ? '' : 's'} · ${booking.totalGuests} guest${booking.totalGuests === 1 ? '' : 's'}`,
+          value: foodOnly
+            ? `Walk-in food bill · ${booking.totalGuests} guest${booking.totalGuests === 1 ? '' : 's'}`
+            : `${nights} ${durationUnit}${nights === 1 ? '' : 's'} · ${booking.totalGuests} guest${booking.totalGuests === 1 ? '' : 's'}`,
           muted: true,
         },
       ],
@@ -362,128 +392,224 @@ export const buildBookingInvoicePdf = async (booking: Booking): Promise<Uint8Arr
   })
   y = panelTop - panelH
 
-  // Rooms
-  heading('Rooms')
-  table(
-    [
-      { header: 'Room', width: 3 },
-      { header: 'Adults', width: 2 },
-      { header: 'Children', width: 2 },
-      { header: 'Guests', width: 2, align: 'right' },
-    ],
-    getBookingRooms(booking).map((r) => [r.roomName, String(r.adults), String(r.children), String(r.totalGuests)])
-  )
-
-  // Extras
-  const extras = sortExtrasForInvoice(booking.extras ?? [])
-  if (extras.length > 0) {
-    heading('Extra charges')
+  // Rooms (skip for walk-in food bills)
+  if (!foodOnly) {
+    heading('Rooms')
     table(
       [
-        { header: 'Date', width: 2 },
-        { header: 'Item', width: 4 },
-        { header: 'Type', width: 1.6 },
-        { header: 'Room', width: 1.4 },
-        { header: 'Amount', width: 1.8, align: 'right' },
+        { header: 'Room', width: 3 },
+        { header: 'Adults', width: 2 },
+        { header: 'Children', width: 2 },
+        { header: 'Guests', width: 2, align: 'right' },
       ],
-      extras.map((extra) => [
-        extra.serviceDate ? formatServiceDate(extra.serviceDate) : '',
-        `${extra.name}${extra.quantity > 1 ? ` × ${extra.quantity}` : ''}`,
-        extra.category === 'food' ? (extra.meal ? FOOD_MEAL_LABELS[extra.meal] : 'Food') : 'Other',
-        extra.roomName ?? '',
-        formatBDT(extra.amount),
+      getBookingRooms(booking).map((r) => [r.roomName, String(r.adults), String(r.children), String(r.totalGuests)])
+    )
+  }
+
+  if (mode === 'food') {
+    const guests = guestsForFoodBill(booking)
+    heading('Guest information')
+    table(
+      [
+        { header: '#', width: 0.6 },
+        { header: 'Name', width: 2.2 },
+        { header: 'ID type', width: 1.4 },
+        { header: 'ID number', width: 1.8 },
+        { header: 'Nationality', width: 1.4 },
+        { header: 'Address', width: 2.6 },
+      ],
+      guests.map((guest, index) => [
+        String(index + 1),
+        guest.name?.trim() || '',
+        guest.idNumber?.trim() ? GUEST_ID_TYPE_LABELS[guest.idType ?? 'nid'] : '',
+        guest.idNumber?.trim() || '',
+        guest.nationality?.trim() || '',
+        guestAddressLine(guest),
       ])
     )
-  }
 
-  // Totals
-  const advanceTotal = getAdvanceTransactions(booking).reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
-  const totalsRows: Array<{ label: string; value: string; kind?: 'muted' | 'discount' | 'total' | 'strong' }> = [
-    { label: 'Room rent', value: formatBDT(fin.roomRent ?? fin.subtotal), kind: 'muted' },
-  ]
-  if (fin.foodTotal > 0) totalsRows.push({ label: 'Food bill', value: formatBDT(fin.foodTotal), kind: 'muted' })
-  if (fin.otherTotal > 0) totalsRows.push({ label: 'Other bills', value: formatBDT(fin.otherTotal), kind: 'muted' })
-  if (fin.discount > 0) {
-    const reason = booking.payment?.discount?.reason
-    totalsRows.push({ label: `Discount${reason ? ` - ${reason}` : ''}`, value: `- ${formatBDT(fin.discount)}`, kind: 'discount' })
-  }
-  totalsRows.push({ label: 'Total Due', value: formatBDT(fin.total), kind: 'total' })
-  if (advanceTotal > 0) totalsRows.push({ label: 'Advance paid', value: formatBDT(advanceTotal), kind: 'muted' })
-  totalsRows.push({ label: advanceTotal > 0 ? 'Total paid' : 'Paid', value: formatBDT(fin.paid), kind: 'muted' })
-  if (fin.refunded > 0) totalsRows.push({ label: 'Refunded', value: `- ${formatBDT(fin.refunded)}`, kind: 'muted' })
-  totalsRows.push({ label: 'Outstanding', value: formatBDT(fin.outstanding), kind: 'strong' })
-
-  const totalsW = 220
-  const totalsX = MARGIN_X + CONTENT_WIDTH - totalsW
-  const totalsHeight = totalsRows.reduce((h, r) => h + (r.kind === 'total' ? 26 : 15), 0) + 34
-  ensureSpace(totalsHeight + 12)
-  y -= 12
-  totalsRows.forEach((row) => {
-    if (row.kind === 'total') {
-      y -= 4
-      page.drawLine({ start: { x: totalsX, y: y }, end: { x: totalsX + totalsW, y: y }, thickness: 1.2, color: color.forest })
-      y -= 18
-      text(row.label, totalsX, y, { size: 14, font: fonts.serif, color: color.forest })
-      text(row.value, totalsX, y, { size: 14, font: fonts.serif, color: color.forest, align: 'right', width: totalsW })
-      y -= 4
-      return
-    }
-    y -= 15
-    const c = row.kind === 'discount' ? color.red : row.kind === 'strong' ? color.ink : color.muted
-    const f = row.kind === 'strong' ? fonts.bold : fonts.regular
-    text(row.label, totalsX, y, { size: 9, color: c, font: f, width: totalsW - 90 })
-    text(row.value, totalsX, y, { size: 9, color: c, font: f, align: 'right', width: totalsW })
-  })
-  y -= 18
-  text('Payment status', totalsX, y, { size: 9, color: color.muted })
-  const statusLabel = fin.status.toUpperCase()
-  const statusW = fonts.bold.widthOfTextAtSize(statusLabel, 7) + 12
-  const statusColor = fin.status === 'paid' ? color.forest : fin.status === 'refunded' ? color.red : color.muted
-  page.drawRectangle({
-    x: totalsX + totalsW - statusW,
-    y: y - 4,
-    width: statusW,
-    height: 13,
-    borderColor: statusColor,
-    borderWidth: 0.8,
-  })
-  text(statusLabel, totalsX + totalsW - statusW + 6, y, { size: 7, font: fonts.bold, color: statusColor })
-
-  // Payment history
-  heading('Payment history')
-  const txs = booking.payment?.transactions ?? []
-  if (txs.length === 0) {
-    ensureSpace(16)
-    y -= 14
-    text('No payment transactions yet.', MARGIN_X, y, { size: 9, color: color.muted })
-  } else {
-    const negative = new Set<number>()
-    txs.forEach((t, i) => t.type === 'refund' && negative.add(i))
-    table(
-      [
-        { header: 'Date', width: 2.6 },
-        { header: 'Type', width: 1.4 },
-        { header: 'Method', width: 1.6 },
-        { header: 'Reference', width: 2.2 },
-        { header: 'Amount', width: 1.8, align: 'right' },
-      ],
-      txs.map((t) => [
-        formatDateTime(t.recordedAt),
-        t.isAdvance && t.type === 'payment' ? 'advance' : t.type,
-        t.method ? PAYMENT_METHOD_LABELS[t.method] : '',
-        t.reference ?? '',
-        `${t.type === 'refund' ? '-' : ''}${formatBDT(t.amount)}`,
-      ]),
-      negative
-    )
-  }
-
-  if (booking.specialRequests?.trim()) {
-    heading('Special requests')
-    for (const line of wrap(booking.specialRequests, CONTENT_WIDTH, 9.5, fonts.regular)) {
-      ensureSpace(14)
+    const emergency = getBookingGuestInfo(booking).emergencyContact
+    if (emergency.name?.trim() || emergency.phone?.trim()) {
+      ensureSpace(40)
+      y -= 16
+      text('Emergency contact', MARGIN_X, y, { size: 9, font: fonts.bold, color: color.muted })
       y -= 13
-      text(line, MARGIN_X, y, { size: 9.5 })
+      text(
+        [emergency.name, emergency.relation, emergency.phone].map((part) => part?.trim()).filter(Boolean).join(' · '),
+        MARGIN_X,
+        y,
+        { size: 9.5, width: CONTENT_WIDTH }
+      )
+    }
+
+    const foodExtras = sortExtrasForInvoice(booking.extras ?? []).filter((extra) => extra.category === 'food')
+    const foodTotal = sumExtras(booking.extras, 'food')
+    heading('Food charges')
+    if (foodExtras.length === 0) {
+      ensureSpace(16)
+      y -= 14
+      text('No food charges on this booking.', MARGIN_X, y, { size: 9, color: color.muted })
+    } else {
+      table(
+        [
+          { header: 'Date', width: 2 },
+          { header: 'Item', width: 3.6 },
+          { header: 'Meal', width: 1.6 },
+          { header: 'Room', width: 1.6 },
+          { header: 'Amount', width: 1.8, align: 'right' },
+        ],
+        foodExtras.map((extra) => [
+          extra.serviceDate ? formatServiceDate(extra.serviceDate) : '',
+          `${extra.name}${extra.quantity > 1 ? ` × ${extra.quantity}` : ''}`,
+          extra.meal ? FOOD_MEAL_LABELS[extra.meal] : 'Food',
+          extra.roomName ?? '',
+          formatBDT(extra.amount),
+        ])
+      )
+    }
+
+    const totalsW = 220
+    const totalsX = MARGIN_X + CONTENT_WIDTH - totalsW
+    ensureSpace(40)
+    y -= 16
+    page.drawLine({ start: { x: totalsX, y }, end: { x: totalsX + totalsW, y }, thickness: 1.2, color: color.forest })
+    y -= 18
+    text('Food bill total', totalsX, y, { size: 14, font: fonts.serif, color: color.forest })
+    text(formatBDT(foodTotal), totalsX, y, {
+      size: 14,
+      font: fonts.serif,
+      color: color.forest,
+      align: 'right',
+      width: totalsW,
+    })
+  } else {
+    // Extras
+    const extras = sortExtrasForInvoice(booking.extras ?? [])
+    if (extras.length > 0) {
+      heading('Extra charges')
+      table(
+        [
+          { header: 'Date', width: 2 },
+          { header: 'Item', width: 4 },
+          { header: 'Type', width: 1.6 },
+          { header: 'Room', width: 1.4 },
+          { header: 'Amount', width: 1.8, align: 'right' },
+        ],
+        extras.map((extra) => [
+          extra.serviceDate ? formatServiceDate(extra.serviceDate) : '',
+          `${extra.name}${extra.quantity > 1 ? ` × ${extra.quantity}` : ''}`,
+          extra.category === 'food' ? (extra.meal ? FOOD_MEAL_LABELS[extra.meal] : 'Food') : 'Other',
+          extra.roomName ?? '',
+          formatBDT(extra.amount),
+        ])
+      )
+    }
+
+    // Totals
+    const advanceTotal = getAdvanceTransactions(booking).reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+    const totalsRows: Array<{ label: string; value: string; kind?: 'muted' | 'discount' | 'total' | 'strong' }> = [
+      { label: 'Room rent', value: formatBDT(fin.roomRent ?? fin.subtotal), kind: 'muted' },
+    ]
+    if (fin.foodTotal > 0) totalsRows.push({ label: 'Food bill', value: formatBDT(fin.foodTotal), kind: 'muted' })
+    if (fin.otherTotal > 0) totalsRows.push({ label: 'Other bills', value: formatBDT(fin.otherTotal), kind: 'muted' })
+    if (fin.discount > 0) {
+      const reason = booking.payment?.discount?.reason
+      totalsRows.push({
+        label: `Discount${reason ? ` - ${reason}` : ''}`,
+        value: `- ${formatBDT(fin.discount)}`,
+        kind: 'discount',
+      })
+    }
+    totalsRows.push({ label: 'Total Due', value: formatBDT(fin.total), kind: 'total' })
+    if (advanceTotal > 0) totalsRows.push({ label: 'Advance paid', value: formatBDT(advanceTotal), kind: 'muted' })
+    totalsRows.push({ label: advanceTotal > 0 ? 'Total paid' : 'Paid', value: formatBDT(fin.paid), kind: 'muted' })
+    if (fin.refunded > 0) totalsRows.push({ label: 'Refunded', value: `- ${formatBDT(fin.refunded)}`, kind: 'muted' })
+    totalsRows.push({ label: 'Outstanding', value: formatBDT(fin.outstanding), kind: 'strong' })
+
+    const totalsW = 220
+    const totalsX = MARGIN_X + CONTENT_WIDTH - totalsW
+    const totalsHeight = totalsRows.reduce((h, r) => h + (r.kind === 'total' ? 26 : 15), 0) + 34
+    ensureSpace(totalsHeight + 12)
+    y -= 12
+    totalsRows.forEach((row) => {
+      if (row.kind === 'total') {
+        y -= 4
+        page.drawLine({
+          start: { x: totalsX, y },
+          end: { x: totalsX + totalsW, y },
+          thickness: 1.2,
+          color: color.forest,
+        })
+        y -= 18
+        text(row.label, totalsX, y, { size: 14, font: fonts.serif, color: color.forest })
+        text(row.value, totalsX, y, {
+          size: 14,
+          font: fonts.serif,
+          color: color.forest,
+          align: 'right',
+          width: totalsW,
+        })
+        y -= 4
+        return
+      }
+      y -= 15
+      const c = row.kind === 'discount' ? color.red : row.kind === 'strong' ? color.ink : color.muted
+      const f = row.kind === 'strong' ? fonts.bold : fonts.regular
+      text(row.label, totalsX, y, { size: 9, color: c, font: f, width: totalsW - 90 })
+      text(row.value, totalsX, y, { size: 9, color: c, font: f, align: 'right', width: totalsW })
+    })
+    y -= 18
+    text('Payment status', totalsX, y, { size: 9, color: color.muted })
+    const statusLabel = fin.status.toUpperCase()
+    const statusW = fonts.bold.widthOfTextAtSize(statusLabel, 7) + 12
+    const statusColor =
+      fin.status === 'paid' ? color.forest : fin.status === 'refunded' ? color.red : color.muted
+    page.drawRectangle({
+      x: totalsX + totalsW - statusW,
+      y: y - 4,
+      width: statusW,
+      height: 13,
+      borderColor: statusColor,
+      borderWidth: 0.8,
+    })
+    text(statusLabel, totalsX + totalsW - statusW + 6, y, { size: 7, font: fonts.bold, color: statusColor })
+
+    // Payment history
+    heading('Payment history')
+    const txs = booking.payment?.transactions ?? []
+    if (txs.length === 0) {
+      ensureSpace(16)
+      y -= 14
+      text('No payment transactions yet.', MARGIN_X, y, { size: 9, color: color.muted })
+    } else {
+      const negative = new Set<number>()
+      txs.forEach((t, i) => t.type === 'refund' && negative.add(i))
+      table(
+        [
+          { header: 'Date', width: 2.6 },
+          { header: 'Type', width: 1.4 },
+          { header: 'Method', width: 1.6 },
+          { header: 'Reference', width: 2.2 },
+          { header: 'Amount', width: 1.8, align: 'right' },
+        ],
+        txs.map((t) => [
+          formatDateTime(t.recordedAt),
+          t.isAdvance && t.type === 'payment' ? 'advance' : t.type,
+          t.method ? PAYMENT_METHOD_LABELS[t.method] : '',
+          t.reference ?? '',
+          `${t.type === 'refund' ? '-' : ''}${formatBDT(t.amount)}`,
+        ]),
+        negative
+      )
+    }
+
+    if (booking.specialRequests?.trim()) {
+      heading('Special requests')
+      for (const line of wrap(booking.specialRequests, CONTENT_WIDTH, 9.5, fonts.regular)) {
+        ensureSpace(14)
+        y -= 13
+        text(line, MARGIN_X, y, { size: 9.5 })
+      }
     }
   }
 
@@ -492,11 +618,17 @@ export const buildBookingInvoicePdf = async (booking: Booking): Promise<Uint8Arr
     pages.forEach((p, i) => {
       const label = `Page ${i + 1} of ${pages.length}`
       const w = fonts.regular.widthOfTextAtSize(label, 7.5)
-      p.drawText(label, { x: MARGIN_X + CONTENT_WIDTH - w, y: CONTENT_BOTTOM - 14, size: 7.5, font: fonts.regular, color: color.muted })
+      p.drawText(label, {
+        x: MARGIN_X + CONTENT_WIDTH - w,
+        y: CONTENT_BOTTOM - 14,
+        size: 7.5,
+        font: fonts.regular,
+        color: color.muted,
+      })
     })
   }
 
-  doc.setTitle(`Invoice #${bookingShort}`)
+  doc.setTitle(`${mode === 'food' ? 'Food bill' : 'Invoice'} #${bookingShort}`)
   doc.setAuthor('Cherekh Center')
   doc.setCreator('Cherekh Center admin')
   return doc.save()
@@ -505,16 +637,27 @@ export const buildBookingInvoicePdf = async (booking: Booking): Promise<Uint8Arr
 export const bookingInvoiceFileName = (booking: Booking): string =>
   `Cherekh-Invoice-${formatBookingId(booking.id)}-${safeFileName(booking.name)}.pdf`
 
-/** Builds the pad PDF and downloads it. */
-export const exportBookingInvoicePdf = async (booking: Booking): Promise<void> => {
-  const bytes = await buildBookingInvoicePdf(booking)
+export const foodBillFileName = (booking: Booking): string =>
+  `Cherekh-FoodBill-${formatBookingId(booking.id)}-${safeFileName(booking.name)}.pdf`
+
+const downloadPdfBytes = (bytes: Uint8Array, filename: string): void => {
   const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = bookingInvoiceFileName(booking)
+  link.download = filename
   document.body.appendChild(link)
   link.click()
   link.remove()
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
+
+/** Builds the pad PDF and downloads it. */
+export const exportBookingInvoicePdf = async (booking: Booking): Promise<void> => {
+  downloadPdfBytes(await buildBookingInvoicePdf(booking), bookingInvoiceFileName(booking))
+}
+
+/** Food charges only, with every guest's ID details, on the Cherekh pad. */
+export const exportFoodBillPdf = async (booking: Booking): Promise<void> => {
+  downloadPdfBytes(await buildBookingInvoicePdf(booking, { mode: 'food' }), foodBillFileName(booking))
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Download, FileText, Plus } from 'lucide-react'
+import { Download, FileText, Plus, UtensilsCrossed } from 'lucide-react'
 import { TopBar } from '../components/layout/TopBar'
 import { Card } from '../components/ui/Card'
 import { Tabs } from '../components/ui/Tabs'
@@ -10,6 +10,7 @@ import { BookingTable } from '../components/bookings/BookingTable'
 import { BookingFiltersBar } from '../components/bookings/BookingFiltersBar'
 import { BookingDrawer, type BookingDrawerFocus } from '../components/bookings/BookingDrawer'
 import { AddBookingModal } from '../components/bookings/AddBookingModal'
+import { AddFoodBillModal } from '../components/bookings/AddFoodBillModal'
 import { useBookingsData } from '../hooks/useBookingsData'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../../contexts/AuthProvider'
@@ -111,6 +112,7 @@ const Bookings = () => {
   const [selected, setSelected] = useState<Booking | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [foodBillOpen, setFoodBillOpen] = useState(false)
 
   // Keep the currently open drawer in sync with the latest data after any
   // mutation (status change, payment, discount, guest details, etc.).
@@ -309,6 +311,16 @@ const Bookings = () => {
             >
               Guest register
             </Button>
+            <Button
+              variant="outline"
+              size="md"
+              leftIcon={<UtensilsCrossed className="w-4 h-4" />}
+              onClick={() => setFoodBillOpen(true)}
+              className="whitespace-nowrap"
+              title="Walk-in food bill with no room"
+            >
+              Add food bill
+            </Button>
             <Button size="md" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setAddOpen(true)} className="whitespace-nowrap">
               Add booking
             </Button>
@@ -432,6 +444,16 @@ const Bookings = () => {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onCreated={() => refresh()}
+      />
+
+      <AddFoodBillModal
+        open={foodBillOpen}
+        onClose={() => setFoodBillOpen(false)}
+        onCreated={(booking) => {
+          void refresh()
+          setDrawerFocus({ bookingId: booking.id, tab: 'bills', highlight: [], key: Date.now() })
+          void openBooking(booking)
+        }}
       />
     </>
   )

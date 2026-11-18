@@ -10,7 +10,12 @@ import {
 } from 'react-icons/fa'
 import { Card } from '../ui/Card'
 import { useToast } from '../ui/Toast'
-import { bookingGuestHidden, bookingMoneyHidden, type Booking } from '../../../utils/bookings'
+import {
+  bookingGuestHidden,
+  bookingMoneyHidden,
+  sumExtras,
+  type Booking,
+} from '../../../utils/bookings'
 import {
   buildBookingMessages,
   telHref,
@@ -49,6 +54,8 @@ export const BookingActions = ({ booking }: BookingActionsProps) => {
   const phone = booking.phone?.trim()
 
   const [exporting, setExporting] = useState(false)
+  const [exportingFood, setExportingFood] = useState(false)
+  const hasFoodBill = sumExtras(booking.extras, 'food') > 0
 
   const print = () => {
     const ok = printBookingInvoice(booking)
@@ -67,6 +74,21 @@ export const BookingActions = ({ booking }: BookingActionsProps) => {
       toast.error('Could not create PDF', 'Check your connection and try again.')
     } finally {
       setExporting(false)
+    }
+  }
+
+  const exportFoodPdf = async () => {
+    if (exportingFood || !hasFoodBill) return
+    setExportingFood(true)
+    try {
+      const { exportFoodBillPdf } = await import('../../utils/bookingInvoicePdf')
+      await exportFoodBillPdf(booking)
+      toast.success('Food bill ready', 'Food bill with guest details saved')
+    } catch (e) {
+      console.error(e)
+      toast.error('Could not create food bill', 'Check your connection and try again.')
+    } finally {
+      setExportingFood(false)
     }
   }
 
@@ -100,6 +122,15 @@ export const BookingActions = ({ booking }: BookingActionsProps) => {
       tone: 'teal',
       onClick: () => void exportPdf(),
       disabled: exporting,
+    },
+    {
+      key: 'food-pdf',
+      label: exportingFood ? 'Preparing food bill…' : 'Export food bill',
+      description: hasFoodBill ? 'Food bill with guest details' : 'No food bills yet',
+      icon: exportingFood ? <FaSpinner className="w-4 h-4 animate-spin" /> : <FaFilePdf className="w-4 h-4" />,
+      tone: 'violet',
+      onClick: () => void exportFoodPdf(),
+      disabled: exportingFood || !hasFoodBill,
     },
   ]
 

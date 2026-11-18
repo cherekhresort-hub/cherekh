@@ -36,7 +36,7 @@ import {
   type PaymentMethod,
   type PaymentTransactionType,
 } from '../../../utils/bookings'
-import { calculateBookingTotal } from '../../../utils/bookingHelpers'
+import { calculateBookingTotal, isFoodOnlyBooking } from '../../../utils/bookingHelpers'
 import { formatBDT } from '../../utils/format'
 import { formatDateTime } from '../../utils/date'
 import { cn } from '../../utils/cn'
@@ -70,6 +70,7 @@ export const PaymentSection = ({ booking, onChanged, readOnly = false }: Payment
   const { canDelete, canEditPricing } = useAuth()
   const toast = useToast()
   const fin = useMemo(() => computeBookingFinancials(booking), [booking])
+  const foodOnly = isFoodOnlyBooking(booking)
   const paymentComplete = fin.status === 'paid'
   const suggestedTotal = useMemo(() => calculateBookingTotal(booking), [booking])
   const transactions = useMemo(
@@ -297,7 +298,9 @@ export const PaymentSection = ({ booking, onChanged, readOnly = false }: Payment
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wide text-stone-500">Room rent</p>
+            <p className="text-[10px] uppercase tracking-wide text-stone-500">
+              {foodOnly ? 'Base charge' : 'Room rent'}
+            </p>
             {editingTotal ? (
               <div className="mt-1 flex items-center gap-2">
                 <Input

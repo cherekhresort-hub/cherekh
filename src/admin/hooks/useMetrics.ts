@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { computeBookingFinancials, countsTowardRevenue, getBookingRooms, type Booking } from '../../utils/bookings'
+import { isFoodOnlyBooking } from '../../utils/bookingHelpers'
 import { toISODate } from '../utils/date'
 import type { AdminRoom } from './useRoomsData'
 
@@ -18,16 +19,17 @@ export const useDashboardMetrics = (bookings: Booking[], rooms: AdminRoom[]): Da
   return useMemo(() => {
     const today = toISODate()
     const monthStart = today.slice(0, 7)
+    const stayBookings = bookings.filter((b) => !isFoodOnlyBooking(b))
 
-    const inHouseBookings = bookings.filter(
+    const inHouseBookings = stayBookings.filter(
       (b) => b.status === 'confirmed' && b.checkIn <= today && b.checkOut > today
     )
 
-    const pendingCheckIns = bookings.filter(
+    const pendingCheckIns = stayBookings.filter(
       (b) => b.status === 'confirmed' && b.checkIn === today
     ).length
 
-    const pendingCheckOuts = bookings.filter(
+    const pendingCheckOuts = stayBookings.filter(
       (b) => b.status === 'confirmed' && b.checkOut === today
     ).length
 

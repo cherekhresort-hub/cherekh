@@ -76,6 +76,7 @@ import {
   formatEventDatesDisplay,
   getBookingDurationCount,
   getBookingEventDates,
+  isFoodOnlyBooking,
 } from '../../../utils/bookingHelpers'
 import { cn } from '../../utils/cn'
 import { useFlashHighlight } from '../../hooks/useFlashHighlight'
@@ -162,6 +163,7 @@ export const BookingDrawer = ({
     [booking]
   )
   const isConferenceOnly = booking ? bookingIsConferenceOnly(booking) : false
+  const foodOnly = booking ? isFoodOnlyBooking(booking) : false
   const eventDatesLabel = booking ? formatEventDatesDisplay(getBookingEventDates(booking)) : ''
 
   if (!booking) return <Drawer open={false} onClose={onClose}>{null}</Drawer>
@@ -207,7 +209,8 @@ export const BookingDrawer = ({
     detailLoaded &&
     roleCanChangeBookingRooms(role) &&
     ROOM_CHANGE_STATUSES.includes(booking.status) &&
-    !bookingIsConferenceOnly(booking)
+    !bookingIsConferenceOnly(booking) &&
+    !foodOnly
   const canChangeDates =
     !readOnly &&
     detailLoaded &&
@@ -306,12 +309,14 @@ export const BookingDrawer = ({
             {booking.name}
           </h2>
           <p className="text-sm text-white/70 mt-0.5 truncate">
-            {lines
-              .map((line) => {
-                const parsed = parseRoomLabel(line.roomName)
-                return parsed.number ? `${parsed.number} · ${parsed.bed}` : parsed.bed
-              })
-              .join('  ·  ')}
+            {foodOnly
+              ? 'Food bill · Walk-in'
+              : lines
+                  .map((line) => {
+                    const parsed = parseRoomLabel(line.roomName)
+                    return parsed.number ? `${parsed.number} · ${parsed.bed}` : parsed.bed
+                  })
+                  .join('  ·  ')}
           </p>
           <p className="text-xs text-white/60 mt-1 truncate">
             Booked {formatDateTime(booking.createdAt)}
@@ -323,13 +328,19 @@ export const BookingDrawer = ({
       <div className="grid grid-cols-4 gap-2 mt-5">
         <HeaderStat
           icon={<CalendarDays className="w-3.5 h-3.5" />}
-          label={isConferenceOnly ? 'Event dates' : 'Check-in'}
-          value={isConferenceOnly ? eventDatesLabel || formatShortDate(booking.checkIn) : formatShortDate(booking.checkIn)}
+          label={foodOnly ? 'Service date' : isConferenceOnly ? 'Event dates' : 'Check-in'}
+          value={
+            foodOnly
+              ? formatShortDate(booking.checkIn)
+              : isConferenceOnly
+                ? eventDatesLabel || formatShortDate(booking.checkIn)
+                : formatShortDate(booking.checkIn)
+          }
         />
         <HeaderStat
           icon={<Moon className="w-3.5 h-3.5" />}
-          label={isConferenceOnly ? 'Event days' : 'Nights'}
-          value={`${nights}`}
+          label={foodOnly ? 'Type' : isConferenceOnly ? 'Event days' : 'Nights'}
+          value={foodOnly ? 'Food' : `${nights}`}
         />
         <HeaderStat
           icon={<Users className="w-3.5 h-3.5" />}
@@ -465,6 +476,7 @@ export const BookingDrawer = ({
               lines={lines}
               nights={nights}
               isConferenceOnly={isConferenceOnly}
+              foodOnly={foodOnly}
               eventDatesLabel={eventDatesLabel}
               onChangeStatus={changeStatusInline}
               onChangeRooms={canChangeRooms ? () => setRoomsModalOpen(true) : undefined}
@@ -548,6 +560,7 @@ interface OverviewTabProps {
   lines: ReturnType<typeof getBookingRooms>
   nights: number
   isConferenceOnly: boolean
+  foodOnly: boolean
   eventDatesLabel: string
   onChangeStatus: (status: Booking['status']) => void
   onChangeRooms?: () => void
@@ -560,6 +573,7 @@ const OverviewTab = ({
   lines,
   nights,
   isConferenceOnly,
+  foodOnly,
   eventDatesLabel,
   onChangeStatus,
   onChangeRooms,
@@ -643,7 +657,7 @@ const OverviewTab = ({
       <Card padded={false} className="p-5" data-highlight-id={BOOKING_HIGHLIGHT.stay}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
-            <CalendarDays className="w-3 h-3" /> {isConferenceOnly ? 'Event' : 'Stay'}
+            <CalendarDays className="w-3 h-3" /> {foodOnly ? 'Service' : isConferenceOnly ? 'Event' : 'Stay'}
           </h3>
           {onChangeDates && (
             <Button
@@ -653,11 +667,16 @@ const OverviewTab = ({
               leftIcon={<CalendarDays className="w-3.5 h-3.5" />}
               onClick={onChangeDates}
             >
-              {isConferenceOnly ? 'Change event dates' : 'Change dates'}
+              {foodOnly ? 'Change date' : isConferenceOnly ? 'Change event dates' : 'Change dates'}
             </Button>
           )}
         </div>
-        {isConferenceOnly ? (
+        {foodOnly ? (
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-stone-500">Service date</p>
+            <p className="font-medium text-forest-700">{formatShortDate(booking.checkIn)}</p>
+          </div>
+        ) : isConferenceOnly ? (
           <div>
             <p className="text-[10px] uppercase tracking-wide text-stone-500">Event dates</p>
             <p className="font-medium text-forest-700">{eventDatesLabel}</p>
@@ -677,7 +696,16 @@ const OverviewTab = ({
         )}
         <div className="mt-3 flex items-center justify-between bg-cream/60 rounded-xl px-3 py-2">
           <span className="text-xs text-stone-500 inline-flex items-center gap-1">
-            <Moon className="w-3 h-3" /> {nights} {isConferenceOnly ? `event day${nights === 1 ? '' : 's'}` : `night${nights === 1 ? '' : 's'}`}
+            {foodOnly ? (
+              <>
+                <UtensilsCrossed className="w-3 h-3" /> Walk-in food bill
+              </>
+            ) : (
+              <>
+                <Moon className="w-3 h-3" /> {nights}{' '}
+                {isConferenceOnly ? `event day${nights === 1 ? '' : 's'}` : `night${nights === 1 ? '' : 's'}`}
+              </>
+            )}
           </span>
           <span className="text-xs text-stone-500 inline-flex items-center gap-1">
             <Users className="w-3 h-3" /> {booking.totalGuests} guests
@@ -686,6 +714,7 @@ const OverviewTab = ({
       </Card>
     </div>
 
+    {!foodOnly && (
     <Card padded={false} className="p-5" data-highlight-id={BOOKING_HIGHLIGHT.rooms}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
@@ -734,6 +763,7 @@ const OverviewTab = ({
         })}
       </ul>
     </Card>
+    )}
 
     <Card padded={false} className="p-5">
       <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium mb-3 inline-flex items-center gap-1.5">

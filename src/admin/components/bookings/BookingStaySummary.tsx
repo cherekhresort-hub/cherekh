@@ -1,5 +1,5 @@
 import { ArrowRight, Moon, CalendarDays } from 'lucide-react'
-import { daysBetween, formatStayRange, formatStayWeekday } from '../../utils/date'
+import { daysBetween, formatShortDate, formatStayRange, formatStayWeekday } from '../../utils/date'
 import { parseRoomLabel } from '../../utils/roomLabel'
 import { cn } from '../../utils/cn'
 import {
@@ -7,6 +7,7 @@ import {
   formatEventDatesDisplay,
   getBookingDurationCount,
   getBookingEventDates,
+  isFoodOnlyBooking,
 } from '../../../utils/bookingHelpers'
 import { getBookingRooms, type Booking } from '../../../utils/bookings'
 
@@ -50,13 +51,16 @@ export const BookingStaySummary = ({
   booking: Booking
   className?: string
 }) => {
+  const foodOnly = isFoodOnlyBooking(booking)
   const lines = getBookingRooms(booking)
   const primary = lines[0]
   const parsed = parseRoomLabel(primary?.roomName ?? booking.roomName ?? '')
   const extraRooms = Math.max(0, lines.length - 1)
-  const tileLabel = parsed.number ?? (parsed.bed.toLowerCase().includes('conference') ? 'CR' : '—')
+  const tileLabel = foodOnly
+    ? 'FB'
+    : parsed.number ?? (parsed.bed.toLowerCase().includes('conference') ? 'CR' : '—')
   const isConferenceOnly = bookingIsConferenceOnly(booking)
-  const nights = isConferenceOnly
+  const nights = isConferenceOnly || foodOnly
     ? getBookingDurationCount(booking)
     : daysBetween(booking.checkIn, booking.checkOut)
   const extraNames = lines
@@ -67,21 +71,34 @@ export const BookingStaySummary = ({
   return (
     <div
       className={cn('flex min-w-[13.5rem] items-start gap-3', className)}
-      title={lines.map((line) => line.roomName).filter(Boolean).join(', ')}
+      title={
+        foodOnly
+          ? `Food bill · ${formatShortDate(booking.checkIn)}`
+          : lines.map((line) => line.roomName).filter(Boolean).join(', ')
+      }
     >
-      <RoomNumberTile number={tileLabel} extraCount={extraRooms} />
+      <RoomNumberTile number={tileLabel} extraCount={foodOnly ? undefined : extraRooms} />
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
-          <p className="truncate text-sm font-medium text-forest-800">{parsed.bed}</p>
-          {parsed.amenity ? <AmenityChip amenity={parsed.amenity} /> : null}
+          <p className="truncate text-sm font-medium text-forest-800">
+            {foodOnly ? 'Food bill' : parsed.bed}
+          </p>
+          {!foodOnly && parsed.amenity ? <AmenityChip amenity={parsed.amenity} /> : null}
         </div>
-        {extraRooms > 0 ? (
+        {!foodOnly && extraRooms > 0 ? (
           <p className="mt-0.5 truncate text-[11px] text-stone-500">
             {lines.length} rooms
             {extraNames.length > 0 ? ` · ${extraNames.join(', ')}` : ''}
           </p>
         ) : null}
-        {isConferenceOnly ? (
+        {foodOnly ? (
+          <p className="mt-1 inline-flex items-center gap-1 text-xs text-stone-600">
+            <CalendarDays className="h-3 w-3 text-stone-400" />
+            <span>{formatShortDate(booking.checkIn)}</span>
+            <span className="text-stone-400">·</span>
+            <span>Walk-in</span>
+          </p>
+        ) : isConferenceOnly ? (
           <p className="mt-1 inline-flex items-center gap-1 text-xs text-stone-600">
             <CalendarDays className="h-3 w-3 text-stone-400" />
             <span className="truncate">

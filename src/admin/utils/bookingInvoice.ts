@@ -17,6 +17,7 @@ import {
   formatEventDatesDisplay,
   getBookingDurationCount,
   getBookingEventDates,
+  isFoodOnlyBooking,
 } from '../../utils/bookingHelpers'
 
 const escapeHtml = (value: string | number | undefined | null): string => {
@@ -97,12 +98,19 @@ const buildInvoiceHtml = (booking: Booking): string => {
   const rooms = getBookingRooms(booking)
   const fin = computeBookingFinancials(booking)
   const payment: Payment | undefined = booking.payment
+  const foodOnly = isFoodOnlyBooking(booking)
   const isConferenceOnly = bookingIsConferenceOnly(booking)
   const nights = getBookingDurationCount(booking)
-  const stayLabel = isConferenceOnly
-    ? formatEventDatesDisplay(getBookingEventDates(booking))
-    : `${formatShortDate(booking.checkIn)} → ${formatShortDate(booking.checkOut)}`
-  const durationUnit = isConferenceOnly ? 'event day' : 'night'
+  const stayLabel = foodOnly
+    ? formatShortDate(booking.checkIn)
+    : isConferenceOnly
+      ? formatEventDatesDisplay(getBookingEventDates(booking))
+      : `${formatShortDate(booking.checkIn)} → ${formatShortDate(booking.checkOut)}`
+  const durationUnit = foodOnly ? 'service day' : isConferenceOnly ? 'event day' : 'night'
+  const stayPanelLabel = foodOnly ? 'Service' : isConferenceOnly ? 'Event' : 'Stay'
+  const stayMeta = foodOnly
+    ? `Walk-in food bill · ${booking.totalGuests} guest${booking.totalGuests === 1 ? '' : 's'}`
+    : `${nights} ${durationUnit}${nights === 1 ? '' : 's'} · ${booking.totalGuests} guest${booking.totalGuests === 1 ? '' : 's'}`
   const bookingShort = formatBookingId(booking.id)
   const issuedAt = new Date().toLocaleString()
   const advanceTotal = getAdvanceTransactions(booking).reduce(
@@ -256,13 +264,16 @@ const buildInvoiceHtml = (booking: Booking): string => {
       <p class="muted">${escapeHtml(booking.phone)}</p>
     </div>
     <div class="panel">
-      <p class="label">${isConferenceOnly ? 'Event' : 'Stay'}</p>
+      <p class="label">${escapeHtml(stayPanelLabel)}</p>
       <p><strong>${escapeHtml(stayLabel)}</strong></p>
-      <p class="muted">${nights} ${durationUnit}${nights === 1 ? '' : 's'} · ${booking.totalGuests} guest${booking.totalGuests === 1 ? '' : 's'}</p>
+      <p class="muted">${escapeHtml(stayMeta)}</p>
     </div>
   </section>
 
-  <h2>Rooms</h2>
+  ${
+    foodOnly
+      ? ''
+      : `<h2>Rooms</h2>
   <table>
     <thead>
       <tr><th>Room</th><th>Adults</th><th>Children</th><th class="num">Guests</th></tr>
@@ -280,7 +291,8 @@ const buildInvoiceHtml = (booking: Booking): string => {
         )
         .join('')}
     </tbody>
-  </table>
+  </table>`
+  }
 
   ${
     (booking.extras ?? []).length > 0
