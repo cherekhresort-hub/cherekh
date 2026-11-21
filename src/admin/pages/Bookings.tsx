@@ -298,7 +298,13 @@ const Bookings = () => {
         description="Manage reservations across all rooms and stays"
         actions={
           <>
-            <Button variant="outline" size="md" leftIcon={<Download className="w-4 h-4" />} onClick={exportNow} className="whitespace-nowrap">
+            <Button
+              variant="outline"
+              size="md"
+              leftIcon={<Download className="w-4 h-4" />}
+              onClick={exportNow}
+              className="whitespace-nowrap shrink-0"
+            >
               Export
             </Button>
             <Button
@@ -306,28 +312,36 @@ const Bookings = () => {
               size="md"
               leftIcon={<FileText className="w-4 h-4" />}
               onClick={exportGuestRegister}
-              className="whitespace-nowrap"
+              className="whitespace-nowrap shrink-0"
               title="Guest name, contact, rooms, dates and guest counts only - for government and other reports"
             >
-              Guest register
+              <span className="sm:hidden">Register</span>
+              <span className="hidden sm:inline">Guest register</span>
             </Button>
             <Button
               variant="outline"
               size="md"
               leftIcon={<UtensilsCrossed className="w-4 h-4" />}
               onClick={() => setFoodBillOpen(true)}
-              className="whitespace-nowrap"
+              className="whitespace-nowrap shrink-0"
               title="Walk-in food bill with no room"
             >
-              Add food bill
+              <span className="sm:hidden">Food bill</span>
+              <span className="hidden sm:inline">Add food bill</span>
             </Button>
-            <Button size="md" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setAddOpen(true)} className="whitespace-nowrap">
-              Add booking
+            <Button
+              size="md"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => setAddOpen(true)}
+              className="whitespace-nowrap shrink-0"
+            >
+              <span className="sm:hidden">Booking</span>
+              <span className="hidden sm:inline">Add booking</span>
             </Button>
           </>
         }
       />
-      <main className="px-4 lg:px-8 py-6 space-y-4">
+      <main className="min-w-0 px-4 lg:px-8 py-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="-mx-1 px-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <Tabs<StatusFilter>

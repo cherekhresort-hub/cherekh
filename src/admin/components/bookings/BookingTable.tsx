@@ -81,15 +81,15 @@ type Column = {
 
 const columns: Column[] = [
   { key: 'id', label: 'Booking', sortable: true },
-  { key: 'bookedBy', label: 'Booked by' },
+  { key: 'bookedBy', label: 'Booked by', className: 'hidden sm:table-cell' },
   { key: 'name', label: 'Guest', sortable: true },
-  { key: 'phone', label: 'Phone' },
+  { key: 'phone', label: 'Phone', className: 'hidden md:table-cell' },
   { key: 'checkIn', label: 'Stay', sortable: true },
-  { key: 'totalGuests', label: 'Guests', sortable: true },
-          { key: 'status', label: 'Status', sortable: true },
+  { key: 'totalGuests', label: 'Guests', sortable: true, className: 'hidden lg:table-cell' },
+  { key: 'status', label: 'Status', sortable: true },
   { key: 'payment', label: 'Payment' },
-  { key: 'notes', label: 'Internal notes' },
-  { key: 'specialRequests', label: 'Requests' },
+  { key: 'notes', label: 'Internal notes', className: 'hidden xl:table-cell' },
+  { key: 'specialRequests', label: 'Requests', className: 'hidden xl:table-cell' },
 ]
 
 const noteAuthor = (createdBy: string): string =>
@@ -200,27 +200,31 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                   <p className="text-[11px] text-stone-400">{formatShortDate(booking.createdAt)}</p>
                   <p className="text-[11px] text-stone-400">{formatTime(booking.createdAt)}</p>
                 </td>
-                <td className="py-3 px-4">
+                <td className="py-3 px-4 hidden sm:table-cell">
                   <BookedByCell creator={creatorFor?.(booking)} />
                 </td>
                 <td className="py-3 px-4">
                   {bookingGuestHidden(booking) ? (
                     <HiddenValue title="Guest details are visible only on bookings you created" />
                   ) : (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <Avatar name={booking.name} size="sm" color="#367E7E" />
                       <div className="min-w-0">
-                        <p className="font-medium text-forest-700 truncate">{booking.name}</p>
-                        <p className="text-xs text-stone-500 truncate">{booking.email || booking.phone}</p>
+                        <p className="font-medium text-forest-700 truncate max-w-[9rem] sm:max-w-[12rem]">
+                          {booking.name}
+                        </p>
+                        <p className="text-xs text-stone-500 truncate max-w-[9rem] sm:max-w-[12rem]">
+                          {booking.email || booking.phone}
+                        </p>
                       </div>
                     </div>
                   )}
                 </td>
-                <td className="py-3 px-4">
+                <td className="py-3 px-4 hidden md:table-cell">
                   {bookingGuestHidden(booking) ? (
                     <HiddenValue title="Contact details are visible only on bookings you created" />
                   ) : (
-                    <span className="text-forest-700 inline-flex items-center gap-1">
+                    <span className="text-forest-700 inline-flex items-center gap-1 whitespace-nowrap">
                       <Phone className="w-3 h-3 text-stone-400" />
                       {booking.phone}
                     </span>
@@ -229,7 +233,7 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                 <td className="py-3 px-4">
                   <BookingStaySummary booking={booking} />
                 </td>
-                <td className="py-3 px-4">
+                <td className="py-3 px-4 hidden lg:table-cell">
                   <p className="text-forest-700 font-medium">{booking.totalGuests}</p>
                   <p className="text-xs text-stone-500">
                     {booking.adults}A · {booking.children}C
@@ -241,10 +245,10 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                 <td className="py-3 px-4">
                   <BookingPaymentCell booking={booking} />
                 </td>
-                <td className="py-3 px-4">
+                <td className="py-3 px-4 hidden xl:table-cell">
                   <InternalNotesCell booking={booking} />
                 </td>
-                <td className="py-3 px-4 max-w-[12rem]">
+                <td className="py-3 px-4 max-w-[12rem] hidden xl:table-cell">
                   <p className="text-xs text-stone-500 truncate">
                     {truncate(booking.specialRequests || '-', 48)}
                   </p>

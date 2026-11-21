@@ -70,7 +70,7 @@ export const BookingStaySummary = ({
 
   return (
     <div
-      className={cn('flex min-w-[13.5rem] items-start gap-3', className)}
+      className={cn('flex min-w-0 sm:min-w-[13.5rem] items-start gap-3', className)}
       title={
         foodOnly
           ? `Food bill · ${formatShortDate(booking.checkIn)}`

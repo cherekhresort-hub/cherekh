@@ -35,10 +35,10 @@ export const BookingFiltersBar = ({
   const active = hasActiveBookingFilters(filters, search)
 
   return (
-    <div className="rounded-2xl border border-stone-200/80 bg-white p-4 space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
-          <SlidersHorizontal className="w-3.5 h-3.5" />
+    <div className="rounded-2xl border border-stone-200/80 bg-white p-4 space-y-4 min-w-0 overflow-hidden">
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <p className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5 min-w-0">
+          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
           Search &amp; filters
         </p>
         {active && (
@@ -48,14 +48,15 @@ export const BookingFiltersBar = ({
             size="sm"
             leftIcon={<X className="w-3.5 h-3.5" />}
             onClick={clear}
+            className="shrink-0"
           >
             Clear all
           </Button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3">
-        <Field label="Search" className="sm:col-span-2 lg:col-span-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 min-w-0">
+        <Field label="Search" className="sm:col-span-2 lg:col-span-1 min-w-0">
           <SearchInput
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
