@@ -1,6 +1,7 @@
 import {
   defaultMenuCategories,
   formatMenuPrice,
+  isMenuItemAvailable,
   normalizeMenuPortion,
   type MenuCategory,
   type MenuItem,
@@ -20,6 +21,7 @@ export type RestaurantMenuItemRecord = {
   portion: string
   price: number
   sortOrder: number
+  available: boolean
 }
 
 type MenuRow = {
@@ -31,6 +33,7 @@ type MenuRow = {
   portion?: string | null
   price: number | string
   sort_order: number
+  available?: boolean | null
 }
 
 const normalizeItem = (item: MenuItem): MenuItem => ({
@@ -38,6 +41,7 @@ const normalizeItem = (item: MenuItem): MenuItem => ({
   name: item.name,
   price: Math.max(0, Math.round(Number(item.price) || 0)),
   portion: normalizeMenuPortion(item.portion),
+  available: isMenuItemAvailable(item),
 })
 
 const normalizeCategories = (categories: MenuCategory[]): MenuCategory[] =>
@@ -105,6 +109,7 @@ const rowsToCategories = (rows: MenuRow[]): MenuCategory[] => {
       name: row.name,
       price: Math.round(Number(row.price) || 0),
       portion: normalizeMenuPortion(row.portion ?? undefined),
+      available: row.available !== false,
     }
     if (existing) {
       existing.items.push(item)
@@ -119,7 +124,11 @@ const rowsToCategories = (rows: MenuRow[]): MenuCategory[] => {
   }
   return [...byId.values()]
     .sort((a, b) => a.sort - b.sort || a.title.localeCompare(b.title))
-    .map(({ sort: _sort, ...category }) => category)
+    .map((category) => {
+      const { sort: _ignored, ...rest } = category
+      void _ignored
+      return rest
+    })
 }
 
 const categoriesToRecords = (categories: MenuCategory[]): RestaurantMenuItemRecord[] =>
@@ -133,6 +142,7 @@ const categoriesToRecords = (categories: MenuCategory[]): RestaurantMenuItemReco
       portion: normalizeMenuPortion(item.portion),
       price: Math.max(0, Math.round(Number(item.price) || 0)),
       sortOrder: (itemIndex + 1) * 10,
+      available: isMenuItemAvailable(item),
     }))
   )
 
@@ -145,7 +155,8 @@ export const loadRestaurantMenu = async (): Promise<MenuCategory[]> => {
   const supabase = getSupabase()
   if (!supabase) return readLocal() ?? cloneDefault()
 
-  const columns = 'id, category_id, category_title, category_sort, name, portion, price, sort_order'
+  const columns =
+    'id, category_id, category_title, category_sort, name, portion, price, sort_order, available'
   const primary = await supabase
     .from('restaurant_menu_items')
     .select(columns)
@@ -156,6 +167,17 @@ export const loadRestaurantMenu = async (): Promise<MenuCategory[]> => {
   let rows: MenuRow[] = (primary.data ?? []) as MenuRow[]
   let error = primary.error
   let missingPortionColumn = false
+
+  if (error && /available/i.test(error.message)) {
+    const withoutAvailable = await supabase
+      .from('restaurant_menu_items')
+      .select('id, category_id, category_title, category_sort, name, portion, price, sort_order')
+      .order('category_sort', { ascending: true })
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true })
+    rows = (withoutAvailable.data ?? []) as MenuRow[]
+    error = withoutAvailable.error
+  }
 
   if (error && /portion/i.test(error.message)) {
     missingPortionColumn = true
@@ -220,6 +242,9 @@ export const describeMenuChanges = (
       edits.push(`${formatMenuPrice(old.item.price)} → ${formatMenuPrice(item.price)}`)
     }
     if (old.item.portion !== item.portion) edits.push(`portion ${old.item.portion} → ${item.portion}`)
+    if (isMenuItemAvailable(old.item) !== isMenuItemAvailable(item)) {
+      edits.push(isMenuItemAvailable(item) ? 'marked available' : 'marked unavailable')
+    }
     if (old.section !== section) edits.push(`moved to ${section}`)
     if (edits.length > 0) {
       changedItemIds.push(id)
@@ -310,35 +335,48 @@ export const saveRestaurantMenu = async (categories: MenuCategory[]): Promise<bo
   }
 
   if (records.length > 0) {
-    const { error: upsertError } = await supabase.from('restaurant_menu_items').upsert(
-      records.map((row) => ({
-        id: row.id,
-        category_id: row.categoryId,
-        category_title: row.categoryTitle,
-        category_sort: row.categorySort,
-        name: row.name,
-        portion: row.portion,
-        price: row.price,
-        sort_order: row.sortOrder,
-        updated_at: new Date().toISOString(),
-      })),
-      { onConflict: 'id' }
-    )
+    const toRow = (row: RestaurantMenuItemRecord, includeAvailable: boolean, includePortion: boolean) => ({
+      id: row.id,
+      category_id: row.categoryId,
+      category_title: row.categoryTitle,
+      category_sort: row.categorySort,
+      name: row.name,
+      ...(includePortion ? { portion: row.portion } : {}),
+      price: row.price,
+      sort_order: row.sortOrder,
+      ...(includeAvailable ? { available: row.available } : {}),
+      updated_at: new Date().toISOString(),
+    })
+
+    const { error: upsertError } = await supabase
+      .from('restaurant_menu_items')
+      .upsert(records.map((row) => toRow(row, true, true)), { onConflict: 'id' })
+
     if (upsertError) {
+      if (/available/i.test(upsertError.message)) {
+        const retry = await supabase
+          .from('restaurant_menu_items')
+          .upsert(records.map((row) => toRow(row, false, true)), { onConflict: 'id' })
+        if (!retry.error) {
+          console.warn('[Menu] available column missing; run 065_availability_flags.sql')
+          void notifyMenuUpdated(changes, `${records.length} items published to the dining page`)
+          return true
+        }
+        if (/portion/i.test(retry.error.message)) {
+          const withoutPortion = await supabase
+            .from('restaurant_menu_items')
+            .upsert(records.map((row) => toRow(row, false, false)), { onConflict: 'id' })
+          if (!withoutPortion.error) {
+            console.warn('[Menu] portion/available columns missing; run menu migrations')
+            void notifyMenuUpdated(changes, `${records.length} items published to the dining page`)
+            return true
+          }
+        }
+      }
       if (/portion/i.test(upsertError.message)) {
-        const retry = await supabase.from('restaurant_menu_items').upsert(
-          records.map((row) => ({
-            id: row.id,
-            category_id: row.categoryId,
-            category_title: row.categoryTitle,
-            category_sort: row.categorySort,
-            name: row.name,
-            price: row.price,
-            sort_order: row.sortOrder,
-            updated_at: new Date().toISOString(),
-          })),
-          { onConflict: 'id' }
-        )
+        const retry = await supabase
+          .from('restaurant_menu_items')
+          .upsert(records.map((row) => toRow(row, true, false)), { onConflict: 'id' })
         if (!retry.error) {
           console.warn('[Menu] portion column missing; run 036_restaurant_menu_portion.sql')
           void notifyMenuUpdated(changes, `${records.length} items published to the dining page`)

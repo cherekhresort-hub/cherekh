@@ -75,6 +75,9 @@ const computeRoomStatuses = (rooms: Room[]): AdminRoom[] => {
   return rooms
     .map((room) => {
     const occupancy = bookingStatusForRoom(room.id, bookings)
+    // Manual offline (renovation) wins over derived occupancy for the board label.
+    const status: RoomStatus = room.available === false ? 'maintenance' : occupancy.status
+    const labeled = { ...occupancy, status }
 
     if (room.id === 'conference') {
       return {
@@ -87,7 +90,7 @@ const computeRoomStatuses = (rooms: Room[]): AdminRoom[] => {
         isConference: true,
         capacityLabel: conferenceFacility.capacity,
         image: conferenceFacility.images[0] ?? '/images/CherekhLogoFinal.png',
-        ...occupancy,
+        ...labeled,
       }
     }
 
@@ -101,7 +104,7 @@ const computeRoomStatuses = (rooms: Room[]): AdminRoom[] => {
       bedCategory: catalog?.bedCategory,
       isAC,
       image,
-      ...occupancy,
+      ...labeled,
     }
   })
     .sort((a, b) => {
@@ -113,15 +116,17 @@ const computeRoomStatuses = (rooms: Room[]): AdminRoom[] => {
 
 export const useRoomsData = () => {
   const [rooms, setRooms] = useState<Room[]>([])
+  const [loading, setLoading] = useState(true)
   const refresh = useCallback(() => setRooms(getRooms()), [])
 
   useEffect(() => {
     refresh()
+    setLoading(false)
     window.addEventListener(ROOM_RATES_CHANGED_EVENT, refresh)
     return () => window.removeEventListener(ROOM_RATES_CHANGED_EVENT, refresh)
   }, [refresh])
 
   const adminRooms = useMemo(() => computeRoomStatuses(rooms), [rooms])
 
-  return { rooms: adminRooms, refresh }
+  return { rooms: adminRooms, loading, refresh }
 }

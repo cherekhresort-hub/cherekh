@@ -8,6 +8,8 @@ export type RoomRateConfig = {
   price: number
   listPrice: number
   totalRooms: number
+  /** False when the room is offline for renovation / out of service. Defaults to true. */
+  available: boolean
 }
 
 let memoryCache: Record<string, RoomRateConfig> | null = null
@@ -21,15 +23,16 @@ const catalogDefaults = (): Record<string, RoomRateConfig> =>
           price: room.price,
           listPrice: 0,
           totalRooms: room.totalRooms,
+          available: true,
         },
       ] as const),
-      ['conference', { price: 0, listPrice: 0, totalRooms: 1 }] as const,
+      ['conference', { price: 0, listPrice: 0, totalRooms: 1, available: true }] as const,
     ]
   )
 
 const defaultConfigForRoom = (roomId: string): RoomRateConfig => {
   const defaults = catalogDefaults()
-  return defaults[roomId] ?? { price: 0, listPrice: 0, totalRooms: 1 }
+  return defaults[roomId] ?? { price: 0, listPrice: 0, totalRooms: 1, available: true }
 }
 
 const parseCache = (raw: unknown): Record<string, RoomRateConfig> | null => {
@@ -42,11 +45,17 @@ const parseCache = (raw: unknown): Record<string, RoomRateConfig> | null => {
         price: value,
         listPrice: 0,
         totalRooms: defaultConfigForRoom(roomId).totalRooms,
+        available: true,
       }
       continue
     }
     if (value && typeof value === 'object') {
-      const row = value as { price?: unknown; listPrice?: unknown; totalRooms?: unknown }
+      const row = value as {
+        price?: unknown
+        listPrice?: unknown
+        totalRooms?: unknown
+        available?: unknown
+      }
       if (typeof row.price === 'number') {
         const defaults = defaultConfigForRoom(roomId)
         parsed[roomId] = {
@@ -57,6 +66,7 @@ const parseCache = (raw: unknown): Record<string, RoomRateConfig> | null => {
               : 0,
           totalRooms:
             typeof row.totalRooms === 'number' ? row.totalRooms : defaults.totalRooms,
+          available: row.available === false ? false : true,
         }
       }
     }
@@ -90,6 +100,7 @@ const mergeConfig = (
       price: updates.price ?? current.price,
       listPrice: updates.listPrice ?? current.listPrice,
       totalRooms: updates.totalRooms ?? current.totalRooms,
+      available: updates.available ?? current.available,
     }
   }
   return next
@@ -142,6 +153,18 @@ export const getCachedRoomListPrices = (): Record<string, number> | null => {
   return Object.fromEntries(Object.entries(memoryCache).map(([id, row]) => [id, row.listPrice]))
 }
 
+/** False entries are rooms marked out of service (renovation, etc.). Missing ids default to available. */
+export const getCachedRoomAvailability = (): Record<string, boolean> | null => {
+  if (!memoryCache) return null
+  return Object.fromEntries(Object.entries(memoryCache).map(([id, row]) => [id, row.available !== false]))
+}
+
+export const isRoomBookable = (roomId: string): boolean => {
+  const cached = getCachedRoomAvailability()
+  if (cached && cached[roomId] === false) return false
+  return true
+}
+
 export const notifyRoomRatesChanged = (): void => {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent(ROOM_RATES_CHANGED_EVENT))
@@ -159,7 +182,26 @@ const fetchRoomRates = async (): Promise<Record<string, number>> => {
     return getCachedRoomRates() ?? {}
   }
 
-  const { data, error } = await supabase.from('room_rates').select('room_id, price, list_price, total_rooms')
+  type RateRow = {
+    room_id: string
+    price: number
+    list_price?: number | null
+    total_rooms?: number | null
+    available?: boolean | null
+  }
+
+  const primary = await supabase
+    .from('room_rates')
+    .select('room_id, price, list_price, total_rooms, available')
+
+  let rows: RateRow[] = (primary.data ?? []) as RateRow[]
+  let error = primary.error
+
+  if (error && /available/i.test(error.message)) {
+    const fallback = await supabase.from('room_rates').select('room_id, price, list_price, total_rooms')
+    rows = (fallback.data ?? []) as RateRow[]
+    error = fallback.error
+  }
 
   if (error) {
     console.error('[Supabase] fetch room_rates:', error.message)
@@ -168,12 +210,13 @@ const fetchRoomRates = async (): Promise<Record<string, number>> => {
   }
 
   const config = Object.fromEntries(
-    (data ?? []).map((row) => [
+    rows.map((row) => [
       row.room_id,
       {
         price: row.price,
         listPrice: row.list_price ?? 0,
         totalRooms: row.total_rooms ?? defaultConfigForRoom(row.room_id).totalRooms,
+        available: row.available !== false,
       },
     ])
   ) as Record<string, RoomRateConfig>
@@ -231,18 +274,34 @@ const persistRoomConfig = async (
   const supabase = getSupabase()
   if (!supabase) return false
 
-  const { error } = await supabase.from('room_rates').upsert(
-    {
-      room_id: roomId,
-      price: config.price,
-      list_price: config.listPrice,
-      total_rooms: config.totalRooms,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'room_id' }
-  )
+  const payload = {
+    room_id: roomId,
+    price: config.price,
+    list_price: config.listPrice,
+    total_rooms: config.totalRooms,
+    available: config.available !== false,
+    updated_at: new Date().toISOString(),
+  }
+
+  const { error } = await supabase.from('room_rates').upsert(payload, { onConflict: 'room_id' })
 
   if (error) {
+    if (/available/i.test(error.message)) {
+      const withoutAvailable = {
+        room_id: payload.room_id,
+        price: payload.price,
+        list_price: payload.list_price,
+        total_rooms: payload.total_rooms,
+        updated_at: payload.updated_at,
+      }
+      const retry = await supabase.from('room_rates').upsert(withoutAvailable, { onConflict: 'room_id' })
+      if (!retry.error) {
+        console.warn('[Room rates] available column missing; run 065_availability_flags.sql')
+        return true
+      }
+      console.error('[Supabase] upsert room_rates:', retry.error.message)
+      return false
+    }
     console.error('[Supabase] upsert room_rates:', error.message)
     return false
   }
@@ -259,6 +318,7 @@ export const upsertRoomRate = async (roomId: string, price: number): Promise<boo
     price: normalizedPrice,
     listPrice: existing.listPrice,
     totalRooms: existing.totalRooms,
+    available: existing.available !== false,
   })
 }
 
@@ -276,6 +336,7 @@ export const upsertRoomPricing = async (
     price: normalizedPrice,
     listPrice: normalizedList >= normalizedPrice ? normalizedList : normalizedPrice,
     totalRooms: existing.totalRooms,
+    available: existing.available !== false,
   })
 }
 
@@ -288,5 +349,17 @@ export const upsertRoomInventory = async (roomId: string, totalRooms: number): P
     price: existing.price,
     listPrice: existing.listPrice,
     totalRooms: normalizedCount,
+    available: existing.available !== false,
+  })
+}
+
+/** Mark a room bookable or offline for renovation / out of service (admin or manager). */
+export const upsertRoomAvailability = async (roomId: string, available: boolean): Promise<boolean> => {
+  const existing = memoryCache?.[roomId] ?? readLocalCache()?.[roomId] ?? defaultConfigForRoom(roomId)
+  return persistRoomConfig(roomId, {
+    price: existing.price,
+    listPrice: existing.listPrice,
+    totalRooms: existing.totalRooms,
+    available,
   })
 }

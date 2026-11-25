@@ -1,5 +1,10 @@
 import { Trash2 } from 'lucide-react'
-import { extraLineTotal, FOOD_MEAL_LABELS, type ExtraCharge } from '../../../utils/bookings'
+import {
+  extraLineTotal,
+  FOOD_MEAL_LABELS,
+  labelForOtherChargeKind,
+  type ExtraCharge,
+} from '../../../utils/bookings'
 import { formatServiceDate, groupFoodExtras } from '../../../utils/foodBill'
 import { formatBDT } from '../../utils/format'
 
@@ -60,11 +65,13 @@ export const ChargeList = ({
   title,
   extras,
   hideRoom,
+  showOtherKind,
   onRemove,
 }: {
   title?: string
   extras: ExtraCharge[]
   hideRoom?: boolean
+  showOtherKind?: boolean
   onRemove?: (extra: ExtraCharge) => void
 }) => (
   <div className="space-y-1.5">
@@ -81,7 +88,16 @@ export const ChargeList = ({
               {extra.name}
               {extra.quantity > 1 ? ` × ${extra.quantity}` : ''}
             </p>
-            {!hideRoom && extra.roomName && <p className="text-[11px] text-stone-500">{extra.roomName}</p>}
+            <p className="text-[11px] text-stone-500 truncate">
+              {[
+                showOtherKind && extra.category === 'other'
+                  ? labelForOtherChargeKind(extra.otherKind, extra.otherKindLabel)
+                  : null,
+                !hideRoom ? extra.roomName : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="font-medium tabular-nums text-forest-700">{formatBDT(extraLineTotal(extra))}</span>

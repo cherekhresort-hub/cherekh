@@ -25,7 +25,12 @@ import {
   stayServiceDates,
   type FoodDraft,
 } from '../../../utils/foodBill'
-import { formatMenuPrice, type MenuCategory, type MenuItem } from '../../../data/menuCatalog'
+import {
+  formatMenuPrice,
+  isMenuItemAvailable,
+  type MenuCategory,
+  type MenuItem,
+} from '../../../data/menuCatalog'
 import { loadRestaurantMenu, RESTAURANT_MENU_CHANGED_EVENT } from '../../../lib/restaurantMenuDb'
 import { formatBDT } from '../../utils/format'
 import { cn } from '../../utils/cn'
@@ -182,6 +187,17 @@ export const FoodBillComposer = ({ booking, rooms, onAdded }: FoodBillComposerPr
   const add = async () => {
     if (lines.length === 0) {
       toast.error('Select at least one menu item')
+      return
+    }
+    const unavailable = lines.flatMap((line) => {
+      const item = line.menuItemId ? menuById.get(line.menuItemId) : undefined
+      return item && !isMenuItemAvailable(item) ? [item] : []
+    })
+    if (unavailable.length > 0) {
+      toast.error(
+        'Some items are unavailable',
+        unavailable.map((item) => item.name).slice(0, 3).join(', ')
+      )
       return
     }
     setAdding(true)
@@ -349,22 +365,45 @@ export const FoodBillComposer = ({ booking, rooms, onAdded }: FoodBillComposerPr
                   {category.items.map((item) => {
                     const qty = currentPicks[item.id] ?? 0
                     const checked = qty > 0
+                    const available = isMenuItemAvailable(item)
                     return (
-                      <li key={item.id} className="flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-stone-50">
-                        <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer">
+                      <li
+                        key={item.id}
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg px-1 py-1',
+                          available ? 'hover:bg-stone-50' : 'opacity-55'
+                        )}
+                      >
+                        <label
+                          className={cn(
+                            'flex min-w-0 flex-1 items-center gap-2',
+                            available ? 'cursor-pointer' : 'cursor-not-allowed'
+                          )}
+                        >
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() => setQty(item.id, checked ? null : 1)}
-                            className="h-4 w-4 rounded border-stone-300 text-forest-700 focus:ring-forest-300"
+                            disabled={!available}
+                            onChange={() => {
+                              if (!available) return
+                              setQty(item.id, checked ? null : 1)
+                            }}
+                            className="h-4 w-4 rounded border-stone-300 text-forest-700 focus:ring-forest-300 disabled:opacity-50"
                           />
                           <span className="min-w-0">
-                            <span className="block truncate text-sm text-stone-800">{item.name}</span>
+                            <span className="block truncate text-sm text-stone-800">
+                              {item.name}
+                              {!available && (
+                                <span className="ml-1.5 text-[10px] uppercase tracking-wide text-stone-500">
+                                  Unavailable
+                                </span>
+                              )}
+                            </span>
                             {item.portion ? <span className="text-[11px] text-stone-400">{item.portion}</span> : null}
                           </span>
                         </label>
                         <span className="shrink-0 text-xs tabular-nums text-stone-500">{formatMenuPrice(item.price)}</span>
-                        {checked && (
+                        {checked && available && (
                           <Input
                             type="number"
                             min={1}

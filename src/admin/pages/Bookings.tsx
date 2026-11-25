@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card'
 import { Tabs } from '../components/ui/Tabs'
 import { Button } from '../components/ui/Button'
 import { Select } from '../components/ui/Input'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { BookingTable } from '../components/bookings/BookingTable'
 import { BookingFiltersBar } from '../components/bookings/BookingFiltersBar'
 import { BookingDrawer, type BookingDrawerFocus } from '../components/bookings/BookingDrawer'
@@ -95,7 +96,7 @@ const compareBookings = (a: Booking, b: Booking, key: SortKey, dir: SortDir, tod
 const Bookings = () => {
   const toast = useToast()
   const { isAdmin } = useAuth()
-  const { bookings, refresh } = useBookingsData()
+  const { bookings, loading, refresh } = useBookingsData()
   const creatorFor = useBookingCreatorLookup(isAdmin)
   const [searchParams, setSearchParams] = useSearchParams()
   const deepLinkHandled = useRef<string | null>(null)
@@ -342,106 +343,112 @@ const Bookings = () => {
         }
       />
       <main className="min-w-0 px-4 lg:px-8 py-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="-mx-1 px-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <Tabs<StatusFilter>
-              value={status}
-              onChange={setStatus}
-              className="w-max"
-              items={[
-                { value: 'all', label: 'All', count: counts.all },
-                { value: 'pending', label: 'Pending', count: counts.pending ?? 0 },
-                { value: 'confirmed', label: 'Confirmed', count: counts.confirmed ?? 0 },
-                { value: 'checked-out', label: 'Checked-out', count: counts['checked-out'] ?? 0 },
-                { value: 'cancelled', label: 'Cancelled', count: counts.cancelled ?? 0 },
-              ]}
-            />
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <div className="w-full sm:w-56">
-              <Select
-                aria-label="Sort bookings"
-                value={sortPreset}
-                onChange={(e) => applySortPreset(e.target.value as SortPreset)}
-              >
-                {(Object.keys(SORT_PRESETS) as SortPreset[]).map((id) => (
-                  <option key={id} value={id}>{SORT_PRESETS[id].label}</option>
-                ))}
-                {sortPreset === 'custom' && (
-                  <option value="custom" disabled>Sorted by column</option>
-                )}
-              </Select>
-            </div>
-            <div className="w-full sm:w-56">
-              <Select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)}>
-                <option value="all">All rooms</option>
-                <option value="conference">{facilityCatalog.conference.name}</option>
-                {roomCatalog.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        <BookingFiltersBar
-          filters={bookingFilters}
-          onChange={setBookingFilters}
-          search={search}
-          onSearchChange={setSearch}
-        />
-
-        <Card className="p-0 overflow-hidden">
-          <BookingTable
-            bookings={visibleBookings}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onSort={toggleSort}
-            onSelect={openBooking}
-            creatorFor={creatorFor}
-          />
-          {filtered.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-stone-100 bg-cream/30">
-              <p className="text-sm text-stone-600">
-                Showing {rangeStart}–{rangeEnd} of {filtered.length} booking{filtered.length === 1 ? '' : 's'}
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex items-center gap-2 text-sm text-stone-600">
-                  <span className="whitespace-nowrap">Per page</span>
+        {loading && bookings.length === 0 ? (
+          <PageSkeleton variant="table" />
+        ) : (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="-mx-1 px-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <Tabs<StatusFilter>
+                  value={status}
+                  onChange={setStatus}
+                  className="w-max"
+                  items={[
+                    { value: 'all', label: 'All', count: counts.all },
+                    { value: 'pending', label: 'Pending', count: counts.pending ?? 0 },
+                    { value: 'confirmed', label: 'Confirmed', count: counts.confirmed ?? 0 },
+                    { value: 'checked-out', label: 'Checked-out', count: counts['checked-out'] ?? 0 },
+                    { value: 'cancelled', label: 'Cancelled', count: counts.cancelled ?? 0 },
+                  ]}
+                />
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <div className="w-full sm:w-56">
                   <Select
-                    value={String(pageSize)}
-                    onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
-                    className="h-9 w-20"
+                    aria-label="Sort bookings"
+                    value={sortPreset}
+                    onChange={(e) => applySortPreset(e.target.value as SortPreset)}
                   >
-                    {PAGE_SIZE_OPTIONS.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
+                    {(Object.keys(SORT_PRESETS) as SortPreset[]).map((id) => (
+                      <option key={id} value={id}>{SORT_PRESETS[id].label}</option>
+                    ))}
+                    {sortPreset === 'custom' && (
+                      <option value="custom" disabled>Sorted by column</option>
+                    )}
+                  </Select>
+                </div>
+                <div className="w-full sm:w-56">
+                  <Select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)}>
+                    <option value="all">All rooms</option>
+                    <option value="conference">{facilityCatalog.conference.name}</option>
+                    {roomCatalog.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
                     ))}
                   </Select>
-                </label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!canShowLess}
-                  onClick={() => setVisibleCount((count) => Math.max(pageSize, count - pageSize))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!canShowMore}
-                  onClick={() =>
-                    setVisibleCount((count) => Math.min(filtered.length, count + pageSize))
-                  }
-                >
-                  Next
-                </Button>
+                </div>
               </div>
             </div>
-          )}
-        </Card>
+
+            <BookingFiltersBar
+              filters={bookingFilters}
+              onChange={setBookingFilters}
+              search={search}
+              onSearchChange={setSearch}
+            />
+
+            <Card className="p-0 overflow-hidden">
+              <BookingTable
+                bookings={visibleBookings}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                onSelect={openBooking}
+                creatorFor={creatorFor}
+              />
+              {filtered.length > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-stone-100 bg-cream/30">
+                  <p className="text-sm text-stone-600">
+                    Showing {rangeStart}–{rangeEnd} of {filtered.length} booking{filtered.length === 1 ? '' : 's'}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-2 text-sm text-stone-600">
+                      <span className="whitespace-nowrap">Per page</span>
+                      <Select
+                        value={String(pageSize)}
+                        onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
+                        className="h-9 w-20"
+                      >
+                        {PAGE_SIZE_OPTIONS.map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </Select>
+                    </label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canShowLess}
+                      onClick={() => setVisibleCount((count) => Math.max(pageSize, count - pageSize))}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canShowMore}
+                      onClick={() =>
+                        setVisibleCount((count) => Math.min(filtered.length, count + pageSize))
+                      }
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </>
+        )}
       </main>
 
       <BookingDrawer

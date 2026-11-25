@@ -1,3 +1,4 @@
+import type { OtherChargeKind } from '../../utils/bookings'
 import { dayInRange, type DateRange } from './dates'
 
 /**
@@ -28,6 +29,8 @@ export interface RevenueBooking {
   roomNet: number
   food: number
   other: number
+  /** Non-food extras broken down by analytics kind. */
+  otherByKind: Partial<Record<OtherChargeKind, number>>
   cash: RevenueCashMove[]
 }
 
@@ -42,10 +45,43 @@ export interface RevenueEarned {
   rooms: number
   food: number
   other: number
+  otherByKind: Partial<Record<OtherChargeKind, number>>
   roomNights: number
 }
 
-const EMPTY_EARNED: RevenueEarned = { total: 0, rooms: 0, food: 0, other: 0, roomNights: 0 }
+const EMPTY_EARNED: RevenueEarned = {
+  total: 0,
+  rooms: 0,
+  food: 0,
+  other: 0,
+  otherByKind: {},
+  roomNights: 0,
+}
+
+const scaleOtherByKind = (
+  kinds: Partial<Record<OtherChargeKind, number>> | undefined,
+  share: number
+): Partial<Record<OtherChargeKind, number>> => {
+  const out: Partial<Record<OtherChargeKind, number>> = {}
+  for (const [key, value] of Object.entries(kinds ?? {})) {
+    if (!value) continue
+    out[key as OtherChargeKind] = value * share
+  }
+  return out
+}
+
+const mergeOtherByKind = (
+  a: Partial<Record<OtherChargeKind, number>>,
+  b: Partial<Record<OtherChargeKind, number>>
+): Partial<Record<OtherChargeKind, number>> => {
+  const out: Partial<Record<OtherChargeKind, number>> = { ...a }
+  for (const [key, value] of Object.entries(b)) {
+    if (!value) continue
+    const kind = key as OtherChargeKind
+    out[kind] = (out[kind] ?? 0) + value
+  }
+  return out
+}
 
 /** Share of a booking earned on days that satisfy `includeDay` (value spread evenly across revenue days). */
 export const earnedFor = (booking: RevenueBooking, includeDay: (day: string) => boolean): RevenueEarned => {
@@ -58,6 +94,7 @@ export const earnedFor = (booking: RevenueBooking, includeDay: (day: string) => 
     rooms: booking.roomNet * share,
     food: booking.food * share,
     other: booking.other * share,
+    otherByKind: scaleOtherByKind(booking.otherByKind, share),
     roomNights: booking.guestRooms * days,
   }
 }
@@ -67,6 +104,7 @@ const addEarned = (a: RevenueEarned, b: RevenueEarned): RevenueEarned => ({
   rooms: a.rooms + b.rooms,
   food: a.food + b.food,
   other: a.other + b.other,
+  otherByKind: mergeOtherByKind(a.otherByKind, b.otherByKind),
   roomNights: a.roomNights + b.roomNights,
 })
 
@@ -76,7 +114,7 @@ export const revenueEarned = (bookings: RevenueBooking[], range: DateRange | nul
 
 /** Per-day earned revenue (rounded later by the caller). */
 export const earnedByDay = (bookings: RevenueBooking[], days: string[]): Map<string, RevenueEarned> => {
-  const map = new Map<string, RevenueEarned>(days.map((d) => [d, { ...EMPTY_EARNED }]))
+  const map = new Map<string, RevenueEarned>(days.map((d) => [d, { ...EMPTY_EARNED, otherByKind: {} }]))
   bookings.forEach((b) => {
     if (!earnsRevenue(b) || b.revenueDays.length === 0) return
     const perDay = 1 / b.revenueDays.length
@@ -87,6 +125,7 @@ export const earnedByDay = (bookings: RevenueBooking[], days: string[]): Map<str
       row.rooms += b.roomNet * perDay
       row.food += b.food * perDay
       row.other += b.other * perDay
+      row.otherByKind = mergeOtherByKind(row.otherByKind, scaleOtherByKind(b.otherByKind, perDay))
       row.roomNights += b.guestRooms
     })
   })

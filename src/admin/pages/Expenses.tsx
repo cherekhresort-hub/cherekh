@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Input, Select } from '../components/ui/Input'
 import { Tabs } from '../components/ui/Tabs'
 import { EmptyState } from '../components/ui/EmptyState'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { useAuth } from '../../contexts/AuthProvider'
 import { useFinanceData } from '../hooks/useFinanceData'
 import { useStaffData } from '../hooks/useStaffData'
@@ -121,7 +122,7 @@ const Expenses = () => {
               <Tabs<Tab> value={tab} onChange={setTab} items={tabs} className="w-max" layoutId="expenses-tab" />
             </div>
             {loading && data.expenses.length === 0 ? (
-              <div className="rounded-2xl border border-stone-200 bg-white/80 px-6 py-12 text-center text-sm text-stone-500">Loading finance records…</div>
+              <PageSkeleton variant="stats" count={4} />
             ) : tab === 'register' ? (
               <ExpenseRegister
                 index={index}

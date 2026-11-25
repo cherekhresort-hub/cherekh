@@ -16,6 +16,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { Tabs } from '../components/ui/Tabs'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../../contexts/AuthProvider'
@@ -218,7 +219,9 @@ const Activity = () => {
 
   if (authLoading) {
     return (
-      <div className="px-4 lg:px-8 py-12 text-center text-sm text-stone-500">Loading…</div>
+      <main className="px-4 lg:px-8 py-6">
+        <PageSkeleton variant="list" count={6} />
+      </main>
     )
   }
 
@@ -383,9 +386,7 @@ const Activity = () => {
         )}
 
         {loading && allEntries.length === 0 ? (
-          <div className="rounded-2xl border border-stone-200 bg-white/80 px-6 py-12 text-center text-sm text-stone-500">
-            Loading activity…
-          </div>
+          <PageSkeleton variant="list" count={8} />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={<ScrollText className="w-6 h-6" />}

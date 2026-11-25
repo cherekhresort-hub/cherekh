@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { defaultMenuCategories, formatMenuPortion, formatMenuPrice, type MenuCategory } from '../data/menuCatalog'
+import {
+  defaultMenuCategories,
+  formatMenuPortion,
+  formatMenuPrice,
+  isMenuItemAvailable,
+  type MenuCategory,
+} from '../data/menuCatalog'
 import { restaurantImages } from '../data/roomCatalog'
 import ResponsiveImage from '../components/ResponsiveImage'
 import { galleryThumbSources, heroImageSources } from '../utils/responsiveImage'
@@ -159,6 +165,7 @@ const Dining = () => {
                 <ul className="divide-y divide-stone-100 px-4 lg:px-4">
                   {category.items.map((item, itemIndex) => {
                     const portion = formatMenuPortion(item.portion)
+                    const available = isMenuItemAvailable(item)
                     return (
                     <motion.li
                       key={item.id}
@@ -167,19 +174,32 @@ const Dining = () => {
                       initial="hidden"
                       whileInView="visible"
                       viewport={{ once: true, margin: '-24px' }}
-                      whileHover={{ x: 2 }}
+                      whileHover={available ? { x: 2 } : undefined}
                       transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                      className="group flex items-start justify-between gap-2 py-3 transition-colors hover:bg-sand-100/70 lg:gap-3"
+                      className={`group flex items-start justify-between gap-2 py-3 transition-colors lg:gap-3 ${
+                        available ? 'hover:bg-sand-100/70' : 'opacity-60'
+                      }`}
                     >
                       <p className="min-w-0">
                         <span className="block text-xs font-medium text-resort-heading sm:text-sm">
                           {item.name}
+                          {!available && (
+                            <span className="ml-2 text-[10px] font-medium uppercase tracking-wide text-stone-500">
+                              Unavailable
+                            </span>
+                          )}
                         </span>
                         <span className="mt-0.5 block text-[11px] text-stone-500 sm:text-xs">
                           {portion}
                         </span>
                       </p>
-                      <span className="shrink-0 text-xs font-medium tabular-nums text-resort-heading transition-colors group-hover:text-resort-cta sm:text-sm">
+                      <span
+                        className={`shrink-0 text-xs font-medium tabular-nums sm:text-sm ${
+                          available
+                            ? 'text-resort-heading transition-colors group-hover:text-resort-cta'
+                            : 'text-stone-400 line-through'
+                        }`}
+                      >
                         {formatMenuPrice(item.price)}
                       </span>
                     </motion.li>

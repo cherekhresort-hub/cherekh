@@ -1,4 +1,4 @@
-import { businessToday, monthKey } from './dates'
+import { businessToday, monthKey, toBusinessDay } from './dates'
 import { round2, type ExpenseIndex, type PaymentStatus } from './reporting'
 import type { FinPayroll, PayrollDeduction, PayrollEarning, PayrollEarningType, StaffSalary } from './types'
 
@@ -63,7 +63,17 @@ export interface PayrollRow {
   outstanding: number
 }
 
-/** One row per staff member for the period, plus rows for people paid that month who have since left. */
+/** Former staff stay visible only while an active payroll for the period still has cash outstanding. */
+const formerPayrollStillOwed = (mine: FinPayroll[], isActive: (p: FinPayroll) => boolean, index: ExpenseIndex): boolean => {
+  const payroll = mine.find(isActive)
+  if (!payroll) return false
+  return (index.get(payroll.expenseId)?.outstanding ?? 0) > 0.005
+}
+
+/**
+ * One row per current staff member for the period.
+ * Fired staff only stay listed while that month’s payroll still has money outstanding.
+ */
 export const payrollRowsForPeriod = (
   staff: { id: string; name: string; role: string; terminatedOn?: string }[],
   salaries: StaffSalary[],
@@ -92,13 +102,20 @@ export const payrollRowsForPeriod = (
   }
 
   const known = new Set(staff.map((s) => s.id))
-  const firstDay = `${period}-01`
   const rows = staff
     .map((s) => ({ s, mine: forPeriod.filter((p) => p.staffId === s.id) }))
-    .filter(({ s, mine }) => !s.terminatedOn || s.terminatedOn >= firstDay || mine.length > 0)
-    .map(({ s, mine }) => build(s.id, s.name, s.terminatedOn ? `${s.role} · fired ${s.terminatedOn}` : s.role, mine))
+    .filter(({ s, mine }) => {
+      const terminatedOn = toBusinessDay(s.terminatedOn)
+      if (!terminatedOn) return true
+      return formerPayrollStillOwed(mine, isActive, index)
+    })
+    .map(({ s, mine }) => {
+      const terminatedOn = toBusinessDay(s.terminatedOn)
+      return build(s.id, s.name, terminatedOn ? `${s.role} · fired ${terminatedOn}` : s.role, mine)
+    })
   forPeriod
     .filter((p) => isActive(p) && (!p.staffId || !known.has(p.staffId)))
+    .filter((p) => formerPayrollStillOwed([p], isActive, index))
     .forEach((p) => rows.push(build(`former:${p.id}`, p.staffName, 'Former staff', [p])))
   return rows.sort((a, b) => a.name.localeCompare(b.name))
 }

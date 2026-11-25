@@ -55,4 +55,10 @@ describe('describeAvailabilityIssues', () => {
       describeAvailabilityIssues([{ roomType: '206', reason: 'booked', conflictingBookingIds: [] }])
     ).toBe('Room 206 is not available for the selected dates.')
   })
+
+  it('explains renovation / out-of-service rooms', () => {
+    expect(
+      describeAvailabilityIssues([{ roomType: '206', reason: 'unavailable', conflictingBookingIds: [] }])
+    ).toBe('Room 206 is offline for renovation or maintenance and cannot be booked.')
+  })
 })

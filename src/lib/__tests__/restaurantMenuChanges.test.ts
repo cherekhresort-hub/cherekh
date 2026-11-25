@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import type { MenuCategory } from '../../data/menuCatalog'
+import { normalizeMenuPortion, type MenuCategory, type MenuItem } from '../../data/menuCatalog'
 import { describeMenuChanges } from '../restaurantMenuDb'
 
-const menu = (items: { id: string; name: string; price: number; portion?: string }[], title = 'Mains'): MenuCategory[] => [
-  { id: title.toLowerCase(), title, items: items.map((item) => ({ portion: '1:1', ...item })) as MenuCategory['items'] },
+const menu = (
+  items: Array<Pick<MenuItem, 'id' | 'name' | 'price'> & Partial<Pick<MenuItem, 'portion' | 'available'>>>,
+  title = 'Mains'
+): MenuCategory[] => [
+  {
+    id: title.toLowerCase(),
+    title,
+    items: items.map((item) => ({
+      available: true,
+      ...item,
+      portion: normalizeMenuPortion(item.portion),
+    })),
+  },
 ]
 
 describe('describeMenuChanges', () => {
@@ -34,6 +45,12 @@ describe('describeMenuChanges', () => {
     const changes = describeMenuChanges(before, after)!
     expect(changes.changedItemIds).toEqual(['a'])
     expect(changes.summary).toBe('Milk Tea renamed from Tea, portion 1:1 → 1:2, moved to Hot drinks')
+  })
+
+  it('reports availability toggles', () => {
+    const before = menu([{ id: 'a', name: 'Rice', price: 50, available: true }])
+    const after = menu([{ id: 'a', name: 'Rice', price: 50, available: false }])
+    expect(describeMenuChanges(before, after)!.summary).toBe('Rice marked unavailable')
   })
 
   it('treats a pure reorder as an order update with nothing to highlight', () => {

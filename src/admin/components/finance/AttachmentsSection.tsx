@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ExternalLink, Paperclip } from 'lucide-react'
 import { Select } from '../ui/Input'
+import { Skeleton } from '../ui/Skeleton'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../../contexts/AuthProvider'
 import { DOC_TYPE_LABELS } from '../../../lib/finance/classification'
@@ -94,7 +95,17 @@ export const AttachmentsSection = ({ ownerType, ownerId, docTypes, canUpload = t
         )}
       </div>
       {loading ? (
-        <p className="text-xs text-stone-500">Loading…</p>
+        <div className="space-y-2" role="status" aria-label="Loading attachments">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-xl border border-stone-100 px-3 py-2">
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-40 max-w-full" />
+                <Skeleton className="h-3 w-28 max-w-full" />
+              </div>
+              <Skeleton className="h-4 w-4 rounded" />
+            </div>
+          ))}
+        </div>
       ) : items.length === 0 ? (
         <p className="text-xs text-stone-500">No documents attached.</p>
       ) : (

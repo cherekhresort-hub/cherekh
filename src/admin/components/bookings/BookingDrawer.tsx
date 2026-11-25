@@ -33,6 +33,7 @@ import { Badge } from '../ui/Badge'
 import { Field, Select, Textarea } from '../ui/Input'
 import { Card } from '../ui/Card'
 import { Tabs } from '../ui/Tabs'
+import { PageSkeleton, Skeleton } from '../ui/Skeleton'
 import { GuestDetailsSection } from './GuestDetailsSection'
 import { PaymentSection } from './PaymentSection'
 import { ExtraChargesSection } from './ExtraChargesSection'
@@ -179,21 +180,29 @@ export const BookingDrawer = ({
     const failed = !detailLoading && !detailReady
     return (
       <Drawer open onClose={onClose} title={failed ? 'Could not load booking' : 'Loading booking'} width="lg">
-        <div className="px-6 py-16 text-center space-y-4">
-          {detailLoading ? (
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-forest-600 mx-auto" />
-          ) : null}
-          <p className="text-sm text-stone-500">
-            {failed
-              ? 'Full booking details could not be loaded. Check your connection and staff login, then try again.'
-              : 'Loading full booking details…'}
-          </p>
-          {failed && onRetryLoad && (
-            <Button variant="outline" onClick={() => void onRetryLoad()}>
-              Try again
-            </Button>
-          )}
-        </div>
+        {failed ? (
+          <div className="px-6 py-16 text-center space-y-4">
+            <p className="text-sm text-stone-500">
+              Full booking details could not be loaded. Check your connection and staff login, then try again.
+            </p>
+            {onRetryLoad && (
+              <Button variant="outline" onClick={() => void onRetryLoad()}>
+                Try again
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="px-6 py-6 space-y-4">
+            <div className="flex gap-3">
+              <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-56" />
+              </div>
+            </div>
+            <PageSkeleton variant="form" />
+          </div>
+        )}
       </Drawer>
     )
   }

@@ -6,6 +6,7 @@ import { Tabs } from '../components/ui/Tabs'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { GuestDrawer } from '../components/guests/GuestDrawer'
 import { GuestTable, type GuestSortKey } from '../components/guests/GuestTable'
 import { getBookingsByGuestId, getGuests } from '../data/guests'
@@ -18,7 +19,7 @@ import type { Guest, GuestTag } from '../types'
 type TagFilter = 'all' | GuestTag
 
 const Guests = () => {
-  const { bookings } = useBookingsData()
+  const { bookings, loading } = useBookingsData()
   const toast = useToast()
   const [exporting, setExporting] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -168,7 +169,9 @@ const Guests = () => {
           ]}
         />
 
-        {guests.length === 0 ? (
+        {loading && guests.length === 0 ? (
+          <PageSkeleton variant="table" />
+        ) : guests.length === 0 ? (
           <EmptyState
             icon={<Users className="w-6 h-6" />}
             title="No guests yet"

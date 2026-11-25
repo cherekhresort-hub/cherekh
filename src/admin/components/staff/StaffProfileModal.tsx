@@ -72,10 +72,10 @@ export const StaffProfileModal = ({
     const result = await reinstateStaff(staff)
     setReinstating(false)
     if (!result.ok) {
-      toast.error('Could not reinstate', result.error)
+      toast.error('Could not rehire', result.error)
       return
     }
-    toast.success('Staff reinstated', staff.name)
+    toast.success('Staff rehired', staff.name)
     onChanged?.()
   }
 
@@ -120,7 +120,7 @@ export const StaffProfileModal = ({
                   onClick={() => void handleReinstate()}
                   loading={reinstating}
                 >
-                  Reinstate
+                  Rehire
                 </Button>
               )}
             </div>

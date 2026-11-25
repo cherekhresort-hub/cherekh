@@ -5,6 +5,7 @@ import { Badge } from '../ui/Badge'
 import { Modal } from '../ui/Modal'
 import { Tabs } from '../ui/Tabs'
 import { Field, Input, Select, Textarea } from '../ui/Input'
+import { Skeleton } from '../ui/Skeleton'
 import { useToast } from '../ui/Toast'
 import { useBookingsData } from '../../hooks/useBookingsData'
 import {
@@ -1012,7 +1013,17 @@ const AuditSection = () => {
         </thead>
         <tbody className="divide-y divide-stone-100">
           {loading ? (
-            <EmptyRow colSpan={3}>Loading…</EmptyRow>
+            <EmptyRow colSpan={3}>
+              <div className="space-y-3 py-2 w-full" role="status" aria-label="Loading audit log">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex gap-4 items-center">
+                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-3 w-36" />
+                    <Skeleton className="h-3 flex-1" />
+                  </div>
+                ))}
+              </div>
+            </EmptyRow>
           ) : paged.slice.length === 0 ? (
             <EmptyRow colSpan={3}>No changes logged yet.</EmptyRow>
           ) : (

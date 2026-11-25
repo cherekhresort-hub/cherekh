@@ -5,6 +5,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { Modal } from '../components/ui/Modal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
@@ -221,9 +222,9 @@ const TeamAccess = () => {
 
   if (authLoading) {
     return (
-      <div className="px-4 lg:px-8 py-12 text-center text-sm text-stone-500">
-        Loading…
-      </div>
+      <main className="px-4 lg:px-8 py-6">
+        <PageSkeleton variant="table" />
+      </main>
     )
   }
 
@@ -273,9 +274,7 @@ const TeamAccess = () => {
         )}
 
         {loading ? (
-          <div className="rounded-2xl border border-stone-200 bg-white/80 px-6 py-12 text-center text-sm text-stone-500">
-            Loading team members…
-          </div>
+          <PageSkeleton variant="table" count={5} />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={<Shield className="w-6 h-6" />}

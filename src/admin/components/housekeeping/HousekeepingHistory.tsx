@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { History } from 'lucide-react'
 import { Select } from '../ui/Input'
 import { Badge } from '../ui/Badge'
+import { PageSkeleton } from '../ui/Skeleton'
 import { EmptyRow, ExportButtons, FinanceNotice, Pager, Stat, TableShell, Td, Th } from '../finance/shared'
 import { HOUSEKEEPING_CHANGED_EVENT, loadHousekeepingLog } from '../../../lib/housekeepingDb'
 import { addDays, businessToday } from '../../../lib/finance/dates'
@@ -105,6 +106,10 @@ export const HousekeepingHistory = () => {
     )
   }
 
+  if (loading && filtered.length === 0) {
+    return <PageSkeleton variant="stats" count={4} />
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 justify-between">
@@ -163,7 +168,7 @@ export const HousekeepingHistory = () => {
         </thead>
         <tbody className="divide-y divide-stone-100">
           {summary.byStaff.length === 0 ? (
-            <EmptyRow colSpan={4}>{loading ? 'Loading…' : 'No rooms marked ready in this period.'}</EmptyRow>
+            <EmptyRow colSpan={4}>No rooms marked ready in this period.</EmptyRow>
           ) : (
             summary.byStaff.map((s) => (
               <tr key={s.key}>
@@ -191,13 +196,9 @@ export const HousekeepingHistory = () => {
         <tbody className="divide-y divide-stone-100">
           {pageRows.length === 0 ? (
             <EmptyRow colSpan={6}>
-              {loading ? (
-                'Loading…'
-              ) : (
-                <span className="inline-flex items-center gap-2">
-                  <History className="w-4 h-4" /> No housekeeping activity in this period.
-                </span>
-              )}
+              <span className="inline-flex items-center gap-2">
+                <History className="w-4 h-4" /> No housekeeping activity in this period.
+              </span>
             </EmptyRow>
           ) : (
             pageRows.map((entry) => (

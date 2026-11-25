@@ -206,8 +206,10 @@ export const AddBookingModal = ({ open, onClose, onCreated }: AddBookingModalPro
           conferenceEventDates:
             room.isConference && conferenceOnly ? normalizedEventDates : undefined,
         })
-        // Load failures are re-checked on submit, so only hide rooms confirmed as booked.
-        return issues.some((issue) => issue.reason === 'booked') ? room.id : null
+        // Hide rooms that are booked or taken offline (renovation). Unknown load failures re-check on submit.
+        return issues.some((issue) => issue.reason === 'booked' || issue.reason === 'unavailable')
+          ? room.id
+          : null
       })
     ).then((ids) => {
       if (!cancelled) setBookedRoomIds(new Set(ids.filter((id): id is string => id !== null)))

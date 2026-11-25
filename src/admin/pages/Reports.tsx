@@ -34,6 +34,7 @@ import { ExpensesReport } from '../components/reports/ExpensesReport'
 import { FinancialStatementsReport } from '../components/reports/FinancialStatementsReport'
 import { InvestmentsReport } from '../components/reports/InvestmentsReport'
 import { ExportButtons, FinanceNotice } from '../components/finance/shared'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { useBookingsData } from '../hooks/useBookingsData'
 import { useRoomsData } from '../hooks/useRoomsData'
 import { useFinanceData } from '../hooks/useFinanceData'
@@ -42,10 +43,12 @@ import { guestIdentityKey } from '../data/guests'
 import {
   computeBookingFinancials,
   countsTowardRevenue,
+  BUILTIN_OTHER_CHARGE_KINDS,
   PAYMENT_METHOD_LABELS,
   type Booking,
   type PaymentMethod,
 } from '../../utils/bookings'
+import { resolveOtherChargeKindLabel } from '../data/otherChargeKinds'
 import { formatBDT } from '../utils/format'
 import { formatShortDate } from '../utils/date'
 import { addDays, businessToday, PERIOD_PRESET_LABELS, type PeriodPreset } from '../../lib/finance/dates'
@@ -73,7 +76,7 @@ const Reports = () => {
   const { role } = useAuth()
   const isAdmin = role === 'admin'
   const canSeeExpenses = role === 'admin' || role === 'manager'
-  const { bookings } = useBookingsData()
+  const { bookings, loading: bookingsLoading } = useBookingsData()
   const { rooms } = useRoomsData()
   const [period, setPeriod] = useState(defaultReportPeriod)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -118,22 +121,30 @@ const Reports = () => {
           <Tabs<ReportTab> value={tab} onChange={setTab} items={tabs} className="w-max" layoutId="reports-tab" />
         </div>
 
-        {tab === 'bookings' && (
-          <BookingsRevenueReport
-            bookings={bookings}
-            revenueBookings={revenueBookings}
-            guestRoomCount={guestRoomCount}
-            period={period}
-            range={range}
-            rangeLabel={rangeLabel}
-          />
-        )}
-        {tab === 'daywise' && <DailyAnalytics bookings={bookings} guestRoomCount={guestRoomCount} range={range} rangeLabel={rangeLabel} />}
+        {tab === 'bookings' &&
+          (bookingsLoading && bookings.length === 0 ? (
+            <PageSkeleton variant="stats" count={4} />
+          ) : (
+            <BookingsRevenueReport
+              bookings={bookings}
+              revenueBookings={revenueBookings}
+              guestRoomCount={guestRoomCount}
+              period={period}
+              range={range}
+              rangeLabel={rangeLabel}
+            />
+          ))}
+        {tab === 'daywise' &&
+          (bookingsLoading && bookings.length === 0 ? (
+            <PageSkeleton variant="stats" count={4} />
+          ) : (
+            <DailyAnalytics bookings={bookings} guestRoomCount={guestRoomCount} range={range} rangeLabel={rangeLabel} />
+          ))}
         {needsFinance &&
           (!finance.available && !finance.loading ? (
             <FinanceNotice title="Finance data is unavailable">{finance.error}</FinanceNotice>
           ) : finance.loading && finance.data.expenses.length === 0 && finance.data.accounts.length === 0 ? (
-            <div className="rounded-2xl border border-stone-200 bg-white/80 px-6 py-12 text-center text-sm text-stone-500">Loading finance records…</div>
+            <PageSkeleton variant="stats" count={4} />
           ) : tab === 'expenses' ? (
             <ExpensesReport data={finance.data} range={range} rangeLabel={rangeLabel} />
           ) : tab === 'statements' ? (
@@ -406,11 +417,26 @@ const BookingsRevenueReport = ({ bookings, revenueBookings, guestRoomCount, peri
 
   const occupancyCaption = range ? rangeLabel : 'Last 14 days'
 
+  const otherKinds = [
+    ...BUILTIN_OTHER_CHARGE_KINDS,
+    ...Object.keys(earned.otherByKind).filter(
+      (kind) => !(BUILTIN_OTHER_CHARGE_KINDS as string[]).includes(kind)
+    ),
+  ]
+  const otherKindRows = otherKinds.flatMap((kind) => {
+    const value = earned.otherByKind[kind] ?? 0
+    if (value <= 0) return []
+    return [{ label: `${resolveOtherChargeKindLabel(kind)} earned`, value }]
+  })
   const summaryRows = [
     { label: 'Revenue earned (stay nights in period)', value: earned.total },
     { label: 'Room revenue earned', value: earned.rooms },
     { label: 'Food revenue earned (booking extras)', value: earned.food },
-    { label: 'Other extras earned', value: earned.other },
+    ...(otherKindRows.length > 0
+      ? otherKindRows
+      : earned.other > 0
+        ? [{ label: 'Other extras earned', value: earned.other }]
+        : []),
     { label: 'Room nights sold', value: earned.roomNights },
     { label: 'Guest payments received', value: cash.received },
     { label: 'Guest refunds paid', value: cash.refunded },

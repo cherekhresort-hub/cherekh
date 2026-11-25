@@ -1,8 +1,20 @@
 import { getBookings, getBookingRooms, type Booking } from './bookings'
 import { availabilityRowsToBookings } from '../lib/bookingsDb'
 import { getAvailabilityRowsCached } from '../lib/availabilityCache'
-import { canEditPricing } from '../lib/permissions'
-import { getCachedRoomRates, getInitialRoomRates, getCachedRoomInventory, getCachedRoomListPrices, notifyRoomRatesChanged, upsertRoomInventory, upsertRoomPricing, upsertRoomRate } from '../lib/roomRatesDb'
+import { canChangeBookingRooms, canEditPricing } from '../lib/permissions'
+import {
+  getCachedRoomAvailability,
+  getCachedRoomRates,
+  getInitialRoomRates,
+  getCachedRoomInventory,
+  getCachedRoomListPrices,
+  isRoomBookable,
+  notifyRoomRatesChanged,
+  upsertRoomAvailability,
+  upsertRoomInventory,
+  upsertRoomPricing,
+  upsertRoomRate,
+} from '../lib/roomRatesDb'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { CONFERENCE_ROOM_ID, roomCatalog } from '../data/roomCatalog'
 import { AvailabilityLoadError } from '../lib/bookingsDb'
@@ -32,6 +44,8 @@ export interface Room {
   price: number
   listPrice: number
   totalRooms: number
+  /** False when offline for renovation / out of service. Defaults to true. */
+  available?: boolean
   roomNumber?: string
   description?: string
   features?: string[]
@@ -117,6 +131,13 @@ const resolveRoomListPrice = (
   return catalogListPrice
 }
 
+const resolveRoomAvailable = (roomId: string, storedAvailable?: boolean): boolean => {
+  const cached = getCachedRoomAvailability()
+  if (cached && cached[roomId] !== undefined) return cached[roomId] !== false
+  if (storedAvailable === false) return false
+  return true
+}
+
 const syncRoomsWithCatalog = (rooms: Room[]): Room[] => {
   return defaultRooms.map((defaultRoom) => {
     const storedRoom = rooms.find((room) => room.id === defaultRoom.id)
@@ -135,15 +156,17 @@ const syncRoomsWithCatalog = (rooms: Room[]): Room[] => {
       defaultRoom.totalRooms,
       storedRoom?.totalRooms
     )
+    const available = resolveRoomAvailable(defaultRoom.id, storedRoom?.available)
     const hasStored = Boolean(storedRoom)
     const changed =
       price !== defaultRoom.price ||
       listPrice !== defaultRoom.listPrice ||
-      totalRooms !== defaultRoom.totalRooms
+      totalRooms !== defaultRoom.totalRooms ||
+      available !== (defaultRoom.available !== false)
 
     return hasStored || changed
-      ? { ...defaultRoom, price, listPrice, totalRooms }
-      : defaultRoom
+      ? { ...defaultRoom, price, listPrice, totalRooms, available }
+      : { ...defaultRoom, available: true }
   })
 }
 
@@ -159,12 +182,18 @@ const needsCatalogResync = (rooms: Room[]): boolean =>
 /** Rooms as the build-time prerender saw them: catalog defaults with the rates embedded in the page. */
 export const getPrerenderedRooms = (): Room[] => {
   const rates = getInitialRoomRates()
-  if (!rates) return defaultRooms
+  if (!rates) return defaultRooms.map((room) => ({ ...room, available: true }))
   return defaultRooms.map((room) => {
     const rate = rates[room.id]
     return rate
-      ? { ...room, price: rate.price, listPrice: rate.listPrice, totalRooms: rate.totalRooms }
-      : room
+      ? {
+          ...room,
+          price: rate.price,
+          listPrice: rate.listPrice,
+          totalRooms: rate.totalRooms,
+          available: rate.available !== false,
+        }
+      : { ...room, available: true }
   })
 }
 
@@ -273,6 +302,29 @@ export const updateRoom = (id: string, updates: Partial<Room>): Room | null => {
   return rooms[index]
 }
 
+/** Take a room offline for renovation / out of service, or put it back on sale. */
+export const updateRoomAvailability = async (
+  id: string,
+  available: boolean
+): Promise<{ room: Room | null; synced: boolean }> => {
+  if (!canChangeBookingRooms()) return { room: null, synced: false }
+
+  const rooms = getRooms()
+  const index = rooms.findIndex((r) => r.id === id)
+  if (index === -1) return { room: null, synced: false }
+
+  rooms[index] = {
+    ...rooms[index],
+    available,
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms))
+
+  const synced = await upsertRoomAvailability(id, available)
+  notifyRoomRatesChanged()
+
+  return { room: rooms[index], synced }
+}
+
 export const updateRoomCount = async (
   id: string,
   count: number
@@ -357,6 +409,7 @@ const filterAvailableRooms = (
   return allRooms.filter((room) => {
     if (roomType && room.id !== roomType) return false
     if (excludeRoomIds.includes(room.id)) return false
+    if (room.available === false || !isRoomBookable(room.id)) return false
 
     return isRoomUnitAvailable(room.id, room.totalRooms || 0, overlapping, getLines)
   })
@@ -473,6 +526,7 @@ export const getRemainingRoomUnits = async (
 
   const room = getRooms().find((r) => r.id === roomType)
   if (!room) return 0
+  if (room.available === false || !isRoomBookable(roomType)) return 0
 
   if (roomType === CONFERENCE_ROOM_ID) {
     const days = datesInStayRange(checkIn, checkOut)
@@ -500,8 +554,8 @@ type RoomAvailabilityOptions = {
 
 export interface RoomAvailabilityIssue {
   roomType: string
-  /** `unknown` = availability could not be loaded. */
-  reason: 'capacity' | 'booked' | 'unknown'
+  /** `unavailable` = renovation / out of service; `unknown` = availability could not be loaded. */
+  reason: 'capacity' | 'booked' | 'unavailable' | 'unknown'
   conflictingBookingIds: string[]
 }
 
@@ -525,16 +579,29 @@ export const getRoomAvailabilityIssues = async (
     neededByType[type] = (neededByType[type] ?? 0) + 1
   })
 
+  const offlineTypes = new Set<string>()
+  for (const type of Object.keys(neededByType)) {
+    if (!isRoomBookable(type)) {
+      offlineTypes.add(type)
+      issues.push({ roomType: type, reason: 'unavailable', conflictingBookingIds: [] })
+    }
+  }
+
   let bookings: Booking[]
   try {
     bookings = await getBookingsForAvailability()
   } catch (e) {
     if (!(e instanceof AvailabilityLoadError)) throw e
-    return Object.keys(neededByType).map((roomType) => ({
-      roomType,
-      reason: 'unknown' as const,
-      conflictingBookingIds: [],
-    }))
+    return [
+      ...issues.filter((issue) => issue.reason === 'capacity' || issue.reason === 'unavailable'),
+      ...Object.keys(neededByType)
+        .filter((roomType) => !offlineTypes.has(roomType))
+        .map((roomType) => ({
+          roomType,
+          reason: 'unknown' as const,
+          conflictingBookingIds: [] as string[],
+        })),
+    ]
   }
 
   const excludeBookingId = options?.excludeBookingId
@@ -545,6 +612,7 @@ export const getRoomAvailabilityIssues = async (
   )
 
   for (const [type, needed] of Object.entries(neededByType)) {
+    if (offlineTypes.has(type)) continue
     if (type === CONFERENCE_ROOM_ID) {
       const dates = options?.conferenceEventDates?.length
         ? normalizeEventDates(options.conferenceEventDates)

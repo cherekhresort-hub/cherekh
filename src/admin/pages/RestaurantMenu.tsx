@@ -16,11 +16,13 @@ import { TopBar } from '../components/layout/TopBar'
 import { Card, CardDescription, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Field, Input, Select } from '../components/ui/Input'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { useToast } from '../components/ui/Toast'
 import {
   MENU_PORTIONS,
   defaultMenuCategories,
   formatMenuPrice,
+  isMenuItemAvailable,
   moveMenuItem,
   normalizeMenuPortion,
   type MenuCategory,
@@ -168,7 +170,7 @@ const RestaurantMenu = () => {
   const updateItem = (
     categoryId: string,
     itemId: string,
-    patch: { name?: string; price?: number; portion?: MenuItem['portion'] }
+    patch: { name?: string; price?: number; portion?: MenuItem['portion']; available?: boolean }
   ) => {
     setCategories((prev) =>
       prev.map((category) =>
@@ -188,7 +190,10 @@ const RestaurantMenu = () => {
         category.id === categoryId
           ? {
               ...category,
-              items: [...category.items, { id: newMenuItemId(), name: '', price: 0, portion: '1:1' }],
+              items: [
+                ...category.items,
+                { id: newMenuItemId(), name: '', price: 0, portion: '1:1', available: true },
+              ],
             }
           : category
       )
@@ -273,11 +278,11 @@ const RestaurantMenu = () => {
     const ok = await saveRestaurantMenu(categories)
     setSaving(false)
     if (ok) {
-      toast.success('Menu published', 'The dining page now shows these names, portions, and prices.')
+      toast.success('Menu published', 'Dining and food bills now use these names, prices, and availability.')
     } else {
       toast.error(
         'Could not publish menu',
-        'Saved locally only. Run supabase/migrations/034_restaurant_menu.sql and 036_restaurant_menu_portion.sql in Supabase, then try again.'
+        'Saved locally only. Run menu migrations through 065_availability_flags.sql in Supabase, then try again.'
       )
     }
   }
@@ -286,7 +291,7 @@ const RestaurantMenu = () => {
     <>
       <TopBar
         title="Menu"
-        description="Item names, portions, and prices for cherekhcenter.com/dining"
+        description="Names, portions, prices, and availability for dining and food bills"
         actions={
           <Button onClick={() => void save()} disabled={saving || loading} leftIcon={<Save className="w-4 h-4" />}>
             {saving ? 'Publishing…' : 'Publish menu'}
@@ -305,7 +310,7 @@ const RestaurantMenu = () => {
         </Card>
 
         {loading ? (
-          <p className="text-sm text-stone-500 px-1">Loading menu…</p>
+          <PageSkeleton variant="list" count={5} />
         ) : (
           categories.map((category) => (
             <Card
@@ -570,66 +575,84 @@ const MenuItemRow = ({
   onDragOver: (event: DragEvent<HTMLDivElement>) => void
   onDrop: (event: DragEvent<HTMLDivElement>) => void
   onDragEnd: () => void
-  onChange: (patch: { name?: string; price?: number; portion?: MenuItem['portion'] }) => void
+  onChange: (patch: {
+    name?: string
+    price?: number
+    portion?: MenuItem['portion']
+    available?: boolean
+  }) => void
   onRemove: () => void
-}) => (
-  <div
-    data-highlight-id={item.id}
-    onDragOver={onDragOver}
-    onDrop={onDrop}
-    className={cn('relative rounded-xl', isDragging && 'opacity-40')}
-  >
-    {showDropLine && <div className="absolute -top-0.5 left-8 right-8 h-0.5 rounded-full bg-forest-500" />}
-    <div className="flex items-start gap-2">
-      <div
-        role="button"
-        tabIndex={0}
-        draggable
-        aria-label={`Move ${item.name || 'menu item'}`}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        className="flex h-10 w-6 shrink-0 items-center justify-center text-stone-400 hover:text-stone-600 cursor-grab active:cursor-grabbing select-none"
-      >
-        <GripVertical className="w-4 h-4" />
-      </div>
-      <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-[minmax(0,1.4fr)_5.5rem_6.5rem] gap-2">
-        <Input
-          value={item.name}
-          onChange={(event) => onChange({ name: event.target.value })}
-          placeholder="Item name"
-        />
-        <Select
-          value={normalizeMenuPortion(item.portion)}
-          onChange={(event) => onChange({ portion: normalizeMenuPortion(event.target.value) })}
-          aria-label={`Portion for ${item.name || 'item'}`}
+}) => {
+  const available = isMenuItemAvailable(item)
+  return (
+    <div
+      data-highlight-id={item.id}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className={cn('relative rounded-xl', isDragging && 'opacity-40', !available && 'bg-stone-50')}
+    >
+      {showDropLine && <div className="absolute -top-0.5 left-8 right-8 h-0.5 rounded-full bg-forest-500" />}
+      <div className="flex items-start gap-2">
+        <div
+          role="button"
+          tabIndex={0}
+          draggable
+          aria-label={`Move ${item.name || 'menu item'}`}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          className="flex h-10 w-6 shrink-0 items-center justify-center text-stone-400 hover:text-stone-600 cursor-grab active:cursor-grabbing select-none"
         >
-          {MENU_PORTIONS.map((portion) => (
-            <option key={portion} value={portion}>
-              {portion}
-            </option>
-          ))}
-        </Select>
-        <Input
-          type="number"
-          min={0}
-          step={10}
-          value={item.price || ''}
-          onChange={(event) => onChange({ price: Math.max(0, Number(event.target.value || 0)) })}
-          placeholder="৳"
-          aria-label={`Price for ${item.name || 'item'}`}
-        />
+          <GripVertical className="w-4 h-4" />
+        </div>
+        <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-[minmax(0,1.4fr)_5.5rem_6.5rem_auto] gap-2">
+          <Input
+            value={item.name}
+            onChange={(event) => onChange({ name: event.target.value })}
+            placeholder="Item name"
+          />
+          <Select
+            value={normalizeMenuPortion(item.portion)}
+            onChange={(event) => onChange({ portion: normalizeMenuPortion(event.target.value) })}
+            aria-label={`Portion for ${item.name || 'item'}`}
+          >
+            {MENU_PORTIONS.map((portion) => (
+              <option key={portion} value={portion}>
+                {portion}
+              </option>
+            ))}
+          </Select>
+          <Input
+            type="number"
+            min={0}
+            step={10}
+            value={item.price || ''}
+            onChange={(event) => onChange({ price: Math.max(0, Number(event.target.value || 0)) })}
+            placeholder="৳"
+            aria-label={`Price for ${item.name || 'item'}`}
+          />
+          <label className="inline-flex h-10 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-xs text-stone-600">
+            <input
+              type="checkbox"
+              checked={available}
+              onChange={(event) => onChange({ available: event.target.checked })}
+              className="h-4 w-4 rounded border-stone-300 text-forest-700 focus:ring-forest-300"
+              aria-label={`Available: ${item.name || 'item'}`}
+            />
+            {available ? 'Available' : 'Unavailable'}
+          </label>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-stone-400 hover:text-red-600 shrink-0"
+          aria-label="Remove item"
+          onClick={onRemove}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="text-stone-400 hover:text-red-600 shrink-0"
-        aria-label="Remove item"
-        onClick={onRemove}
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
     </div>
-  </div>
-)
+  )
+}
 
 export default RestaurantMenu

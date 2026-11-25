@@ -6,6 +6,7 @@ import {
   getAdvanceTransactions,
   getBookingGuestInfo,
   getBookingRooms,
+  labelForOtherChargeKind,
   PAYMENT_METHOD_LABELS,
   sumExtras,
   type Booking,
@@ -498,7 +499,11 @@ export const buildBookingInvoicePdf = async (
         extras.map((extra) => [
           extra.serviceDate ? formatServiceDate(extra.serviceDate) : '',
           `${extra.name}${extra.quantity > 1 ? ` × ${extra.quantity}` : ''}`,
-          extra.category === 'food' ? (extra.meal ? FOOD_MEAL_LABELS[extra.meal] : 'Food') : 'Other',
+          extra.category === 'food'
+            ? extra.meal
+              ? FOOD_MEAL_LABELS[extra.meal]
+              : 'Food'
+            : labelForOtherChargeKind(extra.otherKind, extra.otherKindLabel),
           extra.roomName ?? '',
           formatBDT(extra.amount),
         ])

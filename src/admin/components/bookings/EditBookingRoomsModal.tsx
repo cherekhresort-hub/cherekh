@@ -87,7 +87,9 @@ export const EditBookingRoomsModal = ({
             [room.id],
             { excludeBookingId: booking.id }
           )
-          return issues.some((issue) => issue.reason === 'booked') ? room.id : null
+          return issues.some((issue) => issue.reason === 'booked' || issue.reason === 'unavailable')
+            ? room.id
+            : null
         })
     )
       .then((ids) => {

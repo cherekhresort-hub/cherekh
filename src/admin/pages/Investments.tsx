@@ -5,6 +5,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { EmptyState } from '../components/ui/EmptyState'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { useAuth } from '../../contexts/AuthProvider'
 import { useFinanceData } from '../hooks/useFinanceData'
 import { useBookingsData } from '../hooks/useBookingsData'
@@ -76,7 +77,7 @@ const Investments = () => {
         {!available && !loading ? (
           <FinanceNotice title="Finance data is unavailable">{error}</FinanceNotice>
         ) : loading && data.accounts.length === 0 ? (
-          <div className="rounded-2xl border border-stone-200 bg-white/80 px-6 py-12 text-center text-sm text-stone-500">Loading…</div>
+          <PageSkeleton variant="stats" count={5} />
         ) : (
           <>
             {!mainFund && (

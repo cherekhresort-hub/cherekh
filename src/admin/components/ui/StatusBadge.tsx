@@ -19,7 +19,7 @@ export const RoomStatusBadge = ({ status }: { status: RoomStatus }) => {
     available:   { tone: 'forest', icon: <CircleDot />, label: 'Available' },
     occupied:    { tone: 'sky',    icon: <CircleDot />, label: 'Occupied' },
     cleaning:    { tone: 'amber',  icon: <Sparkles />,  label: 'Cleaning' },
-    maintenance: { tone: 'red',    icon: <Wrench />,    label: 'Maintenance' },
+    maintenance: { tone: 'red',    icon: <Wrench />,    label: 'Out of service' },
   } as const
   const c = config[status]
   return <Badge tone={c.tone as never} icon={c.icon}>{c.label}</Badge>

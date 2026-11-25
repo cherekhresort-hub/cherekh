@@ -30,6 +30,9 @@ export const describeAvailabilityIssues = (issues: RoomAvailabilityIssue[]): str
     .map((issue) => {
       const roomName = getBookableRoomRef(issue.roomType)?.name ?? `Room ${issue.roomType}`
       if (issue.reason === 'capacity') return `${roomName} has too many guests for its capacity.`
+      if (issue.reason === 'unavailable') {
+        return `${roomName} is offline for renovation or maintenance and cannot be booked.`
+      }
       if (issue.reason === 'unknown') {
         return `Could not check availability for ${roomName}. Please try again.`
       }

@@ -170,11 +170,92 @@ export interface GuestDetails {
 export type ExtraChargeCategory = 'food' | 'other'
 export type FoodMeal = 'breakfast' | 'lunch' | 'dinner'
 
+/**
+ * Analytics key for non-food booking extras.
+ * Built-ins are fixed; managers can add custom slugs (e.g. `spa`) that also roll into reports.
+ */
+export type BuiltinOtherChargeKind =
+  | 'laundry'
+  | 'transport'
+  | 'minibar'
+  | 'extra_guest'
+  | 'damage'
+  | 'service'
+  | 'other'
+
+export type OtherChargeKind = string
+
 export const FOOD_MEALS: FoodMeal[] = ['breakfast', 'lunch', 'dinner']
 export const FOOD_MEAL_LABELS: Record<FoodMeal, string> = {
   breakfast: 'Breakfast',
   lunch: 'Lunch',
   dinner: 'Dinner',
+}
+
+export const BUILTIN_OTHER_CHARGE_KINDS: BuiltinOtherChargeKind[] = [
+  'laundry',
+  'transport',
+  'minibar',
+  'extra_guest',
+  'damage',
+  'service',
+  'other',
+]
+
+/** @deprecated Prefer BUILTIN_OTHER_CHARGE_KINDS; kept for existing imports. */
+export const OTHER_CHARGE_KINDS = BUILTIN_OTHER_CHARGE_KINDS
+
+export const OTHER_CHARGE_KIND_LABELS: Record<BuiltinOtherChargeKind, string> = {
+  laundry: 'Laundry',
+  transport: 'Transport',
+  minibar: 'Minibar',
+  extra_guest: 'Extra guest',
+  damage: 'Damage / breakage',
+  service: 'Service charge',
+  other: 'Other',
+}
+
+const OTHER_KIND_SLUG_RE = /^[a-z][a-z0-9_]{0,39}$/
+
+/** Turn a display name into a stable analytics slug (e.g. "Spa treatment" → `spa_treatment`). */
+export const slugifyOtherChargeKind = (value: string): OtherChargeKind => {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_')
+    .slice(0, 40)
+  return OTHER_KIND_SLUG_RE.test(slug) ? slug : 'other'
+}
+
+/** Preserve built-ins and valid custom slugs; unknown/empty → `other`. */
+export const normalizeOtherChargeKind = (value?: string | null): OtherChargeKind => {
+  const raw = (value ?? '').trim().toLowerCase()
+  if (!raw) return 'other'
+  if ((BUILTIN_OTHER_CHARGE_KINDS as string[]).includes(raw)) return raw as BuiltinOtherChargeKind
+  return OTHER_KIND_SLUG_RE.test(raw) ? raw : 'other'
+}
+
+const humanizeOtherChargeKind = (kind: string): string =>
+  kind
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ') || 'Other'
+
+/** Display label for a kind: built-in map, then optional stored label, then humanized slug. */
+export const labelForOtherChargeKind = (
+  kind?: string | null,
+  storedLabel?: string | null
+): string => {
+  const normalized = normalizeOtherChargeKind(kind)
+  if ((BUILTIN_OTHER_CHARGE_KINDS as string[]).includes(normalized)) {
+    return OTHER_CHARGE_KIND_LABELS[normalized as BuiltinOtherChargeKind]
+  }
+  const trimmed = storedLabel?.trim()
+  if (trimmed) return trimmed
+  return humanizeOtherChargeKind(normalized)
 }
 
 export interface ExtraCharge {
@@ -189,6 +270,10 @@ export interface ExtraCharge {
   meal?: FoodMeal
   /** Stay day the meal was served (YYYY-MM-DD). Missing on food lines recorded before per-day billing. */
   serviceDate?: string
+  /** Required for analytics when `category` is `other`. Legacy lines without it count as `other`. */
+  otherKind?: OtherChargeKind
+  /** Display name for custom kinds (built-ins resolve from OTHER_CHARGE_KIND_LABELS). */
+  otherKindLabel?: string
   recordedAt: string
   recordedBy?: string
 }
@@ -202,6 +287,19 @@ export const sumExtras = (
   (extras ?? [])
     .filter((extra) => !category || extra.category === category)
     .reduce((sum, extra) => sum + extraLineTotal(extra), 0)
+
+/** Non-food extras totaled by analytics kind (legacy lines without `otherKind` → `other`). */
+export const sumOtherExtrasByKind = (
+  extras: ExtraCharge[] | undefined
+): Partial<Record<OtherChargeKind, number>> => {
+  const totals: Partial<Record<OtherChargeKind, number>> = {}
+  for (const extra of extras ?? []) {
+    if (extra.category !== 'other') continue
+    const kind = normalizeOtherChargeKind(extra.otherKind)
+    totals[kind] = (totals[kind] ?? 0) + extraLineTotal(extra)
+  }
+  return totals
+}
 
 /** Stay/conference booking (default) or walk-in food bill with no rooms. */
 export type BookingKind = 'stay' | 'food'
@@ -1157,6 +1255,8 @@ export type ExtraChargeInput = {
   menuItemId?: string
   meal?: FoodMeal
   serviceDate?: string
+  otherKind?: OtherChargeKind
+  otherKindLabel?: string
   recordedBy?: string
 }
 
@@ -1189,6 +1289,13 @@ export const addBookingExtras = async (
       serviceDate:
         input.category === 'food' && /^\d{4}-\d{2}-\d{2}$/.test(input.serviceDate ?? '')
           ? input.serviceDate
+          : undefined,
+      otherKind: input.category === 'other' ? normalizeOtherChargeKind(input.otherKind) : undefined,
+      otherKindLabel:
+        input.category === 'other'
+          ? input.otherKindLabel?.trim() ||
+            labelForOtherChargeKind(input.otherKind) ||
+            undefined
           : undefined,
       recordedAt: new Date().toISOString(),
       recordedBy: input.recordedBy?.trim() || 'Staff',

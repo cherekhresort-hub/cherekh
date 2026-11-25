@@ -15,6 +15,11 @@ import {
   statementPeriod,
 } from '../../../lib/finance/reporting'
 import type { FinanceData } from '../../../lib/finance/types'
+import {
+  BUILTIN_OTHER_CHARGE_KINDS,
+  type OtherChargeKind,
+} from '../../../utils/bookings'
+import { resolveOtherChargeKindLabel } from '../../data/otherChargeKinds'
 import type { ExportSheet } from '../../../utils/reportExport'
 import { cn } from '../../utils/cn'
 
@@ -31,6 +36,25 @@ interface StatementLine {
   amount: number | null
   emphasis?: boolean
   note?: string
+}
+
+const otherRevenueLines = (
+  section: string,
+  otherByKind: Partial<Record<OtherChargeKind, number>>,
+  otherTotal: number
+): StatementLine[] => {
+  const kinds = [
+    ...BUILTIN_OTHER_CHARGE_KINDS,
+    ...Object.keys(otherByKind).filter((kind) => !(BUILTIN_OTHER_CHARGE_KINDS as string[]).includes(kind)),
+  ]
+  const lines = kinds.flatMap((kind) => {
+    const amount = otherByKind[kind] ?? 0
+    if (amount <= 0) return []
+    return [{ section, label: resolveOtherChargeKindLabel(kind), amount }]
+  })
+  if (lines.length > 0) return lines
+  if (otherTotal > 0) return [{ section, label: 'Other booking extras', amount: otherTotal }]
+  return []
 }
 
 export const FinancialStatementsReport = ({ data, revenueBookings, range, rangeLabel }: Props) => {
@@ -84,7 +108,7 @@ export const FinancialStatementsReport = ({ data, revenueBookings, range, rangeL
   const profitLines: StatementLine[] = [
     { section: 'Income', label: 'Room revenue', amount: summary.revenue.rooms },
     { section: 'Income', label: 'Food (booking extras)', amount: summary.revenue.food },
-    { section: 'Income', label: 'Other booking extras', amount: summary.revenue.other },
+    ...otherRevenueLines('Income', summary.revenue.otherByKind, summary.revenue.other),
     { section: 'Income', label: 'Total revenue', amount: summary.revenue.total, emphasis: true },
     { section: 'Expenses', label: 'Less: operating costs', amount: -summary.costs.operating },
     { section: 'Expenses', label: 'Less: depreciation (wear of fixed assets)', amount: -summary.depreciation },
@@ -109,7 +133,7 @@ export const FinancialStatementsReport = ({ data, revenueBookings, range, rangeL
   const pnlLines: StatementLine[] = [
     { section: 'Revenue', label: 'Room revenue', amount: pnl.revenue.rooms },
     { section: 'Revenue', label: 'Food (booking extras)', amount: pnl.revenue.food },
-    { section: 'Revenue', label: 'Other booking extras', amount: pnl.revenue.other },
+    ...otherRevenueLines('Revenue', pnl.revenue.otherByKind, pnl.revenue.other),
     { section: 'Revenue', label: 'Total revenue', amount: pnl.revenue.total, emphasis: true },
     ...pnl.operatingByCategory.map((c) => ({ section: 'Operating expenses', label: lookups.topCategoryName(c.key), amount: -c.amount })),
     { section: 'Operating expenses', label: 'Total operating expenses', amount: -pnl.operatingExpenses, emphasis: true },

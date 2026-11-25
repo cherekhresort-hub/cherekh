@@ -98,12 +98,37 @@ describe('payroll rows', () => {
     })
   })
 
-  it('includes fired staff only up to the month they left', () => {
-    const index = buildExpenseFigures(financeData({}))
+  it('hides fired staff once their payroll is fully paid', () => {
     const fired = [...staff, { id: 's3', name: 'Jamal', role: 'Waiter', terminatedOn: '2026-11-10' }]
-    const nov = payrollRowsForPeriod(fired, [], [], index, '2026-11').find((r) => r.staffId === 's3')
-    expect(nov?.role).toBe('Waiter · fired 2026-11-10')
-    expect(payrollRowsForPeriod(fired, [], [], index, '2026-12').some((r) => r.staffId === 's3')).toBe(false)
+    expect(payrollRowsForPeriod(fired, [], [], buildExpenseFigures(financeData({})), '2026-11').some((r) => r.staffId === 's3')).toBe(false)
+
+    const salary = expense({ id: 'sal-jamal', date: '2026-11-30', lines: [{ classification: 'operating_expense', amount: 8000 }] })
+    const unpaid = buildExpenseFigures(financeData({ built: [salary] }))
+    const unpaidRow = payrollRowsForPeriod(
+      fired,
+      [],
+      [payroll({ expenseId: 'sal-jamal', staffId: 's3', staffName: 'Jamal', baseSalary: 8000, gross: 8000, netPay: 8000 })],
+      unpaid,
+      '2026-11'
+    ).find((r) => r.staffId === 's3')
+    expect(unpaidRow?.role).toBe('Waiter · fired 2026-11-10')
+    expect(unpaidRow?.outstanding).toBe(8000)
+
+    const paid = buildExpenseFigures(
+      financeData({
+        built: [salary],
+        ledger: [entry({ kind: 'expense_payment', amount: 8000, expenseId: 'sal-jamal' })],
+      })
+    )
+    expect(
+      payrollRowsForPeriod(
+        fired,
+        [],
+        [payroll({ expenseId: 'sal-jamal', staffId: 's3', staffName: 'Jamal', baseSalary: 8000, gross: 8000, netPay: 8000 })],
+        paid,
+        '2026-11'
+      ).some((r) => r.staffId === 's3')
+    ).toBe(false)
   })
 
   it('keeps payrolls of staff who have since been removed', () => {

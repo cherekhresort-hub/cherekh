@@ -7,7 +7,7 @@ import { RoomStatusBadge } from '../ui/StatusBadge'
 import { Badge } from '../ui/Badge'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../../contexts/AuthProvider'
-import { updateRoomPricing } from '../../../utils/rooms'
+import { updateRoomAvailability, updateRoomPricing } from '../../../utils/rooms'
 import { getDiscountPercentFromPrices } from '../../../utils/pricing'
 import { formatBDT } from '../../utils/format'
 import type { AdminRoom } from '../../hooks/useRoomsData'
@@ -20,10 +20,12 @@ interface RoomDetailsModalProps {
 
 export const RoomDetailsModal = ({ room, onClose, onChanged }: RoomDetailsModalProps) => {
   const toast = useToast()
-  const { canEditPricing } = useAuth()
+  const { canEditPricing, isAdmin, role } = useAuth()
+  const canToggleRoomAvailability = isAdmin || role === 'manager'
   const [listPriceInput, setListPriceInput] = useState('')
   const [discountedPriceInput, setDiscountedPriceInput] = useState('')
   const [saving, setSaving] = useState(false)
+  const [togglingAvailability, setTogglingAvailability] = useState(false)
 
   useEffect(() => {
     setListPriceInput(String(room?.listPrice ?? room?.price ?? ''))
@@ -101,6 +103,37 @@ export const RoomDetailsModal = ({ room, onClose, onChanged }: RoomDetailsModalP
     if (!saving) void saveChanges()
   }
 
+  const roomOnline = room.available !== false
+
+  const toggleAvailability = async () => {
+    if (!canToggleRoomAvailability) {
+      toast.error('Permission denied', 'Only admins and managers can take rooms offline.')
+      return
+    }
+    setTogglingAvailability(true)
+    const nextAvailable = !roomOnline
+    const result = await updateRoomAvailability(room.id, nextAvailable)
+    setTogglingAvailability(false)
+    if (!result.room) {
+      toast.error('Could not update room availability')
+      return
+    }
+    if (result.synced) {
+      toast.success(
+        nextAvailable ? 'Room back online' : 'Room taken offline',
+        nextAvailable
+          ? `${room.name} can be booked again.`
+          : `${room.name} is offline for renovation and cannot be booked.`
+      )
+    } else {
+      toast.error(
+        'Saved locally only',
+        'Could not sync. Run migration 065_availability_flags.sql in Supabase, then try again.'
+      )
+    }
+    onChanged()
+  }
+
   return (
     <Modal
       open={!!room}
@@ -163,6 +196,39 @@ export const RoomDetailsModal = ({ room, onClose, onChanged }: RoomDetailsModalP
         {room.description && (
           <p className="text-sm text-stone-600 leading-relaxed">{room.description}</p>
         )}
+
+        <div className="rounded-2xl border border-stone-200 bg-cream/50 p-3.5 space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-forest-800">Booking availability</p>
+              <p className="text-xs text-stone-500">
+                {roomOnline
+                  ? 'This room can be booked on the website and in admin.'
+                  : 'Offline for renovation or maintenance — blocked from new bookings.'}
+              </p>
+            </div>
+            {canToggleRoomAvailability ? (
+              <Button
+                type="button"
+                variant={roomOnline ? 'outline' : 'primary'}
+                size="sm"
+                className="shrink-0"
+                disabled={togglingAvailability}
+                onClick={() => void toggleAvailability()}
+              >
+                {togglingAvailability
+                  ? 'Saving…'
+                  : roomOnline
+                    ? 'Take offline'
+                    : 'Put back online'}
+              </Button>
+            ) : (
+              <Badge tone={roomOnline ? 'forest' : 'red'}>
+                {roomOnline ? 'Online' : 'Offline'}
+              </Badge>
+            )}
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
           <div className="bg-cream/70 rounded-xl p-3">

@@ -4,6 +4,7 @@ import {
   computeBookingFinancials,
   getBookingCashMovements,
   getBookingRooms,
+  sumOtherExtrasByKind,
   type Booking,
 } from '../../utils/bookings'
 import { addDays, toBusinessDay } from './dates'
@@ -26,6 +27,13 @@ export const revenueDaysOf = (booking: Booking): string[] => {
 export const toRevenueBooking = (booking: Booking): RevenueBooking => {
   const fin = computeBookingFinancials(booking)
   const guestRooms = getBookingRooms(booking).filter((line) => line.roomType !== CONFERENCE_ROOM_ID).length
+  const otherByKind = sumOtherExtrasByKind(booking.extras)
+  const otherFromKinds = Object.values(otherByKind).reduce<number>((sum, value) => sum + (value ?? 0), 0)
+  // Prefer typed other extras; fall back to residual so list-only rows still count.
+  const other =
+    otherFromKinds > 0
+      ? otherFromKinds
+      : Math.max(0, fin.total - Math.max(0, fin.roomRent - fin.discount) - fin.foodTotal)
   return {
     id: booking.id,
     status: booking.status,
@@ -37,7 +45,13 @@ export const toRevenueBooking = (booking: Booking): RevenueBooking => {
     total: fin.total,
     roomNet: Math.max(0, fin.roomRent - fin.discount),
     food: fin.foodTotal,
-    other: Math.max(0, fin.total - Math.max(0, fin.roomRent - fin.discount) - fin.foodTotal),
+    other,
+    otherByKind:
+      otherFromKinds > 0
+        ? otherByKind
+        : other > 0
+          ? { other }
+          : {},
     cash: getBookingCashMovements(booking).map((move) => ({
       amount: move.amount,
       isRefund: move.isRefund,

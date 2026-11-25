@@ -12,6 +12,7 @@
  * - Deposits/advances are balances until refunded, applied or written off.
  * - Investment added / withdrawn and transfers are never revenue or expense.
  */
+import type { OtherChargeKind } from '../../utils/bookings'
 import { CAPITAL_KINDS, PNL_FINANCING_CLASSES, PNL_OPERATING_CLASSES, STAFF_ADVANCE_CATEGORY_ID, cashEffect, kindSign } from './classification'
 import { addDays, addMonths, businessToday, dayInRange, diffDays, monthKey, type DateRange } from './dates'
 import { cashReceived, guestBalancesAsOf, revenueEarned, type RevenueBooking } from './revenue'
@@ -320,8 +321,16 @@ export const statementPeriod = (range: DateRange | null, today = businessToday()
 // Profit & loss
 // ---------------------------------------------------------------------------
 
+export type RevenueBreakdown = {
+  rooms: number
+  food: number
+  other: number
+  otherByKind: Partial<Record<OtherChargeKind, number>>
+  total: number
+}
+
 export interface ProfitAndLoss {
-  revenue: { rooms: number; food: number; other: number; total: number }
+  revenue: RevenueBreakdown
   operatingExpenses: number
   operatingByCategory: { key: string; amount: number }[]
   depositWriteOffs: number
@@ -361,7 +370,13 @@ export const profitAndLoss = (
     notes.push(`${incurred.pendingApprovalCount} expense(s) pending approval are included.`)
   }
   return {
-    revenue: { rooms: earned.rooms, food: earned.food, other: earned.other, total: earned.total },
+    revenue: {
+      rooms: earned.rooms,
+      food: earned.food,
+      other: earned.other,
+      otherByKind: earned.otherByKind,
+      total: earned.total,
+    },
     operatingExpenses: incurred.operating,
     operatingByCategory,
     depositWriteOffs: incurred.depositWriteOffs,
@@ -909,7 +924,7 @@ export interface InvestmentSummary {
   added: number
   withdrawn: number
   netInvestment: number
-  revenue: { rooms: number; food: number; other: number; total: number }
+  revenue: RevenueBreakdown
   costs: {
     operatingByCategory: { key: string; amount: number }[]
     operating: number

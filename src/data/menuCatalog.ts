@@ -8,7 +8,12 @@ export interface MenuItem {
   price: number
   /** Serving size: `1:1` (one person), `1:2` (two), or `1:4` (four). */
   portion?: MenuPortion
+  /** False when temporarily unavailable (still on the menu, not sold). Defaults to true. */
+  available?: boolean
 }
+
+export const isMenuItemAvailable = (item: Pick<MenuItem, 'available'>): boolean =>
+  item.available !== false
 
 export interface MenuCategory {
   id: string

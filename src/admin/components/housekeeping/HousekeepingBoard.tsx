@@ -20,6 +20,7 @@ import { Modal } from '../ui/Modal'
 import { CleaningStatusBadge } from '../ui/StatusBadge'
 import { Field, Input, Select, Textarea } from '../ui/Input'
 import { EmptyState } from '../ui/EmptyState'
+import { PageSkeleton } from '../ui/Skeleton'
 import { useToast } from '../ui/Toast'
 import { notifyAdminOfManagerAction } from '../../../lib/adminNotifications'
 import { notifyHousekeepingChanged } from '../../../lib/housekeepingDb'
@@ -166,11 +167,7 @@ export const HousekeepingBoard = () => {
   }
 
   if (loading) {
-    return (
-      <div className="rounded-2xl border border-stone-200 bg-white/80 px-6 py-12 text-center text-sm text-stone-500">
-        Loading housekeeping board…
-      </div>
-    )
+    return <PageSkeleton variant="board" />
   }
 
   return (

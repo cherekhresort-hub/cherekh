@@ -4,6 +4,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { Card, CardDescription, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Field, Input, Textarea } from '../components/ui/Input'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { useToast } from '../components/ui/Toast'
 import { defaultResortSettings, getResortSettings, saveResortSettings } from '../data/settings'
 import { loadSiteSettings } from '../../lib/siteSettingsDb'
@@ -12,12 +13,15 @@ import type { ResortSettings } from '../types'
 const Settings = () => {
   const toast = useToast()
   const [settings, setSettings] = useState<ResortSettings>(() => getResortSettings())
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    void loadSiteSettings().then((loaded) => {
-      if (loaded) setSettings({ ...defaultResortSettings, ...loaded })
-    })
+    void loadSiteSettings()
+      .then((loaded) => {
+        if (loaded) setSettings({ ...defaultResortSettings, ...loaded })
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   const update = <K extends keyof ResortSettings>(key: K, value: ResortSettings[K]) =>
@@ -43,12 +47,16 @@ const Settings = () => {
         title="Settings"
         description="Manage accommodation details shown on the public website"
         actions={
-          <Button onClick={save} disabled={saving} leftIcon={<Save className="w-4 h-4" />}>
+          <Button onClick={save} disabled={saving || loading} leftIcon={<Save className="w-4 h-4" />}>
             {saving ? 'Saving…' : 'Save changes'}
           </Button>
         }
       />
       <main className="px-4 lg:px-8 py-6 space-y-6 max-w-5xl">
+        {loading ? (
+          <PageSkeleton variant="form" />
+        ) : (
+          <>
         <Card padded={false} className="p-6">
           <div className="mb-4">
             <CardTitle className="flex items-center gap-2"><Building2 className="w-4 h-4 text-forest-600" /> Property information</CardTitle>
@@ -99,7 +107,8 @@ const Settings = () => {
             </Field>
           </div>
         </Card>
-
+          </>
+        )}
       </main>
     </>
   )

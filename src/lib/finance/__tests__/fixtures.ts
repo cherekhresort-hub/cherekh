@@ -214,5 +214,6 @@ export const booking = (spec: Partial<RevenueBooking> & { nights: string[] }): R
   roomNet: spec.roomNet ?? spec.total ?? 0,
   food: spec.food ?? 0,
   other: spec.other ?? 0,
+  otherByKind: spec.otherByKind ?? (spec.other ? { other: spec.other } : {}),
   cash: spec.cash ?? [],
 })

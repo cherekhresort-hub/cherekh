@@ -7,6 +7,7 @@ import { Card } from '../components/ui/Card'
 import { Select } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/ui/EmptyState'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { useToast } from '../components/ui/Toast'
 import { useContactInquiries } from '../hooks/useContactInquiries'
 import { useAuth } from '../../contexts/AuthProvider'
@@ -137,9 +138,7 @@ const Inquiries = () => {
         )}
 
         {loading ? (
-          <Card>
-            <p className="text-sm text-stone-500">Loading inquiries…</p>
-          </Card>
+          <PageSkeleton variant="cards" count={4} />
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={<UserRoundSearch className="w-6 h-6" />}

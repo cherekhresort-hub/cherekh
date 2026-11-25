@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { FaEye, FaEyeSlash, FaLock, FaUser } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthProvider'
+import { RouteFallback } from '../components/RouteFallback'
 import { withRateLimit, RateLimitPresets } from '../utils/rateLimiter'
 import { getCSRFToken, validateFormSubmission, createProtectedFormData } from '../utils/csrf'
 
@@ -54,6 +55,14 @@ const Login = () => {
       setError(message ? `Login failed: ${message}` : 'Login failed. Please try again.')
       setLoading(false)
     }
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-resort-bg flex items-center justify-center">
+        <RouteFallback />
+      </div>
+    )
   }
 
   return (

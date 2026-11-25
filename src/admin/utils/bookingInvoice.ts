@@ -3,6 +3,7 @@ import {
   FOOD_MEAL_LABELS,
   getAdvanceTransactions,
   getBookingRooms,
+  labelForOtherChargeKind,
   PAYMENT_METHOD_LABELS,
   type Booking,
   type Payment,
@@ -313,7 +314,7 @@ const buildInvoiceHtml = (booking: Booking): string => {
                    ? extra.meal
                      ? FOOD_MEAL_LABELS[extra.meal]
                      : 'Food'
-                   : 'Other'
+                   : labelForOtherChargeKind(extra.otherKind, extra.otherKindLabel)
                }</td>
                <td>${escapeHtml(extra.roomName ?? '')}</td>
                <td class="num">${escapeHtml(formatBDT(extra.amount))}</td>

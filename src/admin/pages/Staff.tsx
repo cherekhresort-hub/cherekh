@@ -9,6 +9,7 @@ import { Avatar } from '../components/ui/Avatar'
 import { Button } from '../components/ui/Button'
 import { ShiftBadge, StaffStatusBadge } from '../components/ui/StatusBadge'
 import { EmptyState } from '../components/ui/EmptyState'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { StaffProfileModal } from '../components/staff/StaffProfileModal'
 import { StaffFormModal } from '../components/staff/StaffFormModal'
 import { PayrollPanel } from '../components/staff/PayrollPanel'
@@ -85,26 +86,38 @@ const Staff = () => {
       (acc, s) => {
         if (isFormerStaff(s)) {
           acc.former += 1
+          acc.all += 1
           return acc
         }
         acc.all += 1
+        acc.current += 1
         acc[s.shift] = (acc[s.shift] ?? 0) + 1
         return acc
       },
-      { all: 0, former: 0 }
+      { all: 0, current: 0, former: 0 }
     )
   }, [staff])
 
   const filtered = useMemo(() => {
-    let list = filter === 'former' ? staff.filter(isFormerStaff) : currentStaff(staff)
-    if (filter !== 'all' && filter !== 'former') list = list.filter((s) => s.shift === filter)
+    let list =
+      filter === 'former'
+        ? staff.filter(isFormerStaff)
+        : filter === 'all'
+          ? [...staff]
+          : currentStaff(staff).filter((s) => s.shift === filter)
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter((s) =>
         `${s.name} ${s.role} ${s.phone} ${s.email ?? ''}`.toLowerCase().includes(q)
       )
     }
-    return list
+    // Current team first; fired staff stay on the list (marked) so they can be rehired.
+    return list.sort((a, b) => {
+      const aFormer = isFormerStaff(a) ? 1 : 0
+      const bFormer = isFormerStaff(b) ? 1 : 0
+      if (aFormer !== bFormer) return aFormer - bFormer
+      return a.name.localeCompare(b.name)
+    })
   }, [staff, filter, search])
 
   const openCreate = () => {
@@ -137,7 +150,7 @@ const Staff = () => {
           value={view}
           onChange={setView}
           items={[
-            { value: 'team', label: 'Team', count: counts.all },
+            { value: 'team', label: 'Team', count: counts.current },
             { value: 'payroll', label: 'Payroll' },
             { value: 'advances', label: 'Advances' },
           ]}
@@ -153,7 +166,7 @@ const Staff = () => {
               {payroll.error}
             </FinanceNotice>
           ) : (finance.loading && finance.data.accounts.length === 0) || (view === 'payroll' && !payroll.loaded) ? (
-            <div className="rounded-2xl border border-stone-200 bg-white/80 px-6 py-12 text-center text-sm text-stone-500">Loading…</div>
+            <PageSkeleton variant="stats" count={4} />
           ) : view === 'payroll' ? (
             <PayrollPanel staff={staff} data={finance.data} salaries={payroll.salaries} payrolls={payroll.payrolls} search={search} />
           ) : (
@@ -174,15 +187,13 @@ const Staff = () => {
                   { value: 'night', label: 'Night', count: counts.night ?? 0 },
                   { value: 'full-time', label: 'Full time', count: counts['full-time'] ?? 0 },
                   { value: 'off', label: 'Off', count: counts.off ?? 0 },
-                  ...(counts.former > 0 ? [{ value: 'former' as Filter, label: 'Former', count: counts.former }] : []),
+                  ...(counts.former > 0 ? [{ value: 'former' as Filter, label: 'Fired', count: counts.former }] : []),
                 ]}
               />
             </div>
 
             {loading ? (
-              <div className="rounded-2xl border border-stone-200 bg-white/80 px-6 py-12 text-center text-sm text-stone-500">
-                Loading staff roster…
-              </div>
+              <PageSkeleton variant="cards" count={6} />
             ) : filtered.length === 0 ? (
               <EmptyState
                 icon={<Users className="w-6 h-6" />}
@@ -209,7 +220,11 @@ const Staff = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.025 }}
                   >
-                    <Card interactive onClick={() => setSelected(member)}>
+                    <Card
+                      interactive
+                      onClick={() => setSelected(member)}
+                      className={isFormerStaff(member) ? 'opacity-80 border-red-100' : undefined}
+                    >
                       <div className="flex items-center gap-3">
                         <Avatar name={member.name} color={member.avatarColor} size="lg" />
                         <div className="min-w-0 flex-1">
