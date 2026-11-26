@@ -25,6 +25,7 @@ import {
   UtensilsCrossed,
   BedDouble,
   Lock,
+  Pencil,
 } from 'lucide-react'
 import { Drawer } from '../ui/Drawer'
 import { BookingStatusBadge } from '../ui/StatusBadge'
@@ -45,6 +46,8 @@ import { explainBookingUnavailable } from '../../utils/roomAvailabilityMessage'
 import {
   addBookingNote,
   deleteBookingNote,
+  setBookingNoteCompleted,
+  updateBookingNote,
   bookingGuestHidden,
   bookingMoneyHidden,
   computeBookingFinancials,
@@ -55,6 +58,7 @@ import {
   updateBookingStatus,
   type Booking,
   type BookingCreator,
+  type BookingNote,
 } from '../../../utils/bookings'
 import { bookingCreatorLabel } from '../../utils/bookingCreator'
 import { useToast } from '../ui/Toast'
@@ -266,11 +270,36 @@ export const BookingDrawer = ({
     onClose()
   }
 
+  const canEditNotes = roleCanManageBills(role) && detailLoaded
+
   const saveNote = async () => {
     if (!note.trim()) return
     await addBookingNote(booking.id, note.trim())
     setNote('')
     toast.success('Internal note added')
+    onChanged()
+  }
+
+  const editNote = async (noteId: string, text: string) => {
+    if (!canEditNotes) return false
+    const updated = await updateBookingNote(booking.id, noteId, text)
+    if (!updated) {
+      toast.error('Could not update note')
+      return false
+    }
+    toast.success('Note updated')
+    onChanged()
+    return true
+  }
+
+  const toggleNoteCompleted = async (noteId: string, completed: boolean) => {
+    if (!canEditNotes) return
+    const updated = await setBookingNoteCompleted(booking.id, noteId, completed)
+    if (!updated) {
+      toast.error(completed ? 'Could not mark note complete' : 'Could not reopen note')
+      return
+    }
+    toast.success(completed ? 'Note marked complete' : 'Note reopened')
     onChanged()
   }
 
@@ -294,7 +323,7 @@ export const BookingDrawer = ({
   const tabHidden =
     (moneyHidden && (tab === 'payment' || tab === 'bills')) || (guestHidden && tab === 'guests')
   const activeTab: TabKey = tabHidden ? 'overview' : tab
-  const noteCount = booking.notes?.length ?? 0
+  const noteCount = (booking.notes ?? []).filter((n) => !n.completed).length
   const extraCount = booking.extras?.length ?? 0
   const filledGuestCount = (booking.guests ?? []).filter(
     (g) => g.idNumber || g.idType !== 'nid'
@@ -524,6 +553,8 @@ export const BookingDrawer = ({
               note={note}
               onChangeNote={setNote}
               onSave={saveNote}
+              onEdit={canEditNotes ? editNote : undefined}
+              onToggleComplete={canEditNotes ? toggleNoteCompleted : undefined}
               onDelete={canDelete && detailLoaded ? removeNote : undefined}
               readOnly={readOnly}
             />
@@ -790,81 +821,237 @@ interface NotesTabProps {
   note: string
   onChangeNote: (v: string) => void
   onSave: () => void
+  /** Admin or manager — edit existing note text. */
+  onEdit?: (noteId: string, text: string) => Promise<boolean>
+  /** Admin or manager — mark complete / reopen. */
+  onToggleComplete?: (noteId: string, completed: boolean) => void | Promise<void>
   /** Present only for admins. */
   onDelete?: (noteId: string) => void
   readOnly: boolean
 }
 
-const NotesTab = ({ booking, note, onChangeNote, onSave, onDelete, readOnly }: NotesTabProps) => (
-  <Card padded={false} className="p-5" data-highlight-id={BOOKING_HIGHLIGHT.notes}>
-    <div className="flex items-center justify-between mb-3">
-      <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
-        <MessageSquare className="w-3 h-3" /> Internal notes
-      </h3>
-      {booking.notes && booking.notes.length > 0 && (
-        <Badge tone="neutral" size="sm">
-          {booking.notes.length}
-        </Badge>
-      )}
-    </div>
+const sortNotesNewestFirst = (a: BookingNote, b: BookingNote) =>
+  (a.createdAt < b.createdAt ? 1 : -1)
 
-    {booking.notes && booking.notes.length > 0 ? (
-      <ul className="space-y-2 mb-4">
-        {[...booking.notes]
-          .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-          .map((n) => (
-            <li key={n.id} data-highlight-id={n.id} className="bg-stone-50 rounded-xl px-3 py-2.5">
-              <div className="flex items-center justify-between gap-2 text-xs text-stone-500">
-                <span className="font-medium text-forest-700 truncate">{n.createdBy}</span>
-                <span className="inline-flex items-center gap-1.5 shrink-0">
-                  {formatDateTime(n.createdAt)}
-                  {onDelete && (
-                    <button
-                      type="button"
-                      onClick={() => onDelete(n.id)}
-                      className="rounded-md p-1 text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-                      aria-label="Delete note"
-                      title="Delete note"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </span>
-              </div>
-              <p className="text-sm text-stone-700 mt-1 whitespace-pre-wrap">{n.note}</p>
-            </li>
-          ))}
-      </ul>
-    ) : (
-      <div className="rounded-xl bg-stone-50 border border-dashed border-stone-200 px-4 py-6 text-center mb-4">
-        <MessageSquare className="w-5 h-5 text-stone-400 mx-auto mb-2" />
-        <p className="text-xs text-stone-500">
-          {readOnly ? 'No internal notes yet.' : 'No internal notes yet. Add one below.'}
-        </p>
-      </div>
-    )}
+const NotesTab = ({
+  booking,
+  note,
+  onChangeNote,
+  onSave,
+  onEdit,
+  onToggleComplete,
+  onDelete,
+  readOnly,
+}: NotesTabProps) => {
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
 
-    {!readOnly && (
-    <>
-    <Field label="Add internal note">
-      <Textarea
-        value={note}
-        onChange={(e) => onChangeNote(e.target.value)}
-        placeholder="Visible to staff only - preferences, payment details, follow-ups…"
-        rows={3}
-      />
-    </Field>
-    <div className="mt-2 flex justify-end">
-      <Button
-        size="sm"
-        leftIcon={<Save className="w-3.5 h-3.5" />}
-        onClick={onSave}
-        disabled={!note.trim()}
+  const allNotes = booking.notes ?? []
+  const openNotes = allNotes.filter((n) => !n.completed).sort(sortNotesNewestFirst)
+  const completedNotes = allNotes.filter((n) => n.completed).sort(sortNotesNewestFirst)
+
+  const startEdit = (noteId: string, text: string) => {
+    setEditingId(noteId)
+    setDraft(text)
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setDraft('')
+    setSavingEdit(false)
+  }
+
+  const saveEdit = async () => {
+    if (!editingId || !onEdit || !draft.trim()) return
+    setSavingEdit(true)
+    const ok = await onEdit(editingId, draft.trim())
+    setSavingEdit(false)
+    if (ok) cancelEdit()
+  }
+
+  const toggleComplete = async (noteId: string, completed: boolean) => {
+    if (!onToggleComplete) return
+    setTogglingId(noteId)
+    await onToggleComplete(noteId, completed)
+    setTogglingId(null)
+    if (editingId === noteId) cancelEdit()
+  }
+
+  const renderNote = (n: BookingNote) => {
+    const isEditing = editingId === n.id
+    const done = Boolean(n.completed)
+    return (
+      <li
+        key={n.id}
+        data-highlight-id={n.id}
+        className={cn(
+          'rounded-xl px-3 py-2.5',
+          done ? 'bg-stone-50/80 border border-stone-100' : 'bg-stone-50'
+        )}
       >
-        Save note
-      </Button>
-    </div>
-    </>
-    )}
-  </Card>
-)
+        <div className="flex items-start gap-2.5">
+          {onToggleComplete ? (
+            <label className="mt-0.5 inline-flex shrink-0 cursor-pointer" title={done ? 'Mark as open' : 'Mark as complete'}>
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-stone-300 text-forest-700 focus:ring-forest-400"
+                checked={done}
+                disabled={togglingId === n.id || isEditing}
+                onChange={(e) => void toggleComplete(n.id, e.target.checked)}
+                aria-label={done ? 'Mark note as open' : 'Mark note as complete'}
+              />
+            </label>
+          ) : done ? (
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-forest-600" aria-hidden />
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2 text-xs text-stone-500">
+              <span className="font-medium text-forest-700 truncate">{n.createdBy}</span>
+              <span className="inline-flex items-center gap-1.5 shrink-0">
+                {formatDateTime(n.createdAt)}
+                {onEdit && !isEditing && !done && (
+                  <button
+                    type="button"
+                    onClick={() => startEdit(n.id, n.note)}
+                    className="rounded-md p-1 text-stone-400 transition-colors hover:bg-forest-50 hover:text-forest-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-400"
+                    aria-label="Edit note"
+                    title="Edit note"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {onDelete && !isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => onDelete(n.id)}
+                    className="rounded-md p-1 text-stone-400 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                    aria-label="Delete note"
+                    title="Delete note"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </span>
+            </div>
+            {isEditing ? (
+              <div className="mt-2 space-y-2">
+                <Textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  rows={3}
+                  autoFocus
+                  aria-label="Edit note text"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={cancelEdit} disabled={savingEdit}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    leftIcon={<Save className="w-3.5 h-3.5" />}
+                    onClick={() => void saveEdit()}
+                    loading={savingEdit}
+                    disabled={!draft.trim() || draft.trim() === n.note}
+                  >
+                    Save changes
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p
+                  className={cn(
+                    'text-sm mt-1 whitespace-pre-wrap',
+                    done ? 'text-stone-500 line-through decoration-stone-300' : 'text-stone-700'
+                  )}
+                >
+                  {n.note}
+                </p>
+                {n.updatedAt && !done && (
+                  <p className="mt-1 text-[11px] text-stone-400">
+                    Edited {formatDateTime(n.updatedAt)}
+                    {n.updatedBy ? ` · ${n.updatedBy}` : ''}
+                  </p>
+                )}
+                {done && n.completedAt && (
+                  <p className="mt-1 text-[11px] text-stone-400">
+                    Completed {formatDateTime(n.completedAt)}
+                    {n.completedBy ? ` · ${n.completedBy}` : ''}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </li>
+    )
+  }
+
+  return (
+    <Card padded={false} className="p-5" data-highlight-id={BOOKING_HIGHLIGHT.notes}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs uppercase tracking-wide text-stone-500 font-medium inline-flex items-center gap-1.5">
+          <MessageSquare className="w-3 h-3" /> Internal notes
+        </h3>
+        {openNotes.length > 0 && (
+          <Badge tone="amber" size="sm">
+            {openNotes.length} open
+          </Badge>
+        )}
+      </div>
+
+      {allNotes.length === 0 ? (
+        <div className="rounded-xl bg-stone-50 border border-dashed border-stone-200 px-4 py-6 text-center mb-4">
+          <MessageSquare className="w-5 h-5 text-stone-400 mx-auto mb-2" />
+          <p className="text-xs text-stone-500">
+            {readOnly ? 'No internal notes yet.' : 'No internal notes yet. Add one below.'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4 mb-4">
+          {openNotes.length > 0 ? (
+            <ul className="space-y-2">{openNotes.map(renderNote)}</ul>
+          ) : (
+            <p className="text-xs text-stone-500 px-1">All notes are completed.</p>
+          )}
+
+          {completedNotes.length > 0 && (
+            <div className="pt-2 border-t border-stone-100">
+              <h4 className="text-[11px] uppercase tracking-wide text-stone-400 font-medium mb-2 inline-flex items-center gap-1.5">
+                <CheckCircle2 className="w-3 h-3" /> Completed
+                <span className="normal-case tracking-normal text-stone-400">({completedNotes.length})</span>
+              </h4>
+              <ul className="space-y-2">{completedNotes.map(renderNote)}</ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!readOnly && (
+        <>
+          <Field label="Add internal note">
+            <Textarea
+              value={note}
+              onChange={(e) => onChangeNote(e.target.value)}
+              placeholder="Visible to staff only - preferences, payment details, follow-ups…"
+              rows={3}
+              disabled={Boolean(editingId)}
+            />
+          </Field>
+          <div className="mt-2 flex justify-end">
+            <Button
+              size="sm"
+              leftIcon={<Save className="w-3.5 h-3.5" />}
+              onClick={onSave}
+              disabled={!note.trim() || Boolean(editingId)}
+            >
+              Save note
+            </Button>
+          </div>
+        </>
+      )}
+    </Card>
+  )
+}

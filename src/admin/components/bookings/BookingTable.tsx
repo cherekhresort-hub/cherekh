@@ -88,7 +88,7 @@ const columns: Column[] = [
   { key: 'totalGuests', label: 'Guests', sortable: true, className: 'hidden lg:table-cell' },
   { key: 'status', label: 'Status', sortable: true },
   { key: 'payment', label: 'Payment' },
-  { key: 'notes', label: 'Internal notes', className: 'hidden xl:table-cell' },
+  { key: 'notes', label: 'Notes' },
   { key: 'specialRequests', label: 'Requests', className: 'hidden xl:table-cell' },
 ]
 
@@ -96,17 +96,33 @@ const noteAuthor = (createdBy: string): string =>
   createdBy.includes('@') ? createdBy.split('@')[0] : createdBy
 
 const InternalNotesCell = ({ booking }: { booking: Booking }) => {
-  const { latest, count } = internalNotesSummary(booking)
+  const { latest, count, openCount } = internalNotesSummary(booking)
   if (!latest) return <span className="text-xs text-stone-400">-</span>
   const author = noteAuthor(latest.createdBy)
+  const done = Boolean(latest.completed)
+  const moreOpen = Math.max(0, openCount - (done ? 0 : 1))
   return (
     <div
-      className="w-[14rem] rounded-md border-l-2 border-amber-400 bg-amber-50 px-2 py-1.5"
-      title={`${latest.note}${latest.createdBy ? `\n- ${latest.createdBy}` : ''}`}
+      className={cn(
+        'min-w-[9rem] max-w-[16rem] rounded-md border-l-2 px-2 py-1.5',
+        done ? 'border-stone-300 bg-stone-50' : 'border-amber-400 bg-amber-50'
+      )}
+      title={`${latest.note}${latest.createdBy ? `\n— ${latest.createdBy}` : ''}`}
     >
-      <p className="line-clamp-2 whitespace-pre-line break-words text-xs text-stone-700">{latest.note}</p>
+      <p
+        className={cn(
+          'line-clamp-2 whitespace-pre-line break-words text-xs',
+          done ? 'text-stone-500 line-through decoration-stone-300' : 'text-stone-700'
+        )}
+      >
+        {latest.note}
+      </p>
       <p className="mt-0.5 truncate text-[10px] text-stone-500">
-        {[author, latest.createdAt ? formatShortDate(latest.createdAt) : '', count > 1 ? `+${count - 1} more` : '']
+        {[
+          author,
+          latest.createdAt ? formatShortDate(latest.createdAt) : '',
+          moreOpen > 0 ? `+${moreOpen} open` : count > 1 && done ? `${count} done` : '',
+        ]
           .filter(Boolean)
           .join(' · ')}
       </p>
@@ -245,7 +261,7 @@ export const BookingTable = ({ bookings, sortKey, sortDir, onSort, onSelect, cre
                 <td className="py-3 px-4">
                   <BookingPaymentCell booking={booking} />
                 </td>
-                <td className="py-3 px-4 hidden xl:table-cell">
+                <td className="py-3 px-4">
                   <InternalNotesCell booking={booking} />
                 </td>
                 <td className="py-3 px-4 max-w-[12rem] hidden xl:table-cell">

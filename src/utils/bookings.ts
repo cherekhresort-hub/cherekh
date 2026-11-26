@@ -47,6 +47,13 @@ export interface BookingNote {
   note: string
   createdBy: string
   createdAt: string
+  /** Set when an admin or manager edits the note text. */
+  updatedAt?: string
+  updatedBy?: string
+  /** Admin/manager can mark follow-up notes done; completed notes sort into their own section. */
+  completed?: boolean
+  completedAt?: string
+  completedBy?: string
 }
 
 export type PaymentMethod =
@@ -364,19 +371,35 @@ export const bookingMoneyHidden = (booking: Pick<Booking, 'paymentHidden'>): boo
 
 export const bookingGuestHidden = (booking: Pick<Booking, 'guestHidden'>): boolean =>
   booking.guestHidden === true
+const noteRecency = (note: BookingNote): string => note.updatedAt || note.createdAt || ''
+
+/** Prefer the newest open note for list previews; fall back to newest completed. */
+export const pickLatestBookingNote = (notes: BookingNote[]): BookingNote | undefined => {
+  if (notes.length === 0) return undefined
+  const open = notes.filter((n) => !n.completed)
+  const pool = open.length > 0 ? open : notes
+  return pool.reduce<BookingNote | undefined>(
+    (best, note) => (!best || noteRecency(note) > noteRecency(best) ? note : best),
+    undefined
+  )
+}
+
 /** Latest internal note and total count, from loaded notes or the list row. */
 export const internalNotesSummary = (
   booking: Pick<Booking, 'notes' | 'listNotesCount' | 'listLatestNote'>
-): { latest?: BookingNote; count: number } => {
+): { latest?: BookingNote; count: number; openCount: number } => {
   const notes = Array.isArray(booking.notes) ? booking.notes : []
   if (notes.length > 0 || booking.listNotesCount === undefined) {
-    const latest = notes.reduce<BookingNote | undefined>(
-      (best, note) => (!best || (note.createdAt ?? '') > (best.createdAt ?? '') ? note : best),
-      undefined
-    )
-    return { latest, count: notes.length }
+    const openCount = notes.filter((n) => !n.completed).length
+    return { latest: pickLatestBookingNote(notes), count: notes.length, openCount }
   }
-  return { latest: booking.listLatestNote, count: booking.listNotesCount }
+  const latest = booking.listLatestNote
+  const count = booking.listNotesCount ?? 0
+  return {
+    latest,
+    count,
+    openCount: latest?.completed ? Math.max(0, count - 1) : count,
+  }
 }
 
 /** Cancelled bookings are excluded from revenue and financial reports. */
@@ -738,6 +761,92 @@ export const addBookingNote = async (
     message: `${bookingRef.name}: ${note.slice(0, 120)}${note.length > 120 ? '…' : ''}`,
     entityId: id,
     metadata: { noteId: newNote.id },
+  })
+  return updated
+}
+
+/** Admin or manager. Edits the note text in place; activity log records the change. */
+export const updateBookingNote = async (
+  id: string,
+  noteId: string,
+  note: string
+): Promise<Booking | null> => {
+  if (!canManageBills()) return null
+  const text = note.trim()
+  if (!text) return null
+  const existing = getBookings().find((b) => b.id === id)
+  if (!existing) return null
+  const bookingRef = (await ensureBookingDetail(id)) ?? existing
+  const notes = bookingRef.notes || []
+  const current = notes.find((n) => n.id === noteId)
+  if (!current) return null
+  if (current.note === text) return bookingRef
+
+  const editor = await resolveStaffLabel()
+  const updatedNote: BookingNote = {
+    ...current,
+    note: text,
+    updatedAt: new Date().toISOString(),
+    updatedBy: editor,
+  }
+  const updated: Booking = {
+    ...bookingRef,
+    notes: notes.map((n) => (n.id === noteId ? updatedNote : n)),
+    updatedAt: new Date().toISOString(),
+  }
+  await persistBooking(updated)
+  void notifyAdminOfManagerAction({
+    category: 'booking',
+    action: 'booking.note_updated',
+    title: 'Booking note edited',
+    message: `${bookingRef.name}: ${text.slice(0, 120)}${text.length > 120 ? '…' : ''}`,
+    entityId: id,
+    metadata: {
+      noteId,
+      previous: current.note,
+      createdBy: current.createdBy,
+      createdAt: current.createdAt,
+    },
+  })
+  return updated
+}
+
+/** Admin or manager. Marks a note complete (or reopens it). */
+export const setBookingNoteCompleted = async (
+  id: string,
+  noteId: string,
+  completed: boolean
+): Promise<Booking | null> => {
+  if (!canManageBills()) return null
+  const existing = getBookings().find((b) => b.id === id)
+  if (!existing) return null
+  const bookingRef = (await ensureBookingDetail(id)) ?? existing
+  const notes = bookingRef.notes || []
+  const current = notes.find((n) => n.id === noteId)
+  if (!current) return null
+  if (Boolean(current.completed) === completed) return bookingRef
+
+  const actor = await resolveStaffLabel()
+  const now = new Date().toISOString()
+  const updatedNote: BookingNote = {
+    ...current,
+    completed,
+    completedAt: completed ? now : undefined,
+    completedBy: completed ? actor : undefined,
+  }
+  const updated: Booking = {
+    ...bookingRef,
+    notes: notes.map((n) => (n.id === noteId ? updatedNote : n)),
+    updatedAt: now,
+  }
+  await persistBooking(updated)
+  void notifyAdminOfManagerAction({
+    category: 'booking',
+    action: completed ? 'booking.note_completed' : 'booking.note_reopened',
+    title: completed ? 'Booking note completed' : 'Booking note reopened',
+    message: `${bookingRef.name}: ${current.note.slice(0, 120)}${current.note.length > 120 ? '…' : ''}`,
+    entityId: id,
+    metadata: { noteId, completed },
   })
   return updated
 }

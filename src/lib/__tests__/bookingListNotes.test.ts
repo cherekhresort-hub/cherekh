@@ -43,19 +43,27 @@ describe('internal notes on list rows', () => {
   it('shows nothing when the view has no note columns yet', () => {
     const booking = bookingFromListRow(row())
     expect(booking.listNotesCount).toBeUndefined()
-    expect(internalNotesSummary(booking)).toEqual({ latest: undefined, count: 0 })
+    expect(internalNotesSummary(booking)).toEqual({ latest: undefined, count: 0, openCount: 0 })
   })
 
-  it('prefers loaded notes and picks the newest', () => {
+  it('prefers loaded notes and picks the newest open note', () => {
     const summary = internalNotesSummary({
       notes: [
         { id: 'a', note: 'old', createdBy: 'x', createdAt: '2026-10-01T00:00:00Z' },
         { id: 'b', note: 'new', createdBy: 'y', createdAt: '2026-10-05T00:00:00Z' },
+        {
+          id: 'c',
+          note: 'done later',
+          createdBy: 'z',
+          createdAt: '2026-10-06T00:00:00Z',
+          completed: true,
+          completedAt: '2026-10-07T00:00:00Z',
+        },
       ],
       listNotesCount: 1,
       listLatestNote: { id: 'a', note: 'old', createdBy: 'x', createdAt: '2026-10-01T00:00:00Z' },
     })
-    expect(summary).toMatchObject({ count: 2, latest: { note: 'new' } })
+    expect(summary).toMatchObject({ count: 3, openCount: 2, latest: { note: 'new' } })
   })
 
   it('never persists the list-only note fields', () => {
