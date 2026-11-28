@@ -150,7 +150,14 @@ const Bookings = () => {
   }, [pageSize, status, roomFilter, search, bookingFilters])
 
   const counts = useMemo(() => {
-    const base: Record<string, number> = { all: bookings.length, pending: 0, confirmed: 0, cancelled: 0, 'checked-out': 0 }
+    const base: Record<string, number> = {
+      all: bookings.length,
+      pending: 0,
+      confirmed: 0,
+      'checked-in': 0,
+      cancelled: 0,
+      'checked-out': 0,
+    }
     bookings.forEach((b) => { base[b.status] = (base[b.status] ?? 0) + 1 })
     return base
   }, [bookings])
@@ -357,6 +364,7 @@ const Bookings = () => {
                     { value: 'all', label: 'All', count: counts.all },
                     { value: 'pending', label: 'Pending', count: counts.pending ?? 0 },
                     { value: 'confirmed', label: 'Confirmed', count: counts.confirmed ?? 0 },
+                    { value: 'checked-in', label: 'Checked-in', count: counts['checked-in'] ?? 0 },
                     { value: 'checked-out', label: 'Checked-out', count: counts['checked-out'] ?? 0 },
                     { value: 'cancelled', label: 'Cancelled', count: counts.cancelled ?? 0 },
                   ]}

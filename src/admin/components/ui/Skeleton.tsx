@@ -119,18 +119,49 @@ const BoardSkeleton = () => (
 )
 
 const DashboardSkeleton = () => (
-  <div className="space-y-6">
-    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="rounded-2xl border border-stone-100 bg-white p-4 space-y-3 shadow-soft">
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-8 w-8 rounded-xl" />
-            <Skeleton className="h-5 w-10 rounded-full" />
+  <div className="space-y-8">
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Skeleton className="h-4 w-36" />
+        <Skeleton className="h-3 w-56" />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="rounded-2xl border border-stone-100 bg-white p-4 space-y-3 shadow-soft">
+            <Skeleton className="h-9 w-9 rounded-xl" />
+            <Skeleton className="h-7 w-14" />
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-3 w-28" />
           </div>
-          <Skeleton className="h-6 w-12" />
-          <Skeleton className="h-3 w-20" />
-        </div>
-      ))}
+        ))}
+      </div>
+    </div>
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-3 w-64" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, col) => (
+          <div key={col} className="rounded-2xl border border-stone-100 bg-white overflow-hidden shadow-soft min-h-[240px]">
+            <div className="px-5 pt-4 pb-3 flex items-start justify-between border-b border-stone-50">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-36" />
+              </div>
+              <Skeleton className="h-7 w-7 rounded-full" />
+            </div>
+            <div className="px-5 py-3 space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-1.5 py-1">
+                  <Skeleton className="h-3.5 w-28" />
+                  <Skeleton className="h-3 w-40 max-w-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
       <div className="xl:col-span-2 rounded-2xl border border-stone-100 bg-white p-4 space-y-3 shadow-soft">

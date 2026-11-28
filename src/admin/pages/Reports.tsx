@@ -397,7 +397,13 @@ const BookingsRevenueReport = ({ bookings, revenueBookings, guestRoomCount, peri
     })
     const inPeriod = new Set<string>()
     periodBookings.forEach((booking) => {
-      if (booking.status === 'confirmed' || booking.status === 'checked-out') inPeriod.add(guestIdentityKey(booking))
+      if (
+        booking.status === 'confirmed' ||
+        booking.status === 'checked-in' ||
+        booking.status === 'checked-out'
+      ) {
+        inPeriod.add(guestIdentityKey(booking))
+      }
     })
     let newGuests = 0
     let returning = 0
@@ -441,7 +447,7 @@ const BookingsRevenueReport = ({ bookings, revenueBookings, guestRoomCount, peri
     { label: 'Guest payments received', value: cash.received },
     { label: 'Guest refunds paid', value: cash.refunded },
     { label: 'Net collected', value: cash.net },
-    { label: 'Bookings in period (confirmed/checked-out/pending)', value: financials.bookingCount },
+    { label: 'Bookings in period (confirmed/checked-in/checked-out/pending)', value: financials.bookingCount },
     { label: 'Total billed on those bookings', value: financials.totalBilled },
     { label: 'Outstanding on those bookings', value: financials.totalOutstanding },
     { label: 'Discounts given', value: financials.totalDiscount },
@@ -481,7 +487,7 @@ const BookingsRevenueReport = ({ bookings, revenueBookings, guestRoomCount, peri
             value={formatBDT(Math.round(earned.total))}
             icon={<BedDouble className="w-4 h-4" />}
             tone="forest"
-            hint={`${earned.roomNights} room night${earned.roomNights === 1 ? '' : 's'} (confirmed & checked-out)`}
+            hint={`${earned.roomNights} room night${earned.roomNights === 1 ? '' : 's'} (confirmed, checked-in & checked-out)`}
           />
           <FinancialStat
             label="Collected (net)"
@@ -618,7 +624,7 @@ const BookingsRevenueReport = ({ bookings, revenueBookings, guestRoomCount, peri
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-forest-600" /> Occupancy rate
               </CardTitle>
-              <CardDescription>{occupancyCaption} · confirmed and checked-out stays</CardDescription>
+              <CardDescription>{occupancyCaption} · confirmed, checked-in and checked-out stays</CardDescription>
             </div>
           </div>
           <OccupancyAreaChart data={occupancyData} />

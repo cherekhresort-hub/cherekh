@@ -348,8 +348,8 @@ export const updateRoomCount = async (
   return { room: rooms[index], synced }
 }
 
-/** Statuses that hold inventory (pending web bookings + confirmed). */
-const BLOCKING_BOOKING_STATUSES: Booking['status'][] = ['pending', 'confirmed']
+/** Statuses that hold inventory (pending, confirmed, and in-house). */
+const BLOCKING_BOOKING_STATUSES: Booking['status'][] = ['pending', 'confirmed', 'checked-in']
 
 const datesOverlap = (
   checkIn: string,

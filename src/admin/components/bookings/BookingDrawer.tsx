@@ -8,6 +8,7 @@ import {
   Users,
   Trash2,
   CheckCircle2,
+  LogIn,
   LogOut,
   XCircle,
   ClipboardList,
@@ -458,6 +459,15 @@ export const BookingDrawer = ({
             )}
             {booking.status === 'confirmed' && (
               <Button
+                variant="primary"
+                leftIcon={<LogIn className="w-4 h-4" />}
+                onClick={() => setStatus('checked-in', 'checked in')}
+              >
+                Check in
+              </Button>
+            )}
+            {booking.status === 'checked-in' && (
+              <Button
                 variant="secondary"
                 leftIcon={<LogOut className="w-4 h-4" />}
                 onClick={() => setStatus('checked-out', 'checked out')}
@@ -465,7 +475,7 @@ export const BookingDrawer = ({
                 Check out
               </Button>
             )}
-            {booking.status !== 'cancelled' && (
+            {booking.status !== 'cancelled' && booking.status !== 'checked-out' && (
               <Button
                 variant="outline"
                 leftIcon={<XCircle className="w-4 h-4" />}
@@ -630,6 +640,7 @@ const OverviewTab = ({
         >
           <option value="pending">Pending</option>
           <option value="confirmed">Confirmed</option>
+          <option value="checked-in">Checked-in</option>
           <option value="checked-out">Checked-out</option>
           <option value="cancelled">Cancelled</option>
         </Select>

@@ -14,16 +14,17 @@ describe('revenue earned (accrual)', () => {
     expect(revenueEarned([b], { from: '2026-04-01', to: '2026-04-30' }).total).toBe(3000)
   })
 
-  it('only confirmed and checked-out bookings earn revenue', () => {
+  it('only confirmed, checked-in and checked-out bookings earn revenue', () => {
     const nights = ['2026-03-10']
     const list = [
       booking({ nights, total: 100, status: 'confirmed' }),
+      booking({ nights, total: 50, status: 'checked-in' }),
       booking({ nights, total: 200, status: 'checked-out' }),
       booking({ nights, total: 400, status: 'pending' }),
       booking({ nights, total: 800, status: 'cancelled' }),
     ]
-    expect(revenueEarned(list, null).total).toBe(300)
-    expect(earnedByDay(list, nights).get('2026-03-10')!.total).toBe(300)
+    expect(revenueEarned(list, null).total).toBe(350)
+    expect(earnedByDay(list, nights).get('2026-03-10')!.total).toBe(350)
   })
 })
 

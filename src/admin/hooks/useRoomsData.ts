@@ -35,10 +35,17 @@ const bookingStatusForRoom = (
   let nextCheckIn: string | undefined
 
   const relevantBookings = bookings.filter(
-    (b) => b.status === 'confirmed' && getBookingRooms(b).some((r) => r.roomType === roomId)
+    (b) =>
+      (b.status === 'confirmed' || b.status === 'checked-in') &&
+      getBookingRooms(b).some((r) => r.roomType === roomId)
   )
 
-  const inHouse = relevantBookings.find((b) => b.checkIn <= today && b.checkOut > today)
+  const inHouse = relevantBookings.find(
+    (b) =>
+      (b.status === 'checked-in' || b.status === 'confirmed') &&
+      b.checkIn <= today &&
+      b.checkOut > today
+  )
   if (inHouse) {
     status = 'occupied'
     currentGuest = inHouse.name
@@ -47,7 +54,7 @@ const bookingStatusForRoom = (
   }
 
   const upcoming = relevantBookings
-    .filter((b) => b.checkIn > today)
+    .filter((b) => b.status === 'confirmed' && b.checkIn > today)
     .sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0]
   if (upcoming) {
     nextGuest = upcoming.name

@@ -3,7 +3,7 @@
  * from here so figures agree everywhere. Pure functions only (unit-tested).
  *
  * Policies (see docs/FINANCE.md):
- * - Revenue is earned across stay nights (confirmed + checked-out bookings);
+ * - Revenue is earned across stay nights (confirmed, checked-in, checked-out bookings);
  *   cash received is reported separately and never substituted for revenue.
  * - Expenses are recognized on their transaction date (accrual). Payments are
  *   cash movements against the expense, never a second expense.

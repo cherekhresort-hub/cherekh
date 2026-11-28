@@ -95,7 +95,7 @@ export const resolveAssignee = (
   return { name: task.assignedTo, former: true }
 }
 
-const ACTIVE_BOOKING_STATUSES: Booking['status'][] = ['pending', 'confirmed']
+const ACTIVE_BOOKING_STATUSES: Booking['status'][] = ['pending', 'confirmed', 'checked-in']
 
 export interface RoomGuestContext {
   arriving?: Booking

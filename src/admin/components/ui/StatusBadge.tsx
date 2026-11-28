@@ -1,14 +1,15 @@
-import { CheckCircle2, Clock, XCircle, LogOut, CircleDot, Sparkles, Wrench, Sun, Moon, Coffee, Briefcase } from 'lucide-react'
+import { CheckCircle2, Clock, XCircle, LogIn, LogOut, CircleDot, Sparkles, Wrench, Sun, Moon, Coffee, Briefcase } from 'lucide-react'
 import type { Booking } from '../../../utils/bookings'
 import type { CleaningStatus, RoomStatus, StaffShift, StaffStatus } from '../../types'
 import { Badge } from './Badge'
 
 export const BookingStatusBadge = ({ status }: { status: Booking['status'] }) => {
   const config = {
-    pending:      { tone: 'amber',  icon: <Clock />,         label: 'Pending' },
-    confirmed:    { tone: 'forest', icon: <CheckCircle2 />,  label: 'Confirmed' },
-    cancelled:    { tone: 'red',    icon: <XCircle />,       label: 'Cancelled' },
-    'checked-out':{ tone: 'neutral',icon: <LogOut />,        label: 'Checked out' },
+    pending:       { tone: 'amber',  icon: <Clock />,         label: 'Pending' },
+    confirmed:     { tone: 'forest', icon: <CheckCircle2 />,  label: 'Confirmed' },
+    'checked-in':  { tone: 'sky',    icon: <LogIn />,         label: 'Checked in' },
+    cancelled:     { tone: 'red',    icon: <XCircle />,       label: 'Cancelled' },
+    'checked-out': { tone: 'neutral',icon: <LogOut />,        label: 'Checked out' },
   } as const
   const c = config[status]
   return <Badge tone={c.tone as never} icon={c.icon}>{c.label}</Badge>

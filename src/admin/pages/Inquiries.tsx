@@ -55,6 +55,20 @@ const Inquiries = () => {
   }, [inquiries, filter, search])
 
   useEffect(() => {
+    const statusParam = searchParams.get('status')
+    if (statusParam === 'new' || statusParam === 'contacted' || statusParam === 'closed') {
+      setFilter(statusParam)
+      setSearchParams(
+        (params) => {
+          params.delete('status')
+          return params
+        },
+        { replace: true }
+      )
+    }
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => {
     const id = searchParams.get('id')
     if (!id || inquiries.length === 0) return
     if (deepLinkHandled.current === id) return
@@ -64,6 +78,9 @@ const Inquiries = () => {
 
     deepLinkHandled.current = id
     setHighlightId(id)
+    if (inquiry.status === 'new' || inquiry.status === 'contacted' || inquiry.status === 'closed') {
+      setFilter(inquiry.status)
+    }
     setSearchParams(
       (params) => {
         params.delete('id')

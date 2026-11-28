@@ -8,9 +8,10 @@ import { cn } from '../../utils/cn'
 
 type SidebarProps = {
   activityUnreadCount?: number
+  inquiriesNewCount?: number
 }
 
-export const Sidebar = ({ activityUnreadCount = 0 }: SidebarProps) => {
+export const Sidebar = ({ activityUnreadCount = 0, inquiriesNewCount = 0 }: SidebarProps) => {
   const navigate = useNavigate()
   const { signOut, user, roleLabel, role, displayName } = useAuth()
   const navItems = filterNavItemsForRole(adminNavItems, role)
@@ -79,6 +80,11 @@ export const Sidebar = ({ activityUnreadCount = 0 }: SidebarProps) => {
                       {item.to === '/admin/activity' && activityUnreadCount > 0 && (
                         <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-[10px] font-medium rounded-full bg-resort-cta text-white">
                           {activityUnreadCount > 99 ? '99+' : activityUnreadCount}
+                        </span>
+                      )}
+                      {item.to === '/admin/inquiries' && inquiriesNewCount > 0 && (
+                        <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-[10px] font-medium rounded-full bg-resort-cta text-white">
+                          {inquiriesNewCount > 99 ? '99+' : inquiriesNewCount}
                         </span>
                       )}
                     </>

@@ -23,6 +23,7 @@ interface BookingCalendarProps {
 const STATUS_COLORS: Record<Booking['status'], { bg: string; border: string; text: string }> = {
   pending:       { bg: '#FEF3C7', border: '#FDE68A', text: '#92400E' },
   confirmed:     { bg: '#DCE9DE', border: '#B7D2BD', text: '#1E4D2B' },
+  'checked-in':  { bg: '#E0F2FE', border: '#BAE6FD', text: '#075985' },
   cancelled:     { bg: '#FEE2E2', border: '#FECACA', text: '#991B1B' },
   'checked-out': { bg: '#F1F1ED', border: '#E2E1DA', text: '#4F4A44' },
 }

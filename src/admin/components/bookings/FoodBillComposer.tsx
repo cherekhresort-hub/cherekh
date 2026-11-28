@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { CalendarDays, Copy, Plus, X } from 'lucide-react'
+import { CalendarDays, Copy, Minus, Plus, X } from 'lucide-react'
 import { Button } from '../ui/Button'
-import { Input } from '../ui/Input'
 import { SearchInput } from '../ui/SearchInput'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../../contexts/AuthProvider'
@@ -60,6 +59,60 @@ const CountBadge = ({ count, active }: { count: number; active?: boolean }) =>
   ) : null
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
+
+/** Touch-friendly qty control — avoids clipped native number inputs on narrow screens. */
+const QtyStepper = ({
+  value,
+  onChange,
+  label,
+}: {
+  value: number
+  onChange: (next: number | null) => void
+  label: string
+}) => (
+  <div
+    className="inline-flex shrink-0 items-center rounded-lg border border-stone-200 bg-white"
+    onClick={(event) => event.stopPropagation()}
+    onPointerDown={(event) => event.stopPropagation()}
+  >
+    <button
+      type="button"
+      className="flex h-9 w-9 items-center justify-center text-stone-600 hover:bg-stone-50 active:bg-stone-100 rounded-l-lg touch-manipulation"
+      aria-label={`Decrease ${label}`}
+      onClick={() => onChange(value <= 1 ? null : value - 1)}
+    >
+      <Minus className="w-3.5 h-3.5" />
+    </button>
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      size={2}
+      value={value}
+      aria-label={`Quantity for ${label}`}
+      className="h-9 w-10 min-w-0 border-x border-stone-200 bg-white text-center text-sm tabular-nums text-stone-800 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-forest-300"
+      onChange={(event) => {
+        const raw = event.target.value.replace(/\D/g, '')
+        if (raw === '') {
+          onChange(1)
+          return
+        }
+        onChange(Math.max(1, Number(raw)))
+      }}
+      onBlur={() => {
+        if (!Number.isFinite(value) || value < 1) onChange(1)
+      }}
+    />
+    <button
+      type="button"
+      className="flex h-9 w-9 items-center justify-center text-stone-600 hover:bg-stone-50 active:bg-stone-100 rounded-r-lg touch-manipulation"
+      aria-label={`Increase ${label}`}
+      onClick={() => onChange(value + 1)}
+    >
+      <Plus className="w-3.5 h-3.5" />
+    </button>
+  </div>
+)
 
 export const FoodBillComposer = ({ booking, rooms, onAdded }: FoodBillComposerProps) => {
   const toast = useToast()
@@ -370,7 +423,7 @@ export const FoodBillComposer = ({ booking, rooms, onAdded }: FoodBillComposerPr
                       <li
                         key={item.id}
                         className={cn(
-                          'flex items-center gap-2 rounded-lg px-1 py-1',
+                          'flex items-center gap-2 rounded-lg px-1 py-1.5',
                           available ? 'hover:bg-stone-50' : 'opacity-55'
                         )}
                       >
@@ -388,7 +441,7 @@ export const FoodBillComposer = ({ booking, rooms, onAdded }: FoodBillComposerPr
                               if (!available) return
                               setQty(item.id, checked ? null : 1)
                             }}
-                            className="h-4 w-4 rounded border-stone-300 text-forest-700 focus:ring-forest-300 disabled:opacity-50"
+                            className="h-4 w-4 shrink-0 rounded border-stone-300 text-forest-700 focus:ring-forest-300 disabled:opacity-50"
                           />
                           <span className="min-w-0">
                             <span className="block truncate text-sm text-stone-800">
@@ -399,20 +452,21 @@ export const FoodBillComposer = ({ booking, rooms, onAdded }: FoodBillComposerPr
                                 </span>
                               )}
                             </span>
-                            {item.portion ? <span className="text-[11px] text-stone-400">{item.portion}</span> : null}
+                            <span className="text-[11px] text-stone-400">
+                              {[item.portion, formatMenuPrice(item.price)].filter(Boolean).join(' · ')}
+                            </span>
                           </span>
                         </label>
-                        <span className="shrink-0 text-xs tabular-nums text-stone-500">{formatMenuPrice(item.price)}</span>
-                        {checked && available && (
-                          <Input
-                            type="number"
-                            min={1}
-                            step={1}
+                        {checked && available ? (
+                          <QtyStepper
                             value={qty}
-                            onChange={(event) => setQty(item.id, Number(event.target.value || 1))}
-                            className="h-8 w-14 px-2"
-                            aria-label={`Quantity for ${item.name}`}
+                            label={item.name}
+                            onChange={(next) => setQty(item.id, next)}
                           />
+                        ) : (
+                          <span className="shrink-0 text-xs tabular-nums text-stone-500 pl-1">
+                            {formatMenuPrice(item.price)}
+                          </span>
                         )}
                       </li>
                     )

@@ -9,6 +9,7 @@ import { ExpandableTabs } from '../ui/expandable-tabs'
 
 type MobileNavProps = {
   activityUnreadCount?: number
+  inquiriesNewCount?: number
 }
 
 /** Up to this many items fit on one row; more are split across two. */
@@ -19,7 +20,7 @@ const isNavItemActive = (pathname: string, to: string): boolean => {
   return pathname === to || pathname.startsWith(`${to}/`)
 }
 
-export const MobileNav = ({ activityUnreadCount = 0 }: MobileNavProps) => {
+export const MobileNav = ({ activityUnreadCount = 0, inquiriesNewCount = 0 }: MobileNavProps) => {
   const { role, signOut } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -42,7 +43,12 @@ export const MobileNav = ({ activityUnreadCount = 0 }: MobileNavProps) => {
       ...mobileItems.map((item) => ({
         title: item.label,
         icon: item.icon,
-        badge: item.to === '/admin/activity' ? activityUnreadCount : undefined,
+        badge:
+          item.to === '/admin/activity'
+            ? activityUnreadCount
+            : item.to === '/admin/inquiries'
+              ? inquiriesNewCount
+              : undefined,
       })),
       { title: 'Sign out', icon: LogOut, badge: undefined },
     ]
@@ -52,7 +58,7 @@ export const MobileNav = ({ activityUnreadCount = 0 }: MobileNavProps) => {
       { offset: 0, tabs: tabs.slice(0, split) },
       { offset: split, tabs: tabs.slice(split) },
     ]
-  }, [activityUnreadCount, mobileItems])
+  }, [activityUnreadCount, inquiriesNewCount, mobileItems])
 
   return (
     <nav

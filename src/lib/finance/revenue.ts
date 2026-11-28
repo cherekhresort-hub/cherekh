@@ -15,7 +15,7 @@ export interface RevenueCashMove {
 
 export interface RevenueBooking {
   id: string
-  status: 'pending' | 'confirmed' | 'checked-out' | 'cancelled'
+  status: 'pending' | 'confirmed' | 'checked-in' | 'checked-out' | 'cancelled'
   /** Asia/Dhaka day the booking was created */
   createdDay: string
   checkIn: string
@@ -34,8 +34,8 @@ export interface RevenueBooking {
   cash: RevenueCashMove[]
 }
 
-/** Only stays that happened (or are confirmed to happen) earn revenue. */
-export const EARNING_STATUSES: RevenueBooking['status'][] = ['confirmed', 'checked-out']
+/** Only stays that happened (or are confirmed / in-house) earn revenue. */
+export const EARNING_STATUSES: RevenueBooking['status'][] = ['confirmed', 'checked-in', 'checked-out']
 
 export const earnsRevenue = (booking: Pick<RevenueBooking, 'status'>): boolean =>
   EARNING_STATUSES.includes(booking.status)

@@ -11,6 +11,7 @@ import { ToastProvider } from '../components/ui/Toast'
 import { BookingsBootstrap } from '../../components/BookingsBootstrap'
 import { canAccessAdminPath } from '../utils/navAccess'
 import { useActivityNavBadge } from '../hooks/useStaffActivityLog'
+import { useInquiriesNavBadge } from '../hooks/useInquiriesNavBadge'
 import { dismissHeroSplashForRoute } from '../../utils/heroSplash'
 
 export const AdminLayout = () => {
@@ -18,6 +19,9 @@ export const AdminLayout = () => {
   const location = useLocation()
   const { isAuthenticated, loading, role, isAdmin } = useAuth()
   const activityUnreadCount = useActivityNavBadge(isAdmin)
+  // null while role loads so the badge does not flash to 0; false for booking officers.
+  const inquiriesBadgeEnabled = !role ? null : role === 'admin' || role === 'manager'
+  const inquiriesNewCount = useInquiriesNavBadge(inquiriesBadgeEnabled)
 
   useEffect(() => {
     dismissHeroSplashForRoute(location.pathname)
@@ -52,11 +56,11 @@ export const AdminLayout = () => {
     <ToastProvider>
       <BookingsBootstrap />
       <div className="min-h-screen bg-admin-gradient text-stone-800 flex">
-        <Sidebar activityUnreadCount={activityUnreadCount} />
+        <Sidebar activityUnreadCount={activityUnreadCount} inquiriesNewCount={inquiriesNewCount} />
         <div className="flex-1 min-w-0 pb-36 lg:pb-0">
           <Outlet />
         </div>
-        <MobileNav activityUnreadCount={activityUnreadCount} />
+        <MobileNav activityUnreadCount={activityUnreadCount} inquiriesNewCount={inquiriesNewCount} />
       </div>
     </ToastProvider>
   )

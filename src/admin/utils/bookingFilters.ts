@@ -111,7 +111,7 @@ const matchesCustomDateRange = (booking: Booking, filters: BookingFilterState): 
 }
 
 const isActiveStayStatus = (status: Booking['status']): boolean =>
-  status === 'pending' || status === 'confirmed'
+  status === 'pending' || status === 'confirmed' || status === 'checked-in'
 
 export const matchesDatePreset = (
   booking: Booking,

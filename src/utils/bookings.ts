@@ -331,7 +331,7 @@ export interface Booking {
   expectedArrivalTime?: string
   eventTimeline?: string
   specialRequests: string
-  status: 'pending' | 'confirmed' | 'cancelled' | 'checked-out'
+  status: 'pending' | 'confirmed' | 'checked-in' | 'cancelled' | 'checked-out'
   guests?: GuestRecord[]
   emergencyContact?: EmergencyContact
   adminNotes?: string
@@ -412,7 +412,7 @@ const buildRoomNameSummary = (roomNames: string[]): string => {
   return `${roomNames.length} rooms (${roomNames.join(', ')})`
 }
 
-const BLOCKING_INVENTORY_STATUSES: Booking['status'][] = ['pending', 'confirmed']
+const BLOCKING_INVENTORY_STATUSES: Booking['status'][] = ['pending', 'confirmed', 'checked-in']
 
 const bookingHoldsInventory = (status: Booking['status']): boolean =>
   BLOCKING_INVENTORY_STATUSES.includes(status)
@@ -1716,12 +1716,17 @@ export const autoUpdateCheckedOutBookings = async (): Promise<Booking[]> => {
 
   const bookings = getBookings()
   const toCheckout = bookings.filter(
-    (b) => b.status === 'confirmed' && b.checkOut < todayIso
+    (b) => (b.status === 'confirmed' || b.status === 'checked-in') && b.checkOut < todayIso
   )
 
   for (const stub of toCheckout) {
     const full = (await ensureBookingDetail(stub.id)) ?? stub
-    if (full.status !== 'confirmed' || full.checkOut >= todayIso) continue
+    if (
+      (full.status !== 'confirmed' && full.status !== 'checked-in') ||
+      full.checkOut >= todayIso
+    ) {
+      continue
+    }
 
     const checkedOut: Booking = {
       ...full,

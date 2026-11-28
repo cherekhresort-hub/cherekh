@@ -622,12 +622,17 @@ const MenuItemRow = ({
             ))}
           </Select>
           <Input
-            type="number"
-            min={0}
-            step={10}
-            value={item.price || ''}
-            onChange={(event) => onChange({ price: Math.max(0, Number(event.target.value || 0)) })}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            size={6}
+            value={item.price ? String(item.price) : ''}
+            onChange={(event) => {
+              const raw = event.target.value.replace(/\D/g, '')
+              onChange({ price: raw === '' ? 0 : Math.max(0, Number(raw)) })
+            }}
             placeholder="৳"
+            className="min-w-0 w-full tabular-nums"
             aria-label={`Price for ${item.name || 'item'}`}
           />
           <label className="inline-flex h-10 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-xs text-stone-600">

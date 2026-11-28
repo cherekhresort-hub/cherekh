@@ -116,6 +116,53 @@ export const listContactInquiries = async (): Promise<ContactInquiry[]> => {
   return (data ?? []).map((row) => fromRow(row as ContactInquiryRow))
 }
 
+/**
+ * Count of inquiries still marked `new` (no staff action yet).
+ * Badge stays until status changes to contacted/closed or the inquiry is deleted.
+ */
+export const listNewContactInquiries = async (limit = 8): Promise<ContactInquiry[]> => {
+  const supabase = getSupabase()
+  if (!supabase) return []
+
+  const { data, error } = await supabase
+    .from('contact_inquiries')
+    .select('*')
+    .eq('status', 'new')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return (data ?? []).map((row) => fromRow(row as ContactInquiryRow))
+}
+
+export const fetchNewInquiryCount = async (): Promise<number> => {
+  const supabase = getSupabase()
+  if (!supabase) return 0
+
+  const { count, error } = await supabase
+    .from('contact_inquiries')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'new')
+
+  if (!error) return count ?? 0
+
+  // Fallback if head-count is unavailable; still only counts untouched inquiries.
+  const { data, error: listError } = await supabase
+    .from('contact_inquiries')
+    .select('id')
+    .eq('status', 'new')
+  if (listError) throw listError
+  return data?.length ?? 0
+}
+
+/** Fired after local inquiry mutations so the nav badge can refresh immediately. */
+export const CONTACT_INQUIRIES_CHANGED_EVENT = 'cherekh:contact-inquiries-changed'
+
+export const notifyContactInquiriesChanged = (): void => {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(CONTACT_INQUIRIES_CHANGED_EVENT))
+}
+
 export const setContactInquiryStatus = async (
   id: string,
   status: ContactInquiryStatus
@@ -129,6 +176,7 @@ export const setContactInquiryStatus = async (
     .eq('id', id)
 
   if (error) throw error
+  notifyContactInquiriesChanged()
 }
 
 export const deleteContactInquiry = async (id: string): Promise<void> => {
@@ -137,4 +185,5 @@ export const deleteContactInquiry = async (id: string): Promise<void> => {
 
   const { error } = await supabase.from('contact_inquiries').delete().eq('id', id)
   if (error) throw error
+  notifyContactInquiriesChanged()
 }
